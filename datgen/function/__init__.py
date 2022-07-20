@@ -1,1 +1,1 @@
-# Intentionally left blank for now.
+from .aerostruct import AeroStruct
