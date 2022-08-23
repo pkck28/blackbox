@@ -5,14 +5,13 @@ from  mphys.scenario_aerodynamic import ScenarioAerodynamic
 
 # Importing builders for required tools
 from adflow.mphys import ADflowBuilder
-from pygeo.mphys import OM_DVGEOCOMP
 
 # Importing other python packages
 import numpy as np
-from pygeo import geo_utils
 from baseclasses import AeroProblem
 from mpi4py import MPI
 from pyDOE2 import lhs
+from scipy.io import savemat
 
 comm = MPI.COMM_WORLD
 
@@ -210,14 +209,41 @@ class Aerodynamics():
         if self.options["samplingMethod"] == "lhs":
             self._lhs()
 
+        cl = np.array([])
+        cd = np.array([])
+
         for sampleNo in range(self.options["numberOfSamples"]):
             self.prob['aoa'] = self.samples["aoa"][sampleNo]
 
             self.prob.run_model()
 
-            if self.prob.model.comm == 0:
+            if self.prob.model.comm.rank == 0:
+
+                cl = np.append(cl, self.prob["cruise.aero_post.cl"])
+                cd = np.append(cd, self.prob["cruise.aero_post.cd"])
+
                 print("cl = ", self.prob["cruise.aero_post.cl"])
-                print("cd = ", self.prob["cruise.aero_post.cl"])
+                print("cd = ", self.prob["cruise.aero_post.cd"])
+
+        if self.prob.model.comm.rank == 0:
+            data = {'cl': cl, 'cd': cd}
+
+            for key in self.options["designVariables"]:
+                data[key] = self.samples[key]
+
+            print(data)
+            print()
+
+            savemat("data.mat", data)
+    
+    def _saveData(self, x, y):
+        """
+            Function for saving the data
+        """
+
+        data = {'x_train': x, 'y_train': y}
+        savemat('training_data.mat', data)
+        print("Training data saved in the provided location.")
 
     def _error(self, message):
         """

@@ -1,4 +1,3 @@
 datgen.egg-info/
-datgen/function/__pycache__
-datgen/utils/__pycache__
-exmaples/
+datgen/__pycache__/
+examples/

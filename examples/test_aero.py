@@ -45,7 +45,7 @@ designVariables = {
 options = {
     "aeroSolverOptions": aeroOptions,
     "designVariables": designVariables,
-    "numberOfSamples": 5
+    "numberOfSamples": 2
 }
 
 test = Aerodynamics(options=options)
