@@ -1,19 +1,19 @@
-from datgen import AeroStruct
-import tacsSetup
+from datgen import Aerodynamics
 
 aeroOptions = {
             # I/O Parameters
             "gridFile": "wing_vol.cgns",
-            "monitorvariables": ["resrho", "mach", "cl", "cd"],
+            "outputDirectory": ".",
+            "monitorvariables": ["resrho", "cl", "cd", "mach"],
             "writeTecplotSurfaceSolution": True,
-            'writevolumesolution':False,
-            # 'writesurfacesolution':False,
             # Physics Parameters
             "equationType": "RANS",
+            ######################################### Very important to change this according to the mesh
+            "liftindex": 2,  # y is the lift direction
             # Solver Parameters
             "smoother": "DADI",
-            "CFL": 1.5,
-            "CFLCoarse": 1.25,
+            "CFL": 0.5,
+            "CFLCoarse": 0.25,
             "MGCycle": "sg",
             "MGStartLevel": -1,
             "nCyclesCoarse": 250,
@@ -26,21 +26,16 @@ aeroOptions = {
             "ankouterpreconits": 2,
             "anklinresmax": 0.1,
             # Termination Criteria
-            "L2Convergence": 1e-14,
+            "L2Convergence": 1e-12,
             "L2ConvergenceCoarse": 1e-2,
-            "L2ConvergenceRel": 1e-4,
-            "nCycles": 5000,
-            # force integration
-            "forcesAsTractions": False, # Using MELD, If using RLT, then False
-}
-
-structOptions = {
-    "element_callback": tacsSetup.element_callback,
-    "problem_setup": tacsSetup.problem_setup,
-    "mesh_file": "wingbox.bdf",
+            "nCycles": 1000,
 }
 
 designVariables = {
+    "aoa" : {
+        "lowerBound": 1.9,
+        "upperBound": 2.1
+    },
     "mach" : {
         "lowerBound": 0.6,
         "upperBound": 0.85
@@ -49,13 +44,10 @@ designVariables = {
 
 options = {
     "aeroSolverOptions": aeroOptions,
-    "structSolverOptions": structOptions,
-    "printAllOptions": True,
     "designVariables": designVariables,
-    "ffdFile": "./ffd.xyz",
-    "numberOfSamples": 2
+    "numberOfSamples": 5
 }
 
-test = AeroStruct(options=options)
+test = Aerodynamics(options=options)
 
 test.generateSamples()
