@@ -36,6 +36,10 @@ aeroOptions = {
             "forcesAsTractions": False, # Using MELD, If using RLT, then True
 }
 
+structOptions = {
+    "gridFile": "wingbox.bdf"
+}
+
 designVariables = {
     "mach" : {
         "lowerBound": 0.6,
@@ -49,6 +53,7 @@ designVariables = {
 
 options = {
     "aeroSolverOptions": aeroOptions,
+    "structSolverOptions": structOptions,
     "designVariables": designVariables,
     "numberOfSamples": 2
 }
