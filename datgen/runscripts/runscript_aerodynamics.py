@@ -29,8 +29,6 @@ class Top(Multipoint):
 
         self.aero_options = input["aeroSolverOptions"]
 
-        self.aero_options["gridFile"] = "../../" + self.aero_options["gridFile"]
-
         self.sample = input["sample"]
 
     def setup(self):

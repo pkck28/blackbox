@@ -106,7 +106,7 @@ class AeroStruct():
 
     def _setDirectory(self):
         """
-            Method for setting up directory
+            Method for setting up directories for analysis
         """
 
         directory = self.options["directory"]
@@ -122,6 +122,9 @@ class AeroStruct():
             pkgdir = sys.modules["datgen"].__path__[0]
             filepath = os.path.join(pkgdir, "runscripts/runscript_aerostruct.py")
             shutil.copy(filepath, "{}/{}".format(directory,sampleNo))
+            os.system("cp -r {} {}/{}".format(self.options["aeroSolverOptions"]["gridFile"],directory,sampleNo))
+            os.system("cp -r {} {}/{}".format(self.options["structSolverOptions"]["gridFile"],directory,sampleNo))
+            os.system("cp -r {} {}/{}".format("tacsSetup.py",directory,sampleNo))
 
     def generateSamples(self):
         """
@@ -141,6 +144,7 @@ class AeroStruct():
             os.chdir("{}/{}".format(self.options["directory"],sampleNo))
             print("Running analysis {} of {}".format(sampleNo + 1, self.options["numberOfSamples"]))
             os.system("mpirun -n 10 python runscript_aerostruct.py >> log.txt")
+            os.system("f5totec scenario_000.f5")
             os.system("rm -r input.pickle runscript_aerostruct.py reports")
 
             filehandler = open("output.pickle", 'rb')
@@ -151,7 +155,9 @@ class AeroStruct():
             cd = np.append(cd, output["cd"])
             failure = np.append(cd, output["failure"])
 
-            os.system("rm -r output.pickle")
+            os.system("rm -r output.pickle tacsSetup.py")
+            os.system("rm -r {} {}".format(self.options["aeroSolverOptions"]["gridFile"],
+                                                  self.options["structSolverOptions"]["gridFile"]))
             os.chdir("../..")
 
         data = {'cl': cl, 'cd': cd, 'failure': failure}

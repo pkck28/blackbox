@@ -120,6 +120,7 @@ class Aerodynamics():
             pkgdir = sys.modules["datgen"].__path__[0]
             filepath = os.path.join(pkgdir, "runscripts/runscript_aerodynamics.py")
             shutil.copy(filepath, "{}/{}".format(directory,sampleNo))
+            os.system("cp -r {} {}/{}".format(self.options["aeroSolverOptions"]["gridFile"],directory,sampleNo))
 
     def generateSamples(self):
         """
@@ -146,7 +147,7 @@ class Aerodynamics():
             cl = np.append(cl, output["cl"])
             cd = np.append(cd, output["cd"])
 
-            os.system("rm -r output.pickle")
+            os.system("rm -r output.pickle {}".format(self.options["aeroSolverOptions"]["gridFile"]))
             os.chdir("../..")
 
         data = {'cl': cl, 'cd': cd}
