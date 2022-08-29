@@ -1,3 +1,4 @@
 datgen.egg-info/
 datgen/__pycache__/
 examples/output
+examples/__pycache__

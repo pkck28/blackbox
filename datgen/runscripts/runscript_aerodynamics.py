@@ -20,11 +20,12 @@ class Top(Multipoint):
 
     def setOptions(self):
         """
-            Method is used to set aero solver options provided by user.
+            Method used to set various parameters need by openmdao model.
         """
 
         filehandler = open("input.pickle", 'rb') 
         input = pickle.load(filehandler)
+        filehandler.close()
 
         self.aero_options = input["aeroSolverOptions"]
 
@@ -33,8 +34,6 @@ class Top(Multipoint):
         self.sample = input["sample"]
 
     def setup(self):
-
-        self.designVariables = ["mach"]
 
         adflow_builder = ADflowBuilder(self.aero_options, scenario="aerodynamic")
         adflow_builder.initialize(self.comm)
@@ -59,11 +58,17 @@ class Top(Multipoint):
     def configure(self):
 
         aero_problem = AeroProblem(
-            name="ap", mach=0.8, altitude=10000, alpha=2.0, areaRef=45.5, chordRef=3.25, evalFuncs=["cl", "cd"]
+            name="ap",
+            mach=0.8,
+            altitude=10000,
+            alpha=2.0,
+            areaRef=45.5,
+            chordRef=3.25,
+            evalFuncs=["cl", "cd"]
         )
 
         if "aoa" in self.sample.keys():
-            # You need to add name while adding dv. It is what is used for output/input
+            # You need to add name while adding dv. It is used for output/input.
             aero_problem.addDV("alpha", name="aoa", units="deg")
         if "mach" in self.sample.keys():
             aero_problem.addDV("mach", name="mach")

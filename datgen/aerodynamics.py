@@ -1,7 +1,7 @@
+# Importing python packages
 import os
 import shutil
 import sys
-
 import numpy as np
 from pyDOE2 import lhs
 import pickle
@@ -74,6 +74,7 @@ class Aerodynamics():
     def _setOptions(self, options):
         """
             Method for assigning user provided options.
+            This method should be called only after checks.
         """
 
         # List of allowed design variables
@@ -214,6 +215,7 @@ class Aerodynamics():
 
             filehandler = open("input.pickle", "xb")
             pickle.dump(input, filehandler)
+            filehandler.close()
 
             os.chdir("../..")
 

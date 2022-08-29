@@ -1,5 +1,4 @@
 from datgen import AeroStruct
-import tacsSetup
 
 aeroOptions = {
             # I/O Parameters
@@ -10,6 +9,9 @@ aeroOptions = {
             # 'writesurfacesolution':False,
             # Physics Parameters
             "equationType": "RANS",
+            ######################################### Very important to change this according to the mesh
+            ### Check the mesh and set the value
+            "liftindex": 2,  # y is the lift direction
             # Solver Parameters
             "smoother": "DADI",
             "CFL": 1.5,
@@ -31,28 +33,23 @@ aeroOptions = {
             "L2ConvergenceRel": 1e-4,
             "nCycles": 5000,
             # force integration
-            "forcesAsTractions": False, # Using MELD, If using RLT, then False
-}
-
-structOptions = {
-    "element_callback": tacsSetup.element_callback,
-    "problem_setup": tacsSetup.problem_setup,
-    "mesh_file": "wingbox.bdf",
+            "forcesAsTractions": False, # Using MELD, If using RLT, then True
 }
 
 designVariables = {
     "mach" : {
         "lowerBound": 0.6,
         "upperBound": 0.85
+    },
+    "aoa" : {
+        "lowerBound": 0,
+        "upperBound": 5
     }
 }
 
 options = {
     "aeroSolverOptions": aeroOptions,
-    "structSolverOptions": structOptions,
-    "printAllOptions": True,
     "designVariables": designVariables,
-    "ffdFile": "./ffd.xyz",
     "numberOfSamples": 2
 }
 

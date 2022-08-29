@@ -8,6 +8,7 @@ aeroOptions = {
             # Physics Parameters
             "equationType": "RANS",
             ######################################### Very important to change this according to the mesh
+            ### Check the mesh and set the value
             "liftindex": 2,  # y is the lift direction
             # Solver Parameters
             "smoother": "DADI",
