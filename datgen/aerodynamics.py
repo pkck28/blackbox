@@ -1,19 +1,11 @@
-# Importing classes requried for openmdao and mphys
-import openmdao.api as om
-from mphys.multipoint import Multipoint
-from  mphys.scenario_aerodynamic import ScenarioAerodynamic
+import os
+import shutil
+import sys
 
-# Importing builders for required tools
-from adflow.mphys import ADflowBuilder
-
-# Importing other python packages
 import numpy as np
-from baseclasses import AeroProblem
-from mpi4py import MPI
 from pyDOE2 import lhs
+import pickle
 from scipy.io import savemat
-
-comm = MPI.COMM_WORLD
 
 class DefaultOptions():
     """
@@ -33,65 +25,21 @@ class DefaultOptions():
         # Solver Options
         self.aeroSolver = "adflow"
 
+        self.aeroSolverOptions = {}
+
         if self.aeroSolver == "adflow":
             self.aeroSolverOptions = {
                 "printAllOptions": False,
-                "printIntro": False
+                "printIntro": False,
+                "outputDirectory": "."
             }
 
-class Top(Multipoint):
-    """
-        Class containing aerodynamics openmdao model
-    """
-
-    def setOptions(self, aero_options):
-        """
-            Method is used to set aero solver options provided by user.
-        """
-        self.aero_options = aero_options
-
-    def setup(self):
-
-        adflow_builder = ADflowBuilder(self.aero_options, scenario="aerodynamic")
-        adflow_builder.initialize(self.comm)
-
-        # Adding mesh component which is IVC and outputs surface mesh coordinates
-        self.add_subsystem("mesh", adflow_builder.get_mesh_coordinate_subsystem())
-
-        # IVC to keep the top level DVs
-        self.add_subsystem("dvs", om.IndepVarComp(), promotes=["*"])
-
-        # Adding an aerodynamics group which does analysis, pre and post postprocessing
-        self.mphys_add_scenario("cruise", ScenarioAerodynamic(aero_builder=adflow_builder))
-
-        # Connecting output of mesh component to input of cruise group
-        self.connect("mesh.x_aero0", "cruise.x_aero")
-
-
-    def configure(self):
-        aoa = 1.5
-        ap0 = AeroProblem(
-            name="ap0", mach=0.8, altitude=10000, alpha=aoa, areaRef=45.5, chordRef=3.25, evalFuncs=["cl", "cd"]
-        )
-        ap0.addDV("alpha", value=aoa, name="aoa", units="deg")
-
-        # set the aero problem in the coupling and post coupling groups
-        self.cruise.coupling.mphys_set_ap(ap0)
-        self.cruise.aero_post.mphys_set_ap(ap0)
-
-        # add dvs to ivc and connect
-        self.dvs.add_output("aoa", val=aoa, units="deg")
-
-        # call the promote inputs to propagate aoa dvs
-        # TODO does not work now
-        # self.cruise._mphys_promote_inputs()
-        # so connect manually
-        self.connect("aoa", ["cruise.coupling.aoa", "cruise.aero_post.aoa"])
+        self.directory = "output"
 
 class Aerodynamics():
     
     def __init__(self, options):
-        
+
         # If 'options' is None, notify the user
         if options is None:
             self._error("The 'options' argument not provided.")
@@ -109,8 +57,8 @@ class Aerodynamics():
         # Updating/Appending the default option list with user provided options
         self._setOptions(options)
 
-        # Setting up OpenMDAO model
-        self._setupModel()
+        # Setting up the folders for saving the results
+        self._setDirectory()
 
     def _getDefaultOptions(self):
         """
@@ -153,19 +101,61 @@ class Aerodynamics():
             else:
                 self._error(key + " is not a valid option. Please remove/edit it.")
 
-    def _setupModel(self):
+    def _setDirectory(self):
         """
-            Method to setup the openmdao model.
+            Method for setting up directory
         """
 
-        self.prob = om.Problem()
-        self.prob.model = Top()
+        directory = self.options["directory"]
 
-        self.prob.model.setOptions(self.options["aeroSolverOptions"])
+        if not os.path.isdir(directory):
+            os.system("mkdir {}".format(directory))
+        else:
+            os.system("rm -r {}".format(directory))
+            os.system("mkdir {}".format(directory))
 
-        self.prob.setup()
+        for sampleNo in range(self.options["numberOfSamples"]):
+            os.system("mkdir {}/{}".format(directory,sampleNo))
+            pkgdir = sys.modules["datgen"].__path__[0]
+            filepath = os.path.join(pkgdir, "runscripts/runscript_aerodynamics.py")
+            shutil.copy(filepath, "{}/{}".format(directory,sampleNo))
 
-        om.n2(self.prob, show_browser=False)
+    def generateSamples(self):
+        """
+            Method to generate samples and save the data for further use.
+        """
+
+        if self.options["samplingMethod"] == "lhs":
+            self._lhs()
+
+        self._createInputFile()
+
+        cl = np.array([])
+        cd = np.array([])
+
+        for sampleNo in range(self.options["numberOfSamples"]):
+            os.chdir("{}/{}".format(self.options["directory"],sampleNo))
+            print("Running analysis {} of {}".format(sampleNo + 1, self.options["numberOfSamples"]))
+            os.system("mpirun -n 10 python runscript_aerodynamics.py >> log.txt")
+            os.system("rm -r input.pickle runscript_aerodynamics.py reports")
+
+            filehandler = open("output.pickle", 'rb')
+            output = pickle.load(filehandler)
+
+            cl = np.append(cl, output["cl"])
+            cd = np.append(cd, output["cd"])
+
+            os.system("rm -r output.pickle")
+            os.chdir("../..")
+
+        data = {'cl': cl, 'cd': cd}
+
+        for key in self.samples:
+                data[key] = self.samples[key]
+
+        os.chdir("{}".format(self.options["directory"]))
+        savemat("data.mat", data)
+        os.chdir("../")
 
     def _lhs(self):
         """
@@ -201,53 +191,35 @@ class Aerodynamics():
             for key in self.options["designVariables"]:
                 self.samples[key] = np.append(self.samples[key], sample[(dummy == key)])
 
-    def generateSamples(self):
+    def _createInputFile(self):
         """
-            Method to generate samples.
+            Method to create an input file for analysis
         """
 
-        if self.options["samplingMethod"] == "lhs":
-            self._lhs()
-
-        cl = np.array([])
-        cd = np.array([])
+        directory = self.options["directory"]
 
         for sampleNo in range(self.options["numberOfSamples"]):
-            self.prob['aoa'] = self.samples["aoa"][sampleNo]
+            os.chdir("{}/{}".format(directory,sampleNo))
 
-            self.prob.run_model()
+            input = {}
+            sample = {}
 
-            if self.prob.model.comm.rank == 0:
+            for key in self.samples:
+                sample[key] = self.samples[key][sampleNo]
 
-                cl = np.append(cl, self.prob["cruise.aero_post.cl"])
-                cd = np.append(cd, self.prob["cruise.aero_post.cd"])
+            input = {
+                "aeroSolverOptions" : self.options["aeroSolverOptions"],
+                "sample" : sample
+            }
 
-                print("cl = ", self.prob["cruise.aero_post.cl"])
-                print("cd = ", self.prob["cruise.aero_post.cd"])
+            filehandler = open("input.pickle", "xb")
+            pickle.dump(input, filehandler)
 
-        if self.prob.model.comm.rank == 0:
-            data = {'cl': cl, 'cd': cd}
-
-            for key in self.options["designVariables"]:
-                data[key] = self.samples[key]
-
-            print(data)
-            print()
-
-            savemat("data.mat", data)
-    
-    def _saveData(self, x, y):
-        """
-            Function for saving the data
-        """
-
-        data = {'x_train': x, 'y_train': y}
-        savemat('training_data.mat', data)
-        print("Training data saved in the provided location.")
+            os.chdir("../..")
 
     def _error(self, message):
         """
-            Method for printing a user mistake in nice manner.
+            Method for printing errors in nice manner.
         """
 
         msg = "\n+" + "-" * 78 + "+" + "\n" + "| Datgen Error: "
@@ -260,8 +232,8 @@ class Aerodynamics():
                 msg += word + " "
                 i += len(word) + 1
         msg += " " * (78 - i) + "|\n" + "+" + "-" * 78 + "+" + "\n"
-
-        if comm.rank == 0:
-            print(msg, flush=True)
+ 
+        # if comm.rank == 0:
+        print(msg, flush=True)
 
         exit()

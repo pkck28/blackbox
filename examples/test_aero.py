@@ -3,7 +3,6 @@ from datgen import Aerodynamics
 aeroOptions = {
             # I/O Parameters
             "gridFile": "wing_vol.cgns",
-            "outputDirectory": ".",
             "monitorvariables": ["resrho", "cl", "cd", "mach"],
             "writeTecplotSurfaceSolution": True,
             # Physics Parameters
@@ -33,8 +32,8 @@ aeroOptions = {
 
 designVariables = {
     "aoa" : {
-        "lowerBound": 1.9,
-        "upperBound": 2.1
+        "lowerBound": 0,
+        "upperBound": 10
     },
     "mach" : {
         "lowerBound": 0.6,
