@@ -15,8 +15,9 @@ class DefaultOptions():
 
     def __init__(self):
 
-        # Setting up the design variable dict
+        # Setting up the design variable and parameter dict
         self.designVariables = {}
+        self.parameters = {}
 
         # Sampling options
         self.samplingMethod = "lhs"
@@ -35,6 +36,8 @@ class DefaultOptions():
             }
 
         self.directory = "output"
+
+        self.noOfProcessors = 4
 
 class Aerodynamics():
     
@@ -77,11 +80,12 @@ class Aerodynamics():
             This method should be called only after checks.
         """
 
-        # List of allowed design variables
-        dvlist = ["aoa", "mach"]
+        # List of allowed design variables and parameters
+        dvlist = ["aoa", "mach", "altitude"]
+        parameters = ["aoa", "mach", "altitude", "areaRef", "chordRef", "output"]
 
-        # Design variables checking and assignment
-        if "designVariables" not in options or type(options["designVariables"]) == {}:
+        ########################### Design variable checking
+        if "designVariables" not in options or options["designVariables"] == {}:
             self._error("Design variable option is not provided.")
         
         if type(options["designVariables"]) == dict:
@@ -89,8 +93,21 @@ class Aerodynamics():
                 self._error("One or more design variable(s) is not recognized.")
         else:
             self._error("Design variable option is not a dictionary.")
+
+        # Removing design variables from parameters
+        parameters = list(set(parameters) - set(options["designVariables"].keys()))
         
-        # Checking whether the provided option is valid
+        ########################### Parameter checking
+        if "parameters" not in options or options["parameters"] == {}:
+            self._error("Parameter option is not provided.")
+
+        if type(options["parameters"]) == dict:
+            if not set(options["parameters"].keys()) == set(parameters):
+                self._error("One or more parameter(s) are not provided or are part of design variable. Only these parameters are requried: {}".format(parameters))
+        else:
+            self._error("Parameter option is not a dictionary.")
+
+        ########################### Checking whether the provided option is valid
         for key in options.keys():
             if key in self.options.keys():
                 # If the value is dictionary, update the default dictionary.
@@ -132,28 +149,33 @@ class Aerodynamics():
 
         self._createInputFile()
 
-        cl = np.array([])
-        cd = np.array([])
+        y = {}
+
+        for value in self.options["parameters"]["output"]:
+            y[value] = np.array([])
 
         for sampleNo in range(self.options["numberOfSamples"]):
             os.chdir("{}/{}".format(self.options["directory"],sampleNo))
             print("Running analysis {} of {}".format(sampleNo + 1, self.options["numberOfSamples"]))
-            os.system("mpirun -n 10 python runscript_aerodynamics.py >> log.txt")
+            os.system("mpirun -n {} python runscript_aerodynamics.py >> log.txt".format(self.options["noOfProcessors"]))
             os.system("rm -r input.pickle runscript_aerodynamics.py reports")
 
             filehandler = open("output.pickle", 'rb')
             output = pickle.load(filehandler)
 
-            cl = np.append(cl, output["cl"])
-            cd = np.append(cd, output["cd"])
+            for value in self.options["parameters"]["output"]:
+                y[value] = np.append(y[value], output[value])
 
             os.system("rm -r output.pickle {}".format(self.options["aeroSolverOptions"]["gridFile"]))
             os.chdir("../..")
 
-        data = {'cl': cl, 'cd': cd}
+        for index, value in enumerate(self.options["parameters"]["output"]):
+            if index == 0:
+                Y = y[value].reshape(-1,1)
+            else:
+                Y = np.concatenate((Y, y[value].reshape(-1,1)), axis=1)
 
-        for key in self.samples:
-                data[key] = self.samples[key]
+        data = {'x' : self.x, 'y' : Y}
 
         os.chdir("{}".format(self.options["directory"]))
         savemat("data.mat", data)
@@ -162,6 +184,9 @@ class Aerodynamics():
     def _lhs(self):
         """
             Method for creating a lhs sample.
+            Stores a 2D numpy array of size (samples vs  dimensions).
+            Each row represents a new sample and each column corresponds to
+            a particular design variable.
         """
 
         # lower and upper bound are created as numpy arrays and dummy is a normal list here.
@@ -185,7 +210,9 @@ class Aerodynamics():
 
         samples = lhs(dim, samples=self.options["numberOfSamples"], criterion='cm', iterations=50)
 
-        samples = lowerBound + (upperBound - lowerBound) * samples
+        samples = lowerBound + samples * (upperBound - lowerBound)
+
+        self.x = samples
 
         for sampleNo in range(self.options["numberOfSamples"]):
             sample = samples[sampleNo,:]
@@ -205,13 +232,15 @@ class Aerodynamics():
 
             input = {}
             sample = {}
+            parameters = self.options["parameters"]
 
             for key in self.samples:
                 sample[key] = self.samples[key][sampleNo]
 
             input = {
                 "aeroSolverOptions" : self.options["aeroSolverOptions"],
-                "sample" : sample
+                "sample" : sample,
+                "parameters" : parameters
             }
 
             filehandler = open("input.pickle", "xb")

@@ -39,13 +39,28 @@ designVariables = {
     "mach" : {
         "lowerBound": 0.6,
         "upperBound": 0.85
+    },
+    "altitude" : {
+        "lowerBound": 8000,
+        "upperBound": 12000
     }
+}
+
+parameters = {
+    # "altitude" : 10000, # in m
+    # "aoa" : 1.0,
+    "areaRef" : 45.5, # in sq. m
+    "chordRef" : 3.25, # in m
+    "output" : ["cl", "cd"]
 }
 
 options = {
     "aeroSolverOptions": aeroOptions,
     "designVariables": designVariables,
-    "numberOfSamples": 2
+    "parameters" : parameters,
+    "numberOfSamples": 4,
+    "directory" : "training_data",
+    "noOfProcessors" : 10
 }
 
 test = Aerodynamics(options=options)

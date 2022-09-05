@@ -31,6 +31,8 @@ class Top(Multipoint):
 
         self.sample = input["sample"]
 
+        self.parameters = input["parameters"]
+
     def setup(self):
 
         adflow_builder = ADflowBuilder(self.aero_options, scenario="aerodynamic")
@@ -46,6 +48,8 @@ class Top(Multipoint):
             self.dvs.add_output("aoa", val=self.sample["aoa"], units="deg")
         if "mach" in self.sample.keys():
             self.dvs.add_output("mach", val=self.sample["mach"])
+        if "altitude" in self.sample.keys():
+            self.dvs.add_output("altitude", val=self.sample["altitude"], units="m")
 
         # Adding an aerodynamics group which does analysis, pre and post postprocessing
         self.mphys_add_scenario("scenario", ScenarioAerodynamic(aero_builder=adflow_builder))
@@ -55,21 +59,42 @@ class Top(Multipoint):
 
     def configure(self):
 
+        if "altitude" not in self.sample.keys():
+            altitude = self.parameters["altitude"]
+        else:
+            altitude = 10000 # dummy value for initialization, in m
+        
+        if "mach" not in self.sample.keys():
+            mach = self.parameters["mach"]
+        else:
+            mach = 0.8 # dummy value for initialization
+        
+        if "aoa" not in self.sample.keys():
+            alpha = self.parameters["aoa"]
+        else:
+            alpha = 2.0 # dummy value for initialization, in deg
+
+        areaRef = self.parameters["areaRef"]
+        chordRef = self.parameters["chordRef"]
+        evalFuncs = self.parameters["output"]
+
         aero_problem = AeroProblem(
             name="ap",
-            mach=0.8,
-            altitude=10000,
-            alpha=2.0,
-            areaRef=45.5,
-            chordRef=3.25,
-            evalFuncs=["cl", "cd"]
+            mach=mach,
+            altitude=altitude,
+            alpha=alpha,
+            areaRef=areaRef,
+            chordRef=chordRef,
+            evalFuncs=evalFuncs
         )
 
         if "aoa" in self.sample.keys():
-            # You need to add name while adding dv. It is used for output/input.
+            # You need to add name while adding dv. It is the same name used for output/input.
             aero_problem.addDV("alpha", name="aoa", units="deg")
         if "mach" in self.sample.keys():
             aero_problem.addDV("mach", name="mach")
+        if "altitude" in self.sample.keys():
+            aero_problem.addDV("altitude", name="altitude", units="m")
 
         # set the aero problem in the coupling and post coupling groups
         self.scenario.coupling.mphys_set_ap(aero_problem)
@@ -81,6 +106,9 @@ class Top(Multipoint):
         if "mach" in self.sample.keys():
             self.connect("mach", ["scenario.coupling.mach", "scenario.aero_post.mach"])
 
+        if "altitude" in self.sample.keys():
+            self.connect("altitude", ["scenario.coupling.altitude", "scenario.aero_post.altitude"])
+
 prob = om.Problem()
 prob.model = Top()
 
@@ -91,12 +119,16 @@ prob.setup()
 prob.run_model()
 
 if prob.model.comm.rank == 0:
-    print("Scenario 0")
-    print("cl =", prob["scenario.aero_post.cl"])
-    print("cd =", prob["scenario.aero_post.cd"])
 
-if prob.model.comm.rank == 0:
-    output = {"cl":prob["scenario.aero_post.cl"], "cd":prob["scenario.aero_post.cd"]}
+    output = {}
+
+    for value in prob.model.parameters["output"]:
+        if "cl" == value:
+            print("cl =", prob["scenario.aero_post.cl"])
+            output["cl"] = prob["scenario.aero_post.cl"]
+        if "cd" == value:
+            print("cd =", prob["scenario.aero_post.cd"])
+            output["cd"] = prob["scenario.aero_post.cd"]
     
     filehandler = open("output.pickle", "xb")
     pickle.dump(output, filehandler)
