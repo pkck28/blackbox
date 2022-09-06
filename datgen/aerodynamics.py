@@ -15,9 +15,10 @@ class DefaultOptions():
 
     def __init__(self):
 
-        # Setting up the design variable and parameter dict
+        # Setting up the design variable, parameter, and objectives
         self.designVariables = {}
         self.parameters = {}
+        self.objectives = ["cl", "cd", "lift", "drag"]
 
         # Sampling options
         self.samplingMethod = "lhs"
@@ -82,7 +83,7 @@ class Aerodynamics():
 
         # List of allowed design variables and parameters
         dvlist = ["aoa", "mach", "altitude"]
-        parameters = ["aoa", "mach", "altitude", "areaRef", "chordRef", "output"]
+        parameters = ["aoa", "mach", "altitude", "areaRef", "chordRef"]
 
         ########################### Design variable checking
         if "designVariables" not in options or options["designVariables"] == {}:
@@ -103,11 +104,21 @@ class Aerodynamics():
 
         if type(options["parameters"]) == dict:
             if not set(options["parameters"].keys()) == set(parameters):
-                self._error("One or more parameter(s) are not provided or are part of design variable. Only these parameters are requried: {}".format(parameters))
+                self._error("One or more parameter(s) are not provided or are part of design variable. Only these parameters are required: {}".format(parameters))
         else:
             self._error("Parameter option is not a dictionary.")
 
-        ########################### Checking whether the provided option is valid
+        ########################### Objectives checking
+        if "objectives" not in options or options["objectives"] == []:
+            self._error("Objectives option is not provided.")
+
+        if type(options["objectives"]) == list:
+            if not set(options["objectives"]).issubset(set(self.options["objectives"])):
+                self._error("One or more objective(s) are not valid. Only these objectives are supported: {}".format(self.options["objectives"]))
+        else:
+            self._error("Objective option is not a list.")
+
+        ########################### Checking whether the other provided options are valid
         for key in options.keys():
             if key in self.options.keys():
                 # If the value is dictionary, update the default dictionary.
@@ -151,7 +162,7 @@ class Aerodynamics():
 
         y = {}
 
-        for value in self.options["parameters"]["output"]:
+        for value in self.options["objectives"]:
             y[value] = np.array([])
 
         for sampleNo in range(self.options["numberOfSamples"]):
@@ -163,13 +174,13 @@ class Aerodynamics():
             filehandler = open("output.pickle", 'rb')
             output = pickle.load(filehandler)
 
-            for value in self.options["parameters"]["output"]:
+            for value in self.options["objectives"]:
                 y[value] = np.append(y[value], output[value])
 
             os.system("rm -r output.pickle {}".format(self.options["aeroSolverOptions"]["gridFile"]))
             os.chdir("../..")
 
-        for index, value in enumerate(self.options["parameters"]["output"]):
+        for index, value in enumerate(self.options["objectives"]):
             if index == 0:
                 Y = y[value].reshape(-1,1)
             else:
@@ -233,6 +244,7 @@ class Aerodynamics():
             input = {}
             sample = {}
             parameters = self.options["parameters"]
+            objectives = self.options["objectives"]
 
             for key in self.samples:
                 sample[key] = self.samples[key][sampleNo]
@@ -240,7 +252,8 @@ class Aerodynamics():
             input = {
                 "aeroSolverOptions" : self.options["aeroSolverOptions"],
                 "sample" : sample,
-                "parameters" : parameters
+                "parameters" : parameters,
+                "objectives" : objectives
             }
 
             filehandler = open("input.pickle", "xb")

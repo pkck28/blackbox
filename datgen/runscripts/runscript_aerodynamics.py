@@ -33,6 +33,8 @@ class Top(Multipoint):
 
         self.parameters = input["parameters"]
 
+        self.objectives = input["objectives"]
+
     def setup(self):
 
         adflow_builder = ADflowBuilder(self.aero_options, scenario="aerodynamic")
@@ -59,6 +61,9 @@ class Top(Multipoint):
 
     def configure(self):
 
+        # Checking if the three entities are design variable or not
+        # If yes, then initialize their value, it will be over-riden by the ivc.
+        # If no, then assign the parameter value obtained from user.
         if "altitude" not in self.sample.keys():
             altitude = self.parameters["altitude"]
         else:
@@ -74,9 +79,12 @@ class Top(Multipoint):
         else:
             alpha = 2.0 # dummy value for initialization, in deg
 
+        # Assign parameters directly here, since these cannot be design variables.
         areaRef = self.parameters["areaRef"]
         chordRef = self.parameters["chordRef"]
-        evalFuncs = self.parameters["output"]
+
+        # Assigning objectives obtained from user
+        evalFuncs = self.objectives
 
         aero_problem = AeroProblem(
             name="ap",
@@ -122,13 +130,19 @@ if prob.model.comm.rank == 0:
 
     output = {}
 
-    for value in prob.model.parameters["output"]:
+    for value in prob.model.objectives:
         if "cl" == value:
-            print("cl =", prob["scenario.aero_post.cl"])
+            print("cl = ", prob["scenario.aero_post.cl"])
             output["cl"] = prob["scenario.aero_post.cl"]
         if "cd" == value:
-            print("cd =", prob["scenario.aero_post.cd"])
+            print("cd = ", prob["scenario.aero_post.cd"])
             output["cd"] = prob["scenario.aero_post.cd"]
+        if "lift" == value:
+            print("lift = ", prob["scenario.aero_post.lift"])
+            output["lift"] = prob["scenario.aero_post.lift"]
+        if "drag" == value:
+            print("drag = ", prob["scenario.aero_post.drag"])
+            output["drag"] = prob["scenario.aero_post.drag"]
     
     filehandler = open("output.pickle", "xb")
     pickle.dump(output, filehandler)
