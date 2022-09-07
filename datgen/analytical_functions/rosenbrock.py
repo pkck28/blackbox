@@ -3,9 +3,10 @@ import os
 import shutil
 import sys
 import numpy as np
-from pyDOE2 import lhs
+from pyDOE2 import lhs, fullfact
 import pickle
 from scipy.io import savemat
+import math
 
 class DefaultOptions():
     """
@@ -44,15 +45,14 @@ class Rosenbrock():
         Provide an appropriate options dict to change these options.
     """
 
-    def __init__(self, options):
+    def __init__(self, options=None):
 
         # If 'options' is None, notify the user
-        if options is None:
-            self._error("The 'options' argument not provided.")
-        
-        # If 'options' is not a dictionary, notify the user
-        if not isinstance(options, dict):
-            self._error("The 'options' argument provided is not a dictionary.")
+        if options is not None:
+            if not isinstance(options, dict):
+                self._error("The 'options' argument provided is not a dictionary.")
+            elif options == {}:
+                self._error("The 'options' argument provided is an empty dictionary.")
 
         # Creating an empty options dictionary
         self.options = {}
@@ -82,7 +82,8 @@ class Rosenbrock():
             Method for checking and assigning user provided options.
         """
 
-        self._verifyBounds(options)
+        if "lowerBound" in options.keys() or "upperBound" in options.keys():
+            self._verifyBounds(options)
         
         # Checking whether the other provided options are valid
         for key in options.keys():
@@ -106,14 +107,14 @@ class Rosenbrock():
         if "lowerBound" not in options: 
             self._error("Lower bound option is not provided")
 
-        if "upperBound" not in options: 
-            self._error("Upper bound option is not provided")
-
         if not type(options["lowerBound"]) == list:
             self._error("Lower bound option is not a list")
 
         if not len(options["lowerBound"]) == 2:
             self._error("Two entries in lower bounds list are need")
+
+        if "upperBound" not in options: 
+            self._error("Upper bound option is not provided")
 
         if not type(options["upperBound"]) == list:
             self._error("Upper bound option is not a list")
@@ -138,15 +139,26 @@ class Rosenbrock():
             os.system("rm -r {}".format(directory))
             os.system("mkdir {}".format(directory))
 
-    def _generateSamples(self):
+    def generateSamples(self):
         """
             Method to generate samples and save the data for further use.
         """
 
         if self.options["samplingMethod"] == "lhs":
             self._lhs()
+        elif self.options["samplingMethod"] == "fullfactorial":
+            self._fullfactorial()
+        else:
+            self._error("Sampling method is not recognized.")
 
-        
+        self.y = self._function(self.samples)
+
+        data = {"x" : self.samples, "y" : self.y }
+
+        os.chdir(self.options["directory"])
+        savemat("data.mat", data)
+        os.chdir("../")
+
     def _lhs(self):
         """
             Method for creating a lhs sample.
@@ -155,16 +167,44 @@ class Rosenbrock():
             a particular design variable.
         """
 
+        lowerBound = np.array(self.options["lowerBound"])
+        upperBound = np.array(self.options["upperBound"])
 
+        dim = len(self.options["lowerBound"])
 
-    def function(self, x):
+        samples = lhs(dim, samples=self.options["numberOfSamples"], criterion='cm', iterations=50)
+
+        self.samples = lowerBound + (upperBound - lowerBound) * samples
+
+    def _fullfactorial(self):
+        """
+            Method to create fullfactorial samples
+        """
+
+        lowerBound = np.array(self.options["lowerBound"])
+        upperBound = np.array(self.options["upperBound"])
+
+        dim = len(self.options["lowerBound"])
+
+        samplesInEachDimension = round(math.exp( math.log(self.options["numberOfSamples"]) / dim ))
+
+        print("{} full-factorial samples are generated".format(samplesInEachDimension**dim))
+
+        samples = fullfact([samplesInEachDimension]*dim)
+
+        self.samples = lowerBound + samples * (upperBound - lowerBound) / (samplesInEachDimension- 1)
+
+    def _function(self, x):
         """
             Rosenbrock function. Note: output of function should always be
-            of size num_samples X num_features, so reshape is used for x1 and x2.
+            of size num_samples X num_features (?), so reshape is used for x1 and x2.
         """
+
         x1 = x[:, 0].reshape(-1,1)
         x2 = x[:, 1].reshape(-1,1)
-        y = (self.a-x1)**2 + self.b*(x2-x1**2)**2
+
+        y = (self.options["parameters"]["a"]-x1)**2 + self.options["parameters"]["b"]*(x2-x1**2)**2
+
         return y
 
     def _error(self, message):

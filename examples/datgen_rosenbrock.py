@@ -1,10 +1,11 @@
 from datgen import Rosenbrock
 
 options = {
-    "numberOfSamples" : 50,
-    "lowerBound": [5, 10],
-    "upperBound": [8, 8]
+    "numberOfSamples" : 100,
+    "directory" : "training",
+    "samplingMethod" : "lhs"
 }
 
 test = Rosenbrock(options)
 
+test.generateSamples()

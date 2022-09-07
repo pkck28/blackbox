@@ -1,3 +1,3 @@
-from .aerostruct import AeroStruct
-from .aerodynamics import Aerodynamics
+from .simulation import AeroStruct
+from .simulation import Aerodynamics
 from .analytical_functions import Rosenbrock
