@@ -278,7 +278,6 @@ class Aerodynamics():
                 i += len(word) + 1
         msg += " " * (78 - i) + "|\n" + "+" + "-" * 78 + "+" + "\n"
  
-        # if comm.rank == 0:
         print(msg, flush=True)
 
         exit()

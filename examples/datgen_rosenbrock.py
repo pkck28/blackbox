@@ -2,10 +2,10 @@ from datgen import Rosenbrock
 
 options = {
     "numberOfSamples" : 100,
-    "directory" : "training",
+    "directory" : "output",
     "samplingMethod" : "lhs"
 }
 
-test = Rosenbrock(options)
+test = Rosenbrock("batch", options)
 
 test.generateSamples()

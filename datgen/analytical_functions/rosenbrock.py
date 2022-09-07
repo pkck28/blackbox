@@ -45,26 +45,41 @@ class Rosenbrock():
         Provide an appropriate options dict to change these options.
     """
 
-    def __init__(self, options=None):
+    def __init__(self, type="single", options=None):
 
-        # If 'options' is None, notify the user
-        if options is not None:
-            if not isinstance(options, dict):
-                self._error("The 'options' argument provided is not a dictionary.")
-            elif options == {}:
-                self._error("The 'options' argument provided is an empty dictionary.")
+        if type == "batch":
+            self._setupBatchAnalysis(options)
 
-        # Creating an empty options dictionary
-        self.options = {}
+        elif type == "single":
+            self._setupSingleAnalysis(options)
 
-        # Setting up default options
-        self._getDefaultOptions()
+        else:
+            self._error("Value of type argument not recognized.")
 
-        # Updating/Appending the default option list with user provided options
-        self._setOptions(options)
+    # ----------------------------------------------------------------------------
+    #               All the methods for batch analysis
+    # ----------------------------------------------------------------------------
 
-        # Setting up the folders for saving the results
-        self._setDirectory()
+    def _setupBatchAnalysis(self, options):
+
+            # If 'options' is None, notify the user
+            if options is not None:
+                if not isinstance(options, dict):
+                    self._error("The 'options' argument provided is not a dictionary.")
+                elif options == {}:
+                    self._error("The 'options' argument provided is an empty dictionary.")
+
+            # Creating an empty options dictionary
+            self.options = {}
+
+            # Setting up default options
+            self._getDefaultOptions()
+
+            # Updating/Appending the default option list with user provided options
+            self._setOptions(options)
+
+            # Setting up the folders for saving the results
+            self._setDirectory()
 
     def _getDefaultOptions(self):
         """
@@ -96,8 +111,6 @@ class Rosenbrock():
                     self.options[key] = options[key]
             else:
                 self._error(key + " is not a valid option. Please remove/edit it.")
-
-        print(self.options)
 
     def _verifyBounds(self, options):
         """
@@ -194,6 +207,17 @@ class Rosenbrock():
 
         self.samples = lowerBound + samples * (upperBound - lowerBound) / (samplesInEachDimension- 1)
 
+    # ----------------------------------------------------------------------------
+    #          All the methods for single analysis
+    # ----------------------------------------------------------------------------
+
+    def _setupSingleAnalysis(self, options):
+        pass
+
+    # ----------------------------------------------------------------------------
+    #          Other required methods, irrespective of type of analysis.
+    # ----------------------------------------------------------------------------
+
     def _function(self, x):
         """
             Rosenbrock function. Note: output of function should always be
@@ -223,7 +247,6 @@ class Rosenbrock():
                 i += len(word) + 1
         msg += " " * (78 - i) + "|\n" + "+" + "-" * 78 + "+" + "\n"
  
-        # if comm.rank == 0:
         print(msg, flush=True)
 
         exit()
