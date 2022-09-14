@@ -1,8 +1,9 @@
 from datgen import Aerodynamics
+import time
 
 aeroOptions = {
             # I/O Parameters
-            "gridFile": "wing_vol.cgns",
+            "gridFile": "wing_vol_L1.cgns",
             "monitorvariables": ["resrho", "cl", "cd", "mach"],
             "writeTecplotSurfaceSolution": True,
             # Physics Parameters
@@ -55,11 +56,15 @@ options = {
     "designVariables": designVariables,
     "parameters" : parameters,
     "numberOfSamples": 4,
-    "directory" : "training_data",
+    "directory" : "testing_data",
     "noOfProcessors" : 10,
     "objectives" : objectvies
 }
 
 test = Aerodynamics(options=options)
 
+start = time.time()
 test.generateSamples()
+end = time.time()
+
+print("Total time elapsed: ", end - start, " seconds")
