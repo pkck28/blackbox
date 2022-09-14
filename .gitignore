@@ -1,7 +1,7 @@
 datgen.egg-info/
 datgen/__pycache__/
 datgen/analytical_functions/__pycache__
-datgen/simulation/__pycache__
+datgen/physics_models/__pycache__
 examples/testing
 examples/output
 examples/__pycache__

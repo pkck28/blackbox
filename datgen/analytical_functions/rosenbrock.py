@@ -48,7 +48,7 @@ class Rosenbrock():
     def __init__(self, type="single", options=None):
 
         if type == "batch":
-            self._setupBatchAnalysis(options)
+            self._setupMultiAnalysis(options)
 
         elif type == "single":
             self._setupSingleAnalysis(options)
@@ -57,10 +57,10 @@ class Rosenbrock():
             self._error("Value of type argument not recognized.")
 
     # ----------------------------------------------------------------------------
-    #               All the methods for batch analysis
+    #               All the methods for multi analysis
     # ----------------------------------------------------------------------------
 
-    def _setupBatchAnalysis(self, options):
+    def _setupMultiAnalysis(self, options):
 
             # If 'options' is None, notify the user
             if options is not None:

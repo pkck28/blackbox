@@ -26,9 +26,7 @@ class DefaultOptions():
 
         # Solver Options
         self.aeroSolver = "adflow"
-
         self.aeroSolverOptions = {}
-
         if self.aeroSolver == "adflow":
             self.aeroSolverOptions = {
                 "printAllOptions": False,
@@ -36,33 +34,55 @@ class DefaultOptions():
                 "outputDirectory": "."
             }
 
+        # Other options
         self.directory = "output"
-
         self.noOfProcessors = 4
+        self.type = "batch"
+
 
 class Aerodynamics():
+    """
+        Class contains essential methods for generating data
+        for aerodynamic analysis.
+    """
     
-    def __init__(self, options):
+    def __init__(self, type="batch", options=None):
 
-        # If 'options' is None, notify the user
-        if options is None:
-            self._error("The 'options' argument not provided.")
-        
-        # If 'options' is not a dictionary, notify the user
-        if not isinstance(options, dict):
-            self._error("The 'options' argument provided is not a dictionary.")
+        if type == "batch":
+            self._setupMultiAnalysis(options)
 
-        # Creating an empty options dictionary
-        self.options = {}
+        elif type == "single":
+            self._setupSingleAnalysis(options)
 
-        # Setting up default options
-        self._getDefaultOptions()
+        else:
+            self._error("Value of type argument not recognized.")
 
-        # Updating/Appending the default option list with user provided options
-        self._setOptions(options)
+    # ----------------------------------------------------------------------------
+    #               All the methods for multi analysis
+    # ----------------------------------------------------------------------------
 
-        # Setting up the folders for saving the results
-        self._setDirectory()
+    def _setupMultiAnalysis(self, options):
+
+            # If 'options' is None, notify the user
+            if options is not None:
+                if not isinstance(options, dict):
+                    self._error("The 'options' argument provided is not a dictionary.")
+                elif options == {}:
+                    self._error("The 'options' argument provided is an empty dictionary.")
+            else:
+                self._error("Options argument not provided.")
+
+            # Creating an empty options dictionary
+            self.options = {}
+
+            # Setting up default options
+            self._getDefaultOptions()
+
+            # Updating/Appending the default option list with user provided options
+            self._setOptions(options)
+
+            # Setting up the folders for saving the results
+            self._setDirectory()
 
     def _getDefaultOptions(self):
         """
@@ -261,6 +281,17 @@ class Aerodynamics():
             filehandler.close()
 
             os.chdir("../..")
+
+    # ----------------------------------------------------------------------------
+    #          All the methods for single analysis
+    # ----------------------------------------------------------------------------
+
+    def _setupSingleAnalysis(self, options):
+        pass
+
+    # ----------------------------------------------------------------------------
+    #          Other required methods, irrespective of type of analysis.
+    # ----------------------------------------------------------------------------
 
     def _error(self, message):
         """
