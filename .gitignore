@@ -6,3 +6,4 @@ examples/testing
 examples/output
 examples/__pycache__
 examples/training_data
+examples/testing_data

@@ -3,7 +3,7 @@ import time
 
 aeroOptions = {
             # I/O Parameters
-            "gridFile": "wing_vol_L1.cgns",
+            "gridFile": "wing_vol.cgns",
             "monitorvariables": ["resrho", "cl", "cd", "mach"],
             "writeTecplotSurfaceSolution": True,
             # Physics Parameters
@@ -33,13 +33,13 @@ aeroOptions = {
 }
 
 designVariables = {
-    "aoa" : {
-        "lowerBound": 0,
-        "upperBound": 10
-    },
+    # "aoa" : {
+    #     "lowerBound": 0,
+    #     "upperBound": 10
+    # },
     "mach" : {
         "lowerBound": 0.6,
-        "upperBound": 0.85
+        "upperBound": 1
     }
 }
 
@@ -47,6 +47,7 @@ parameters = {
     "altitude" : 10000, # in m
     "areaRef" : 45.5, # in sq. m
     "chordRef" : 3.25, # in m
+    "aoa" : 2
 }
 
 objectvies = ["cl", "cd", "lift"]
@@ -55,16 +56,15 @@ options = {
     "aeroSolverOptions": aeroOptions,
     "designVariables": designVariables,
     "parameters" : parameters,
-    "numberOfSamples": 4,
-    "directory" : "testing_data",
+    "numberOfSamples": 9,
+    "directory" : "training_fullfact",
     "noOfProcessors" : 10,
-    "objectives" : objectvies
+    "objectives" : objectvies,
+    "samplingMethod" : "fullfactorial"
 }
 
 test = Aerodynamics(options=options)
 
-start = time.time()
+# start = time.time()
 test.generateSamples()
-end = time.time()
-
-print("Total time elapsed: ", end - start, " seconds")
+# end = time.time()
