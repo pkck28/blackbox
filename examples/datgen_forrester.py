@@ -1,35 +1,17 @@
-import argparse
 from datgen import Forrester
 
-# parser = argparse.ArgumentParser(
-#             description='Python script for building a surrogate model, \
-#                         test and optimize it in a batch.'
-#         )
-# parser.add_argument('-sample_points', default=[50], type=int, nargs="*")
-
-# args = parser.parse_args()
-
-# options = {
-#         # "samplingMethod" : "fullfactorial"
-#     }
-
-# for pts in args.sample_points:
-    
-#     options["numberOfSamples"] = pts
-#     # options["directory"] = "output_sample_{}".format(pts)
-    
-#     test = Forrester("multi", options)
-
-#     test.generateSamples()
-
 options = {
-    "lowerBound" : 2,
+    "lowerBound" : 0,
     "upperBound" : 1,
-    "numberOfSamples" : 5
+    "numberOfSamples" : 50,
+    "directory" : "forrester"
 }
 
-test = Forrester(options=options)
+# Example for generating samples
+object_1 = Forrester(options=options)
+object_1.generateSamples()
 
-# x = 0.5
-
-# print(test.getObjectives(x))
+# Example for getting value of one sample
+object_2 = Forrester(type="single")
+x = 0.5
+print(object_2.getObjectives(x))
