@@ -97,39 +97,39 @@ class Aerodynamics():
         else:
             self._error("Unrecognized sampling technique provided. Only two techniques are available: \"lhs\" and \"fullfactorial\".")
 
-        # self._createInputFile()
+        self._createInputFile()
 
-        # y = {}
+        y = {}
 
-        # for value in self.options["objectives"]:
-        #     y[value] = np.array([])
+        for value in self.options["objectives"]:
+            y[value] = np.array([])
 
-        # for sampleNo in range(self.options["numberOfSamples"]):
-        #     os.chdir("{}/{}".format(self.options["directory"],sampleNo))
-        #     print("Running analysis {} of {}".format(sampleNo + 1, self.options["numberOfSamples"]))
-        #     os.system("mpirun -n {} python runscript_aerodynamics.py >> log.txt".format(self.options["noOfProcessors"]))
-        #     os.system("rm -r input.pickle runscript_aerodynamics.py reports")
+        for sampleNo in range(self.options["numberOfSamples"]):
+            os.chdir("{}/{}".format(self.options["directory"],sampleNo))
+            print("Running analysis {} of {}".format(sampleNo + 1, self.options["numberOfSamples"]))
+            os.system("mpirun -n {} python runscript_aerodynamics.py >> log.txt".format(self.options["noOfProcessors"]))
+            os.system("rm -r input.pickle runscript_aerodynamics.py reports")
 
-        #     filehandler = open("output.pickle", 'rb')
-        #     output = pickle.load(filehandler)
+            filehandler = open("output.pickle", 'rb')
+            output = pickle.load(filehandler)
 
-        #     for value in self.options["objectives"]:
-        #         y[value] = np.append(y[value], output[value])
+            for value in self.options["objectives"]:
+                y[value] = np.append(y[value], output[value])
 
-        #     os.system("rm -r output.pickle {}".format(self.options["aeroSolverOptions"]["gridFile"]))
-        #     os.chdir("../..")
+            os.system("rm -r output.pickle {}".format(self.options["aeroSolverOptions"]["gridFile"]))
+            os.chdir("../..")
 
-        # for index, value in enumerate(self.options["objectives"]):
-        #     if index == 0:
-        #         Y = y[value].reshape(-1,1)
-        #     else:
-        #         Y = np.concatenate((Y, y[value].reshape(-1,1)), axis=1)
+        for index, value in enumerate(self.options["objectives"]):
+            if index == 0:
+                Y = y[value].reshape(-1,1)
+            else:
+                Y = np.concatenate((Y, y[value].reshape(-1,1)), axis=1)
 
-        # data = {'x' : self.x, 'y' : Y}
+        data = {'x' : self.x, 'y' : Y}
 
-        # os.chdir("{}".format(self.options["directory"]))
-        # savemat("data.mat", data)
-        # os.chdir("../")
+        os.chdir("{}".format(self.options["directory"]))
+        savemat("data.mat", data)
+        os.chdir("../")
 
     def _lhs(self):
         """
@@ -207,9 +207,6 @@ class Aerodynamics():
 
             for key in self.options["designVariables"]:
                 self.samples[key] = np.append(self.samples[key], sample[(dummy == key)])
-
-        print(self.samples)
-
 
     # ----------------------------------------------------------------------------
     #               All the methods for single analysis

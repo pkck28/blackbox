@@ -1,10 +1,7 @@
 # Importing python packages
 import os
-import shutil
-import sys
 import numpy as np
 from pyDOE2 import lhs, fullfact
-import pickle
 from scipy.io import savemat
 import math
 
@@ -47,7 +44,7 @@ class Rosenbrock():
 
     def __init__(self, type="single", options=None):
 
-        if type == "batch":
+        if type == "multi":
             self._setupMultiAnalysis(options)
 
         elif type == "single":

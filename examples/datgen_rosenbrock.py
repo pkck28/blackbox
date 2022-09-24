@@ -18,6 +18,6 @@ for pts in args.sample_points:
     options["numberOfSamples"] = pts
     options["directory"] = "output_sample_{}".format(pts)
     
-    test = Rosenbrock("batch", options)
+    test = Rosenbrock("multi", options)
 
     test.generateSamples()
