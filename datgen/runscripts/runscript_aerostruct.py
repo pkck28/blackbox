@@ -7,7 +7,10 @@ from  mphys.scenario_aerostructural import ScenarioAeroStructural
 from adflow.mphys import ADflowBuilder
 from tacs.mphys import TacsBuilder
 from funtofem.mphys import MeldBuilder
-from tacs import elements, constitutive, functions
+try:
+    import tacsSetup
+except:
+    print("Tacs setup file not supplied.")
 
 # Importing other python packages
 from baseclasses import AeroProblem
@@ -17,48 +20,48 @@ import pickle
 
 comm = MPI.COMM_WORLD
 
-# Material properties
-rho = 2780.0  # density, kg/m^3
-E = 73.1e9  # elastic modulus, Pa
-nu = 0.33  # poisson's ratio
-kcorr = 5.0 / 6.0  # shear correction factor
-ys = 324.0e6  # yield stress, Pa
+# # Material properties
+# rho = 2780.0  # density, kg/m^3
+# E = 73.1e9  # elastic modulus, Pa
+# nu = 0.33  # poisson's ratio
+# kcorr = 5.0 / 6.0  # shear correction factor
+# ys = 324.0e6  # yield stress, Pa
 
-# Shell thickness
-t = 0.003  # m
-tMin = 0.002  # m
-tMax = 0.05  # m
+# # Shell thickness
+# t = 0.003  # m
+# tMin = 0.002  # m
+# tMax = 0.05  # m
 
-def element_callback(dvNum, compID, compDescript, elemDescripts, specialDVs, **kwargs):
-    # Setup (isotropic) property and constitutive objects
-    prop = constitutive.MaterialProperties(rho=rho, E=E, nu=nu, ys=ys)
-    # Set one thickness dv for every component
-    con = constitutive.IsoShellConstitutive(prop, t=t, tNum=dvNum, tlb=tMin, tub=tMax)
+# def element_callback(dvNum, compID, compDescript, elemDescripts, specialDVs, **kwargs):
+#     # Setup (isotropic) property and constitutive objects
+#     prop = constitutive.MaterialProperties(rho=rho, E=E, nu=nu, ys=ys)
+#     # Set one thickness dv for every component
+#     con = constitutive.IsoShellConstitutive(prop, t=t, tNum=dvNum, tlb=tMin, tub=tMax)
 
-    # For each element type in this component,
-    # pass back the appropriate tacs element object
-    transform = None
-    elem = elements.Quad4Shell(transform, con)
+#     # For each element type in this component,
+#     # pass back the appropriate tacs element object
+#     transform = None
+#     elem = elements.Quad4Shell(transform, con)
 
-    return elem
+#     return elem
 
-def problem_setup(scenario_name, fea_assembler, problem):
-    """
-    Helper function to add fixed forces and eval functions
-    to structural problems used in tacs builder
-    """
-    # Add TACS Functions
-    # Only include mass from elements that belong to pytacs components (i.e. skip concentrated masses)
-    problem.addFunction("mass", functions.StructuralMass)
-    problem.addFunction("ks_vmfailure", functions.KSFailure, safetyFactor=1.0, ksWeight=50.0)
+# def problem_setup(scenario_name, fea_assembler, problem):
+#     """
+#     Helper function to add fixed forces and eval functions
+#     to structural problems used in tacs builder
+#     """
+#     # Add TACS Functions
+#     # Only include mass from elements that belong to pytacs components (i.e. skip concentrated masses)
+#     problem.addFunction("mass", functions.StructuralMass)
+#     problem.addFunction("ks_vmfailure", functions.KSFailure, safetyFactor=1.0, ksWeight=50.0)
 
-    # Add gravity load
-    g = np.array([0.0, 0.0, -9.81])  # m/s^2
-    problem.addInertialLoad(g)
+#     # Add gravity load
+#     g = np.array([0.0, 0.0, -9.81])  # m/s^2
+#     problem.addInertialLoad(g)
 
 structOptions = {
-    "element_callback": element_callback,
-    "problem_setup": problem_setup,
+    "element_callback": tacsSetup.element_callback,
+    "problem_setup": tacsSetup.problem_setup,
     "mesh_file": "wingbox.bdf",
 }
 
@@ -77,10 +80,13 @@ class Top(Multipoint):
         filehandler.close()
 
         self.aero_options = input["aeroSolverOptions"]
-        self.struct_options = structOptions
+        self.struct_options = input["structSolverOptions"]
 
-        self.aero_options["gridFile"] = "../../" + self.aero_options["gridFile"]
-        self.struct_options["mesh_file"] = "../../" + self.struct_options["mesh_file"]
+        self.struct_options = {
+            "element_callback": tacsSetup.element_callback,
+            "problem_setup": tacsSetup.problem_setup,
+            "mesh_file": self.struct_options["gridFile"],
+        }
 
         self.sample = input["sample"]
 
@@ -185,7 +191,7 @@ prob.setup()
 
 prob.run_model()
 
-om.n2(prob, outfile="n2.html", show_browser=False)
+# om.n2(prob, outfile="n2.html", show_browser=False)
 
 if prob.model.comm.rank == 0:
     print("Scenario 0")

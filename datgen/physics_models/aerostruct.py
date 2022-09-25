@@ -9,7 +9,7 @@ from scipy.io import savemat
 
 class DefaultOptions():
     """
-        Class creates a default option list (for solver and other settings)
+        Class creates a default option list (for solvers and other settings)
         which is later edited/appended with user provided options.
     """
 
@@ -24,8 +24,9 @@ class DefaultOptions():
 
         # Solver Options
         self.aeroSolver = "adflow"
-
+        self.structSolver = "tacs"
         self.aeroSolverOptions = {}
+        self.structSolverOptions = {}
 
         if self.aeroSolver == "adflow":
             self.aeroSolverOptions = {
@@ -36,10 +37,10 @@ class DefaultOptions():
 
         self.directory = "output"
 
-class Aerodynamics():
-    
-    def __init__(self, options):
+class AeroStruct():
 
+    def __init__(self, options):
+        
         # If 'options' is None, notify the user
         if options is None:
             self._error("The 'options' argument not provided.")
@@ -62,7 +63,7 @@ class Aerodynamics():
 
     def _getDefaultOptions(self):
         """
-            Setting up the initial values of options.
+            Setting up the initial values of options which are common across all functions.
         """
         
         defaultOptions = DefaultOptions()
@@ -92,6 +93,7 @@ class Aerodynamics():
         
         # Checking whether the provided option is valid
         for key in options.keys():
+            # Checking whether the provided option is valid
             if key in self.options.keys():
                 # If the value is dictionary, update the default dictionary.
                 # Otherwise, assign values.
@@ -104,7 +106,7 @@ class Aerodynamics():
 
     def _setDirectory(self):
         """
-            Method for setting up directory
+            Method for setting up directories for analysis
         """
 
         directory = self.options["directory"]
@@ -118,8 +120,11 @@ class Aerodynamics():
         for sampleNo in range(self.options["numberOfSamples"]):
             os.system("mkdir {}/{}".format(directory,sampleNo))
             pkgdir = sys.modules["datgen"].__path__[0]
-            filepath = os.path.join(pkgdir, "runscripts/runscript_aerodynamics.py")
+            filepath = os.path.join(pkgdir, "runscripts/runscript_aerostruct.py")
             shutil.copy(filepath, "{}/{}".format(directory,sampleNo))
+            os.system("cp -r {} {}/{}".format(self.options["aeroSolverOptions"]["gridFile"],directory,sampleNo))
+            os.system("cp -r {} {}/{}".format(self.options["structSolverOptions"]["gridFile"],directory,sampleNo))
+            os.system("cp -r {} {}/{}".format("tacsSetup.py",directory,sampleNo))
 
     def generateSamples(self):
         """
@@ -133,23 +138,29 @@ class Aerodynamics():
 
         cl = np.array([])
         cd = np.array([])
+        failure = np.array([])
 
         for sampleNo in range(self.options["numberOfSamples"]):
             os.chdir("{}/{}".format(self.options["directory"],sampleNo))
             print("Running analysis {} of {}".format(sampleNo + 1, self.options["numberOfSamples"]))
-            os.system("mpirun -n 10 python runscript_aerodynamics.py >> log.txt")
-            os.system("rm -r input.pickle runscript_aerodynamics.py reports")
+            os.system("mpirun -n 10 python runscript_aerostruct.py >> log.txt")
+            os.system("f5totec scenario_000.f5")
+            os.system("rm -r input.pickle runscript_aerostruct.py reports")
 
             filehandler = open("output.pickle", 'rb')
             output = pickle.load(filehandler)
+            filehandler.close()
 
             cl = np.append(cl, output["cl"])
             cd = np.append(cd, output["cd"])
+            failure = np.append(cd, output["failure"])
 
-            os.system("rm -r output.pickle")
+            os.system("rm -r output.pickle tacsSetup.py")
+            os.system("rm -r {} {}".format(self.options["aeroSolverOptions"]["gridFile"],
+                                                  self.options["structSolverOptions"]["gridFile"]))
             os.chdir("../..")
 
-        data = {'cl': cl, 'cd': cd}
+        data = {'cl': cl, 'cd': cd, 'failure': failure}
 
         for key in self.samples:
                 data[key] = self.samples[key]
@@ -210,6 +221,7 @@ class Aerodynamics():
 
             input = {
                 "aeroSolverOptions" : self.options["aeroSolverOptions"],
+                "structSolverOptions" : self.options["structSolverOptions"],
                 "sample" : sample
             }
 
@@ -238,4 +250,4 @@ class Aerodynamics():
         # if comm.rank == 0:
         print(msg, flush=True)
 
-        exit()
+        exit()    

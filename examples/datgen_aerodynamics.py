@@ -1,4 +1,5 @@
 from datgen import Aerodynamics
+import time
 
 aeroOptions = {
             # I/O Parameters
@@ -32,22 +33,38 @@ aeroOptions = {
 }
 
 designVariables = {
-    "aoa" : {
-        "lowerBound": 0,
-        "upperBound": 10
-    },
+    # "aoa" : {
+    #     "lowerBound": 0,
+    #     "upperBound": 10
+    # },
     "mach" : {
         "lowerBound": 0.6,
-        "upperBound": 0.85
+        "upperBound": 1
     }
 }
+
+parameters = {
+    "altitude" : 10000, # in m
+    "areaRef" : 45.5, # in sq. m
+    "chordRef" : 3.25, # in m
+    "aoa" : 2
+}
+
+objectvies = ["cl", "cd", "lift"]
 
 options = {
     "aeroSolverOptions": aeroOptions,
     "designVariables": designVariables,
-    "numberOfSamples": 2
+    "parameters" : parameters,
+    "numberOfSamples": 9,
+    "directory" : "training_fullfact",
+    "noOfProcessors" : 10,
+    "objectives" : objectvies,
+    "samplingMethod" : "fullfactorial"
 }
 
 test = Aerodynamics(options=options)
 
+# start = time.time()
 test.generateSamples()
+# end = time.time()
