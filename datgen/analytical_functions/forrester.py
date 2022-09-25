@@ -55,7 +55,7 @@ class Forrester():
             if options is not None:
                 self._error("Options argument is not needed when type is \"single\".")
 
-            self._setupSingleAnalysis(options)
+            self._setupSingleAnalysis()
 
         else:
             self._error("Value of type argument is not recognized. Only \"multi\" and \"single\" are allowed.")
@@ -69,14 +69,7 @@ class Forrester():
             Method to perform initialization when the type is "multi".
         """
 
-        # If 'options' is None, notify the user
-        if options is not None:
-            if not isinstance(options, dict):
-                self._error("The 'options' argument provided is not a dictionary.")
-            elif options == {}:
-                self._error("The 'options' argument provided is an empty dictionary.")
-
-        # Creating an empty options dictionary
+        # Creating an empty options dictionary and assign value of type
         self.options = {}
         self.options["type"] = "multi"
 
@@ -138,6 +131,11 @@ class Forrester():
         if options["lowerBound"] >= options["upperBound"]:
             self._error("Lower bound is greater than upper bound.")
 
+        # Validating directory attribute
+        if "directory" in userProvidedOptions:
+            if type(options["directory"]) is not str:
+                self._error("\"directory\" attribute is not string.")
+
     def _setOptions(self, options):
         """
             Method for assigning user provided options.
@@ -180,15 +178,16 @@ class Forrester():
 
         data = {"x" : self.samples, "y" : self.y }
 
+        # Saving data file in the specified folder
         os.chdir(self.options["directory"])
         savemat("data.mat", data)
         os.chdir("../")
 
     # ----------------------------------------------------------------------------
-    #          All the methods for single analysis
+    #           All the methods for single analysis
     # ----------------------------------------------------------------------------
 
-    def _setupSingleAnalysis(self, options):
+    def _setupSingleAnalysis(self):
         """
             Method to setup object for single analysis
         """
@@ -200,9 +199,16 @@ class Forrester():
         # Forrester function when the type is "single".
 
     def getObjectives(self, x):
+        """
+            Method to generate a single output y, based on input x.
+            Input x should be an integer. Output y will also be an integer.
+        """
 
         if self.options["type"] != "single":
             self._error("You cannot call getObjectives() method when type is not \"single\".")
+
+        if type(x) != int:
+            self._error("Provided x is not an integer.")
 
         return self._function(x)
 
