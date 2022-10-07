@@ -26,7 +26,7 @@ class Rosenbrock():
 
             y(x1,x2) = (a - x1)^2 + b*(x2-x1^2)^2
 
-        There are two values possible for type: "single" and "multi". For
+        There are two values possible for type: "single" and "multi" (default). For
         "multi", following is the list of possible attributes:
 
         "directory" : Folder name where the data.mat file will be saved (string, optional).
@@ -172,10 +172,9 @@ class Rosenbrock():
 
     def _setOptions(self, options):
         """
-            Method for checking and assigning user provided options.
+            Method for assigning user provided options.
         """
-        
-        # Checking whether the other provided options are valid
+
         for key in options.keys():
             # If the value is dictionary, update the default dictionary.
             # Otherwise, assign values.
@@ -352,7 +351,7 @@ class Rosenbrock():
     def _function(self, x):
         """
             Rosenbrock function. Note: output of function should always be
-            of size num_samples X num_features (?), so reshape is used for x1 and x2.
+            of size num_samples X 1, so reshape is used for x1 and x2.
         """
 
         a = self.options["parameters"]["a"]
@@ -363,8 +362,10 @@ class Rosenbrock():
             x2 = x[:, 1].reshape(-1,1)
 
         elif self.options["type"] == "single":
+            print(x[0])
+            print(x[1])
             x1 = x[0]
-            x2 = x[0]
+            x2 = x[1]
 
         y = (a-x1)**2 + b*(x2-x1**2)**2
 

@@ -1,7 +1,9 @@
 # Importing python packages
 import os
 import numpy as np
+from pyDOE2 import lhs, fullfact
 from scipy.io import savemat
+import math
 
 class DefaultOptions():
     """
@@ -12,32 +14,28 @@ class DefaultOptions():
     def __init__(self):
         self.directory = "output"
 
-
-class Forrester():
+class Sasena():
     """
         Class contains essential methods for generating data
-        of Forrester Function:
+        of sasena Function:
 
-            y(x) = (6x - 2)**2 * sin(12x - 4)
-
-        There are two values possible for type: "single" and "multi".
-        Options argument is not needed for "single" type analysis, while it
-        is needed for "multi" type analysis. Provide an appropriate options
-        dict which contains necessary attributes. There are only four possible
-        attributes:
+            y(x1,x2) = -(x1 - 1)^2 - (x2 - 0.5)^2 
+            g1(x1,x2) = (x1 - 3)^2 + (x2 + 2)^2 exp(-x2^7) - 12 <= 0
+            g2(x1,x2) = 10x1 + x2 - 7 <= 0
+            g3(x1,x2) = (x1 - 0.5)^2 + (x2 - 0.5)^2 - 0.2 <= 0
+        
+        There are two values possible for type: "single" and "multi" (default). For
+        "multi", following is the list of possible attributes:
 
         "directory" : Folder name where the data.mat file will be saved (string, optional).
         "numberOfSamples" : number of samples to be generated (integer).
-        "lowerBound" : lower bound (integer).
-        "upperBound" : upper bound (integer).
+        "samplingMethod" : name of the sampling method ("lhs" or "fullfactorial") (string).
 
-        Note: There is no sampling method option for forrester function since
-        there is only one dimension.
+        For "single", options argument is not need.
     """
 
     def __init__(self, type="multi", options=None):
 
-        # Initializing based on the type
         if type == "multi":
             # If 'options' is None, notify the user
             if options is not None:
@@ -54,11 +52,10 @@ class Forrester():
             # If 'options' is not None, then raise an error
             if options is not None:
                 self._error("Options argument is not needed when type is \"single\".")
-
             self._setupSingleAnalysis()
 
         else:
-            self._error("Value of type argument is not recognized. Only \"multi\" and \"single\" are allowed.")
+            self._error("Value of type argument not recognized.")
 
     # ----------------------------------------------------------------------------
     #               All the methods for multi analysis
@@ -72,6 +69,8 @@ class Forrester():
         # Creating an empty options dictionary and assign value of type
         self.options = {}
         self.options["type"] = "multi"
+        self.options["lowerBound"] = [0, 0]
+        self.options["upperBound"] = [1, 1]
 
         # Setting up default options
         self._getDefaultOptions()
@@ -82,7 +81,7 @@ class Forrester():
         # Updating/Appending the default option list with user provided options
         self._setOptions(options)
 
-        # Setting up the folder for saving the results
+        # Setting up the folders for saving the results
         self._setDirectory()
 
     def _getDefaultOptions(self):
@@ -103,13 +102,13 @@ class Forrester():
 
         # Creating list of various different options
         defaultOptions = list(self.options.keys())
-        requiredOptions = ["numberOfSamples", "lowerBound", "upperBound"]
+        requiredOptions = ["numberOfSamples", "samplingMethod"]
         allowedUserOptions = defaultOptions
         allowedUserOptions.extend(requiredOptions)
 
         userProvidedOptions = list(options.keys())
 
-        # Checking if the user provided option contains only allowed attributes
+        # Checking if user provided option contains only allowed attributes
         if not set(userProvidedOptions).issubset(allowedUserOptions):
             self._error("Option dictionary contains unrecognized attribute(s).")
 
@@ -118,18 +117,17 @@ class Forrester():
             self._error("Option dictionary doesn't contain all the requried options. \
                         {} attribute(s) is/are missing.".format(set(requiredOptions) - set(userProvidedOptions)))
 
-        # Checking type of required options
-        for attribute in requiredOptions:
-            if type(options[attribute]) is not int:
-                self._error("\"{}\" attribute is not an integer".format(attribute))
-
+        # Validating number of samples attribute
+        if type(options["numberOfSamples"]) is not int:
+            self._error("\"numberOfSamples\" attribute is not an integer.")
+        
         # Setting minimum limit on number of samples
         if options["numberOfSamples"] < 2:
             self._error("Number of samples need to least 2.")
 
-        # Checking correctness of bound
-        if options["lowerBound"] >= options["upperBound"]:
-            self._error("Lower bound is greater than upper bound.")
+        # Validating sampling method
+        if options["samplingMethod"] not in ["lhs", "fullfactorial"]:
+            self._error("\"samplingMethod\" attribute is not correct. \"lhs\" and \"fullfactorial\" are only allowed.")
 
         # Validating directory attribute
         if "directory" in userProvidedOptions:
@@ -170,8 +168,13 @@ class Forrester():
         if self.options["type"] != "multi":
             self._error("You cannot call generateSamples() method when type is not \"multi\".")
 
-        self.samples = np.linspace(self.options["lowerBound"], self.options["upperBound"], self.options["numberOfSamples"])
-        self.samples = np.reshape(self.samples, (-1,1))
+        # Generating x based on user provided method
+        if self.options["samplingMethod"] == "lhs":
+            self._lhs()
+        elif self.options["samplingMethod"] == "fullfactorial":
+            self._fullfactorial()
+        else:
+            self._error("Sampling method is not recognized.")
 
         self.y = self._function(self.samples)
 
@@ -182,8 +185,43 @@ class Forrester():
         savemat("data.mat", data)
         os.chdir("../")
 
+    def _lhs(self):
+        """
+            Method for creating a lhs sample.
+            Stores a 2D numpy array of size (samples vs  dimensions).
+            Each row represents a new sample and each column corresponds to
+            a particular design variable.
+        """
+
+        lowerBound = np.array(self.options["lowerBound"])
+        upperBound = np.array(self.options["upperBound"])
+
+        dim = len(self.options["lowerBound"])
+
+        samples = lhs(dim, samples=self.options["numberOfSamples"], criterion='cm', iterations=50)
+
+        self.samples = lowerBound + (upperBound - lowerBound) * samples
+
+    def _fullfactorial(self):
+        """
+            Method to create fullfactorial samples
+        """
+
+        lowerBound = np.array(self.options["lowerBound"])
+        upperBound = np.array(self.options["upperBound"])
+
+        dim = len(self.options["lowerBound"])
+
+        samplesInEachDimension = round(math.exp( math.log(self.options["numberOfSamples"]) / dim ))
+
+        print("{} full-factorial samples are generated".format(samplesInEachDimension**dim))
+
+        samples = fullfact([samplesInEachDimension]*dim)
+
+        self.samples = lowerBound + samples * (upperBound - lowerBound) / (samplesInEachDimension- 1)
+
     # ----------------------------------------------------------------------------
-    #           All the methods for single analysis
+    #          All the methods for single analysis
     # ----------------------------------------------------------------------------
 
     def _setupSingleAnalysis(self):
@@ -199,15 +237,23 @@ class Forrester():
 
     def getObjectives(self, x):
         """
-            Method to generate a single output y, based on input x.
-            Input x should be an integer. Output y will also be an integer.
+            Method to calculate y, g1, g2, and g3, based on input x.
+            Input x should be a list with two integer entries. Output 
+            will be a list of y, g1, g2, and g3 in order.
         """
 
         if self.options["type"] != "single":
             self._error("You cannot call getObjectives() method when type is not \"single\".")
 
-        if type(x) != int:
-            self._error("Provided x is not an integer.")
+        # Validating x provided by the user
+        if type(x) != list:
+            self._error("Provided x is not a list.")
+        elif len(x) != 2:
+            self._error("Provided x doesn't contain two entries.")
+
+        for index, number in enumerate(x):
+            if type(number) != int:
+                self._error("{} entry in x is not an integer.".format(index+1))
 
         return self._function(x)
 
@@ -217,12 +263,30 @@ class Forrester():
 
     def _function(self, x):
         """
-            Forrester function. Note: Output of function should always be
-            of size num_samples X 1. Here, input x is already of size num_samples X 1,
-            so no need to use reshape.
+            Sasena function. Note: Output of function should always be
+            of size num_samples X 4 (f and three constraints).
         """
 
-        y = (6*x - 2)**2 * np.sin(12*x - 4)
+        if self.options["type"] == "multi":
+            x1 = x[:, 0].reshape(-1,1)
+            x2 = x[:, 1].reshape(-1,1)
+
+            y = -(x1 - 1)**2 - (x2 - 0.5)**2 
+            g1 = (x1 - 3)**2 + (x2 + 2)**2 * np.exp(-x2**7) - 12
+            g2 = 10*x1 + x2 - 7
+            g3 = (x1 - 0.5)**2 + (x2 - 0.5)**2 - 0.2
+
+            y = np.concatenate((y, g1, g2, g3), axis = 1)
+
+        elif self.options["type"] == "single":
+            x1 = x[0]
+            x2 = x[1]
+            y = [0, 0, 0, 0]
+
+            y[0] = -(x1 - 1)**2 - (x2 - 0.5)**2 
+            y[1] = (x1 - 3)**2 + (x2 + 2)**2 * np.exp(-x2**7) - 12
+            y[2] = 10*x1 + x2 - 7
+            y[3] = (x1 - 0.5)**2 + (x2 - 0.5)**2 - 0.2
 
         return y
 
