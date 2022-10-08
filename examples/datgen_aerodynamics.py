@@ -1,7 +1,7 @@
 from datgen import Aerodynamics
 import time
 
-aeroOptions = {
+aeroSolverOptions = {
             # I/O Parameters
             "gridFile": "wing_vol.cgns",
             "monitorvariables": ["resrho", "cl", "cd", "mach"],
@@ -32,7 +32,7 @@ aeroOptions = {
             "nCycles": 1000,
 }
 
-designVariables = {
+varyingParameters = {
     # "aoa" : {
     #     "lowerBound": 0,
     #     "upperBound": 10
@@ -43,21 +43,21 @@ designVariables = {
     }
 }
 
-parameters = {
+fixedParameters = {
     "altitude" : 10000, # in m
     "areaRef" : 45.5, # in sq. m
     "chordRef" : 3.25, # in m
-    "aoa" : 2
+    "aoa" : 2 # in deg
 }
 
-objectvies = ["cl", "cd", "lift"]
+objectvies = ["cl", "cd"]
 
 options = {
-    "aeroSolverOptions": aeroOptions,
-    "designVariables": designVariables,
-    "parameters" : parameters,
-    "numberOfSamples": 9,
-    "directory" : "training_fullfact",
+    "aeroSolverOptions": aeroSolverOptions,
+    "fixedParameters" : fixedParameters,
+    "varyingParameters" : varyingParameters,
+    "numberOfSamples": 2,
+    "directory" : "training",
     "noOfProcessors" : 10,
     "objectives" : objectvies,
     "samplingMethod" : "fullfactorial"

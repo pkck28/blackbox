@@ -16,8 +16,24 @@ class DefaultOptions():
 
     def __init__(self):
 
-        # Aero solver Options
+        # Setting up the design variable, parameter, and objectives
+        self.designVariables = {}
+        self.parameters = {}
+        self.objectives = ["cl", "cd", "lift", "drag"]
+
+        # Sampling options
+        self.samplingMethod = "lhs"
+        self.numberOfSamples = 2
+
+        # Solver Options
         self.aeroSolver = "adflow"
+        self.aeroSolverOptions = {}
+        if self.aeroSolver == "adflow":
+            self.aeroSolverOptions = {
+                "printAllOptions": False,
+                "printIntro": False,
+                "outputDirectory": "."
+            }
 
         # Other options
         self.directory = "output"
@@ -25,28 +41,25 @@ class DefaultOptions():
 
 class Aerodynamics():
     """
-        Class contains essential methods for generating aerodynamic data.
-        There are two values possible for type: "single" and "multi" (default). 
-        For "multi", following is the list of possible attributes:
-        
-        Optional: (.,.) shows datatype and defualt value respectively.
-            "directory" : Folder name where the data.mat file will be saved (string, "output").
-            "noOfProcessors" : Number of processors to use (integer, 4).
-            "aeroSolver" : Name of the aerodynamics solver (string, "adflow").
-            "structSolver" : Name of the structural solver (string, "tacs").
-        Compulsory: (.) shows datatype.
-            "numberOfSamples" : number of samples to be generated (integer).
-            "fixedParameters" : List of all the valid fixed parameters (list of strings).
-            "varyingParameters" : List of all the valid varying parameters (list of strings).
-            "lowerBound" : List of lower bound values for varying parameters (list of integers).
-            "upperBound" : List of upper bound values for varying parameters (list of integers).
-            "samplingMethod" : name of the sampling method ("lhs" or "fullfactorial") (string).
-            "objectives" : List of desired objectives in y (list of string).
+        Class contains essential methods for generating data in two different
+        ways. One is for generating data in bulk and other is for running single analysis.
     """
     
     def __init__(self, type="multi", options=None):
 
         if type == "multi":
+            self._setupMultiAnalysis(options)
+        elif type == "single":
+            self._setupSingleAnalysis(options)
+        else:
+            self._error("Value of type argument not recognized.")
+
+    # ----------------------------------------------------------------------------
+    #               All the methods for multi analysis
+    # ----------------------------------------------------------------------------
+
+    def _setupMultiAnalysis(self, options):
+
             # If 'options' is None, notify the user
             if options is not None:
                 if not isinstance(options, dict):
@@ -56,103 +69,18 @@ class Aerodynamics():
             else:
                 self._error("Options argument not provided.")
 
-            self._setupMultiAnalysis(options)
+            # Creating an empty options dictionary
+            self.options = {}
+            self.options["type"] = "multi"
 
-        elif type == "single":
-            self._setupSingleAnalysis(options)
+            # Setting up default options
+            self._getDefaultOptions()
 
-        else:
-            self._error("Value of type argument not recognized.")
+            # Updating/Appending the default option list with user provided options
+            self._setOptions(options)
 
-    # ----------------------------------------------------------------------------
-    #               All the methods for multi analysis
-    # ----------------------------------------------------------------------------
-
-    def _setupMultiAnalysis(self, options):
-        """
-            Method to perform initialization when the type is "multi".
-        """
-
-        # Creating an empty options dictionary
-        self.options = {}
-        self.options["type"] = "multi"
-
-        # Setting up default options
-        self._getDefaultOptions()
-
-        # Validating user provided options
-        self._checkOptionsForMultiAnalysis(options)
-
-        # Setting some default solver options
-        self.aeroSolverOptions = {
-                "printAllOptions": False,
-                "printIntro": False,
-                "outputDirectory": "."
-            }
-
-        # Updating/Appending the default option list with user provided options
-        self._setOptions(options)
-
-        # Setting up the folders for saving the results
-        self._setDirectory()
-
-    def _checkOptionsForMultiAnalysis(self, options):
-        """
-            This method validates user provided options for type = "multi".
-        """
-
-        # Creating list of various different options
-        defaultOptions = list(self.options.keys())
-        requiredOptions = ["fixedParameters", "varyingParameters", "objectives", \
-                            "numberOfSamples", "samplingMethod", "aeroSolverOptions"]
-        allowedUserOptions = defaultOptions
-        allowedUserOptions.extend(requiredOptions)
-
-        userProvidedOptions = list(options.keys())
-
-        # Checking if user provided option contains only allowed attributes
-        if not set(userProvidedOptions).issubset(allowedUserOptions):
-            self._error("Option dictionary contains unrecognized attribute(s).")
-
-        # Checking if user has mentioned all the requried attributes
-        if not set(requiredOptions).issubset(userProvidedOptions):
-            self._error("Option dictionary doesn't contain all the requried options. \
-                        {} attribute(s) is/are missing.".format(set(requiredOptions) - set(userProvidedOptions)))
-
-        ############ Checking parameters
-        self._checkParameters(options)
-
-        ############ Checking bounds
-        self._checkBounds(options)
-
-        ############ Checking objectives
-        self._checkObjectives(options)
-
-        ############ Checking numberOfSamples
-        if type(options["numberOfSamples"]) is not int:
-            self._error("\"numberOfSamples\" attribute is not an integer.")
-
-        # Setting minimum limit on number of samples
-        if options["numberOfSamples"] < 2:
-            self._error("Number of samples need to least 2.")
-
-        ############ Checking samplingMethod
-        if options["samplingMethod"] not in ["lhs", "fullfactorial"]:
-            self._error("\"samplingMethod\" attribute is not correct. \"lhs\" and \"fullfactorial\" are only allowed.")
-
-        ############ Checking aeroSolverOptions
-        if type(options["aeroSolverOptions"]) != dict:
-            self._error("\"aeroSolverOptions\" attribute is not a dictionary.")
-
-        ############ Checking directory
-        if "directory" in userProvidedOptions:
-            if type(options["directory"]) is not str:
-                self._error("\"directory\" attribute is not string.")
-
-        ############ Checking noOfProcessors
-        if "noOfProcessors" in userProvidedOptions:
-            if type(options["directory"]) is not int:
-                self._error("\"noOfProcessors\" attribute is not integer.")
+            # Setting up the folders for saving the results
+            self._setDirectory()
 
     def generateSamples(self):
         """
@@ -160,12 +88,14 @@ class Aerodynamics():
         """
 
         if self.options["type"] != "multi":
-            self._error("You can call generateSamples() method only when type is multi.")
+            self._error("You can run generateSamples() method only when type is multi.")
 
         if self.options["samplingMethod"] == "lhs":
             self._lhs()
         elif self.options["samplingMethod"] == "fullfactorial":
             self._fullfactorial()
+        else:
+            self._error("Unrecognized sampling technique provided. Only two techniques are available: \"lhs\" and \"fullfactorial\".")
 
         self._createInputFile()
 
@@ -215,9 +145,12 @@ class Aerodynamics():
         dummy = np.array([])
         self.samples = {}
 
-        for key in self.options["varyingParameter"]:
-            lowerBound = np.append(lowerBound, self.options["varyingParameter"][key]["lowerBound"])
-            upperBound = np.append(upperBound, self.options["varyingParameter"][key]["upperBound"])
+        for key in self.options["designVariables"]:
+            if key == "aoa" or "mach":
+                lowerBound = np.append(lowerBound, self.options["designVariables"][key]["lowerBound"])
+                upperBound = np.append(upperBound, self.options["designVariables"][key]["upperBound"])
+            else:
+                self._error("Unrecognized design variable")
 
             self.samples[key] = np.array([])
             dummy = np.append(dummy, key)
@@ -233,7 +166,7 @@ class Aerodynamics():
         for sampleNo in range(self.options["numberOfSamples"]):
             sample = samples[sampleNo,:]
 
-            for key in self.options["varyingParameter"]:
+            for key in self.options["designVariables"]:
                 self.samples[key] = np.append(self.samples[key], sample[(dummy == key)])
 
     def _fullfactorial(self):
@@ -247,9 +180,12 @@ class Aerodynamics():
         dummy = np.array([])
         self.samples = {}
 
-        for key in self.options["varyingParameter"]:
-            lowerBound = np.append(lowerBound, self.options["varyingParameter"][key]["lowerBound"])
-            upperBound = np.append(upperBound, self.options["varyingParameter"][key]["upperBound"])
+        for key in self.options["designVariables"]:
+            if key == "aoa" or "mach":
+                lowerBound = np.append(lowerBound, self.options["designVariables"][key]["lowerBound"])
+                upperBound = np.append(upperBound, self.options["designVariables"][key]["upperBound"])
+            else:
+                self._error("Unrecognized design variable")
 
             self.samples[key] = np.array([])
             dummy = np.append(dummy, key)
@@ -269,7 +205,7 @@ class Aerodynamics():
         for sampleNo in range(self.options["numberOfSamples"]):
             sample = samples[sampleNo,:]
 
-            for key in self.options["varyingParameter"]:
+            for key in self.options["designVariables"]:
                 self.samples[key] = np.append(self.samples[key], sample[(dummy == key)])
 
     # ----------------------------------------------------------------------------
@@ -416,115 +352,71 @@ class Aerodynamics():
             value = getattr(defaultOptions, key)
             self.options[key] = value
 
-    def _checkParameters(self, options):
-        """
-            Method to check whether user provided correct parameters.
-        """
-
-        # Checking datatype of provided parameter option
-        if not type(options["varyingParameters"]) == dict:
-            self._error("\"varyingParameters\" option is not a dictionary.")
-        if not type(options["fixedParameters"]) == dict:
-            self._error("\"fixedParameters\" option is not a dictionary.")    
-
-        # Defining list of parameters
-        parameters = ["areaRef", "chordRef"]
-        varyingParameters = ["aoa", "mach", "altitude"]
-        parameters.extend(varyingParameters)
-
-        userVaryingParameters = options["varyingParameters"].keys()
-        userFixedParameters = options["fixedParameters"].keys()
-
-        if not set(userVaryingParameters).issubset(set(varyingParameters)):
-            self._error("\"varyingParameters\" dictionary contains attribute(s) which are not allowed vary. \
-                Only \"aoa\", \"mach\", \"altitude\" are allowed.")
-
-        requiredFixedParameters = list(set(parameters) - set(userVaryingParameters))
-
-        if not set(requiredFixedParameters) == set(userFixedParameters):
-            self._error("Fixed Parameter dictionary doesn't contain all the required attribute(s).\
-                {} attribute(s) is/are missing.".format(set(requiredFixedParameters) - set(userFixedParameters)))
-        
-        for key in options["varyingParameters"]:
-            if type(options["varyingParameters"][key]) != dict:
-                self._error("Value of " + key + " in \"varyingParameters\" dictionary is not a dictionary.")
-            
-            if set(["lowerBound", "upperBoubnd"]) == set(options["varyingParameters"][key]):
-                self._error(key + " dictionary can only have \"lowerBound\" and \"upperBound\" attributes.")
-
-            if type(options["varyingParameters"][key]["lowerBound"]) != float:
-                print(type(options["varyingParameters"][key]["lowerBound"]))
-                self._error("Value of \"lowerBound\" in " + key + " dictionary is not a float.")
-                
-            if type(options["varyingParameters"][key]["upperBound"]) != float:
-                self._error("Value of \"upperBound\" in " + key + " dictionary is not a float.")
-
-            if not options["varyingParameters"][key]["upperBound"] > options["varyingParameters"][key]["lowerBound"]:
-                self._error("Value of upper bound in " + key + " dictionary is smaller or equal to lower bound.")
-
-        for key in options["fixedParameters"]:
-            if type(options["fixedParameters"][key]) != int:
-                self._error("Value of " + key + " in \"fixedParameters\" dictionary is not a dictionary.")
-
-    # def _checkBounds(self, options):
-    #     """
-    #         Method for checking bounds provided by user.
-    #     """
-
-    #     dim = len(options["varyingParameters"].keys())
-
-    #     if not type(options["lowerBound"]) == list:
-    #         self._error("Lower bound option is not a list")
-
-    #     if not len(options["lowerBound"]) == dim:
-    #         self._error("Lower bound list size is not correct.")
-
-    #     if not type(options["upperBound"]) == list:
-    #         self._error("Upper bound option is not a list")
-
-    #     if not len(options["upperBound"]) == dim:
-    #         self._error("Two entries in upper bounds list are need")
-
-    #     for index, lb in enumerate(options["lowerBound"]):
-    #         if type(lb) is not int:
-    #             self._error("Lower bound at index location {} is not an integer.".format(index+1))
-
-    #         if type(options["upperBound"][index]) is not int:
-    #             self._error("Upper bound at index location {} is not an integer.".format(index+1))
-
-    #         if lb >= options["upperBound"][index]:
-    #             self._error("Lower bound at index location {} is greater than or equal upper bound.".format(index+1))
-
-    def _checkObjectives(self, options):
-        """
-            Checking the objectives provided by the user
-        """
-
-        allowedObjectives = ["cl", "cd", "lift", "drag"]
-
-        if type(options["objectives"]) == list:
-            if not set(options["objectives"]).issubset(allowedObjectives):
-                self._error("One or more objective(s) are not valid. Only these \
-                    objectives are supported: {}".format(allowedObjectives))
-        else:
-            self._error("\"objectives\" option is not a list.")
-
     def _setOptions(self, options):
         """
             Method for assigning user provided options.
+            This method should be called only after setting
+            up a default option dictionary.
         """
 
+        # List of allowed design variables and parameters
+        dvlist = ["aoa", "mach", "altitude"]
+        parameters = ["aoa", "mach", "altitude", "areaRef", "chordRef"]
+
+        ########################### Design variable checking
+        if "designVariables" not in options or options["designVariables"] == {}:
+            self._error("Design variable option is not provided.")
+        
+        if type(options["designVariables"]) == dict:
+            if not set(options["designVariables"].keys()).issubset(set(dvlist)):
+                self._error("One or more design variable(s) is not recognized.")
+        else:
+            self._error("Design variable option is not a dictionary.")
+
+        # Removing design variables from parameters
+        parameters = list(set(parameters) - set(options["designVariables"].keys()))
+        
+        ########################### Parameter checking
+        if "parameters" not in options or options["parameters"] == {}:
+            self._error("Parameter option is not provided.")
+
+        if type(options["parameters"]) == dict:
+            if not set(options["parameters"].keys()) == set(parameters):
+                self._error("One or more parameter(s) are not provided or are part of design variable. Only these parameters are required: {}".format(parameters))
+        else:
+            self._error("Parameter option is not a dictionary.")
+
+        ########################### Objectives checking
+        if "objectives" not in options or options["objectives"] == []:
+            self._error("Objectives option is not provided.")
+
+        if type(options["objectives"]) == list:
+            if not set(options["objectives"]).issubset(set(self.options["objectives"])):
+                self._error("One or more objective(s) are not valid. Only these objectives are supported: {}".format(self.options["objectives"]))
+        else:
+            self._error("Objective option is not a list.")
+
+        ########################### Other Checks
+
+        if "outputDirectory" in options["aeroSolverOptions"]:
+            self._error("You cannot input directory name in aerodynamics solver options dictionary. \
+                         Mention it outside the solver options, using \"directory\" option.")
+
+        ########################### Checking whether the other provided options are valid
         for key in options.keys():
-            # If the value is dictionary, update the default dictionary.
-            # Otherwise, assign values.
-            if isinstance(options[key], dict): 
-                self.options[key].update(options[key]) 
+            if key in self.options.keys():
+                # If the value is dictionary, update the default dictionary.
+                # Otherwise, assign values.
+                if isinstance(options[key], dict): 
+                    self.options[key].update(options[key]) 
+                else:
+                    self.options[key] = options[key]
             else:
-                self.options[key] = options[key]
+                self._error(key + " is not a valid option. Please remove/edit it.")
 
     def _setDirectory(self):
         """
-            Method for setting up directory.
+            Method for setting up directory
         """
 
         directory = self.options["directory"]
@@ -555,7 +447,7 @@ class Aerodynamics():
 
                 input = {}
                 sample = {}
-                parameters = self.options["fixedParameters"]
+                parameters = self.options["parameters"]
                 objectives = self.options["objectives"]
 
                 for key in self.samples:
@@ -596,6 +488,7 @@ class Aerodynamics():
             filehandler.close()
 
             os.chdir("../..")
+            
 
     def _error(self, message):
         """
