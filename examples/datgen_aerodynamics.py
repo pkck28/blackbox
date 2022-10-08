@@ -33,10 +33,10 @@ aeroSolverOptions = {
 }
 
 varyingParameters = {
-    # "aoa" : {
-    #     "lowerBound": 0,
-    #     "upperBound": 10
-    # },
+    "aoa" : {
+        "lowerBound": 0,
+        "upperBound": 10
+    },
     "mach" : {
         "lowerBound": 0.6,
         "upperBound": 1
@@ -47,7 +47,7 @@ fixedParameters = {
     "altitude" : 10000, # in m
     "areaRef" : 45.5, # in sq. m
     "chordRef" : 3.25, # in m
-    "aoa" : 2 # in deg
+    # "aoa" : 2 # in deg
 }
 
 objectvies = ["cl", "cd"]
@@ -56,15 +56,27 @@ options = {
     "aeroSolverOptions": aeroSolverOptions,
     "fixedParameters" : fixedParameters,
     "varyingParameters" : varyingParameters,
-    "numberOfSamples": 2,
-    "directory" : "training",
+    # "numberOfSamples": 2,
+    "directory" : "training_single",
     "noOfProcessors" : 10,
     "objectives" : objectvies,
-    "samplingMethod" : "fullfactorial"
+    # "samplingMethod" : "lhs"
 }
 
-test = Aerodynamics(options=options)
+test = Aerodynamics(type="single", options=options)
 
 # start = time.time()
-test.generateSamples()
+# test.generateSamples()
 # end = time.time()
+
+sample = [2, 0.8]
+
+print(test.getObjectives(sample))
+
+sample = [3, 0.7]
+
+print(test.getObjectives(sample))
+
+sample = [1, 0.9]
+
+print(test.getObjectives(sample))
