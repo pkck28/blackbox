@@ -45,19 +45,17 @@ class Aerodynamics():
     """
     
     def __init__(self, type="multi", options=None):
+        # If 'options' is None, notify the user
+        if options is not None:
+            if not isinstance(options, dict):
+                self._error("The 'options' argument provided is not a dictionary.")
+            elif options == {}:
+                self._error("The 'options' argument provided is an empty dictionary.")
+        else:
+            self._error("Options argument not provided.")
 
         if type == "multi":
-            # If 'options' is None, notify the user
-            if options is not None:
-                if not isinstance(options, dict):
-                    self._error("The 'options' argument provided is not a dictionary.")
-                elif options == {}:
-                    self._error("The 'options' argument provided is an empty dictionary.")
-            else:
-                self._error("Options argument not provided.")
-
             self._setupMultiAnalysis(options)
-
         elif type == "single":
             self._setupSingleAnalysis(options)
 
@@ -76,15 +74,18 @@ class Aerodynamics():
         # Creating an empty options dictionary
         self.options = {}
         self.options["type"] = "multi"
+        self.options["directory"] = "output"
+        self.options["noOfProcessors"] = 4
+        self.options["aeroSolver"] = "adflow"
 
         # Setting up default options
-        self._getDefaultOptions()
+        # self._getDefaultOptions()
 
         # Validating user provided options
         self._checkOptionsForMultiAnalysis(options)
 
         # Setting some default solver options
-        self.aeroSolverOptions = {
+        self.options["aeroSolverOptions"] = {
                 "printAllOptions": False,
                 "printIntro": False,
                 "outputDirectory": "."
@@ -122,9 +123,6 @@ class Aerodynamics():
         ############ Checking parameters
         self._checkParameters(options)
 
-        ############ Checking bounds
-        self._checkBounds(options)
-
         ############ Checking objectives
         self._checkObjectives(options)
 
@@ -151,8 +149,8 @@ class Aerodynamics():
 
         ############ Checking noOfProcessors
         if "noOfProcessors" in userProvidedOptions:
-            if type(options["directory"]) is not int:
-                self._error("\"noOfProcessors\" attribute is not integer.")
+            if type(options["noOfProcessors"]) is not int:
+                self._error("\"noOfProcessors\" attribute is not an integer.")
 
     def generateSamples(self):
         """
@@ -215,9 +213,9 @@ class Aerodynamics():
         dummy = np.array([])
         self.samples = {}
 
-        for key in self.options["varyingParameter"]:
-            lowerBound = np.append(lowerBound, self.options["varyingParameter"][key]["lowerBound"])
-            upperBound = np.append(upperBound, self.options["varyingParameter"][key]["upperBound"])
+        for key in self.options["varyingParameters"]:
+            lowerBound = np.append(lowerBound, self.options["varyingParameters"][key]["lowerBound"])
+            upperBound = np.append(upperBound, self.options["varyingParameters"][key]["upperBound"])
 
             self.samples[key] = np.array([])
             dummy = np.append(dummy, key)
@@ -233,7 +231,7 @@ class Aerodynamics():
         for sampleNo in range(self.options["numberOfSamples"]):
             sample = samples[sampleNo,:]
 
-            for key in self.options["varyingParameter"]:
+            for key in self.options["varyingParameters"]:
                 self.samples[key] = np.append(self.samples[key], sample[(dummy == key)])
 
     def _fullfactorial(self):
@@ -247,9 +245,9 @@ class Aerodynamics():
         dummy = np.array([])
         self.samples = {}
 
-        for key in self.options["varyingParameter"]:
-            lowerBound = np.append(lowerBound, self.options["varyingParameter"][key]["lowerBound"])
-            upperBound = np.append(upperBound, self.options["varyingParameter"][key]["upperBound"])
+        for key in self.options["varyingParameters"]:
+            lowerBound = np.append(lowerBound, self.options["varyingParameters"][key]["lowerBound"])
+            upperBound = np.append(upperBound, self.options["varyingParameters"][key]["upperBound"])
 
             self.samples[key] = np.array([])
             dummy = np.append(dummy, key)
@@ -269,7 +267,7 @@ class Aerodynamics():
         for sampleNo in range(self.options["numberOfSamples"]):
             sample = samples[sampleNo,:]
 
-            for key in self.options["varyingParameter"]:
+            for key in self.options["varyingParameters"]:
                 self.samples[key] = np.append(self.samples[key], sample[(dummy == key)])
 
     # ----------------------------------------------------------------------------
@@ -278,128 +276,143 @@ class Aerodynamics():
 
     def _setupSingleAnalysis(self, options):
 
-        # If 'options' is None, notify the user
-            if options is not None:
-                if not isinstance(options, dict):
-                    self._error("The 'options' argument provided is not a dictionary.")
-                elif options == {}:
-                    self._error("The 'options' argument provided is an empty dictionary.")
-            else:
-                self._error("Options argument not provided.")
+        # Creating an empty options dictionary
+        self.options = {}
+        self.options["type"] = "single"
+        self.options["directory"] = "additional_samples"
+        self.options["noOfProcessors"] = 4
+        self.options["aeroSolver"] = "adflow"
 
-            # Forcing the name of directory irrespective of user input
-            # options["directory"] = "additional_samples"
+        # Sample Number under current instantiation
+        self.sampleNo = 0
 
-            # Creating an empty options dictionary
-            self.options = {}
-            self.options["type"] = "single"
-            self.sampleNo = 0
+        # Validating user provided options
+        self._checkOptionsForSingleAnalysis(options)
 
-            if "numberOfSamples" in options:
-                self._error("Number of samples option should not be used or single analysis.")
+        # Setting some default solver options
+        self.options["aeroSolverOptions"] = {
+                "printAllOptions": False,
+                "printIntro": False,
+                "outputDirectory": "."
+            }
 
-            # Setting up default options
-            self._getDefaultOptions()
+        # Updating/Appending the default option list with user provided options
+        self._setOptions(options)
 
-            # Updating/Appending the default option list with user provided options
-            self._setOptions(options)
+        # Setting up the folder for saving the result
+        directory = self.options["directory"]
 
-            # Setting up the folder for saving the result
-            directory = self.options["directory"]
+        if not os.path.isdir(directory):
+            os.system("mkdir {}".format(directory))
+        else:
+            os.system("rm -r {}".format(directory))
+            os.system("mkdir {}".format(directory))
 
-            if not os.path.isdir(directory):
-                os.system("mkdir {}".format(directory))
-            else:
-                os.system("rm -r {}".format(directory))
-                os.system("mkdir {}".format(directory))
+    def _checkOptionsForSingleAnalysis(self, options):
+        """
+            This method validates user provided options for type = "single".
+        """
+
+        # Creating list of various different options
+        defaultOptions = list(self.options.keys())
+        requiredOptions = ["fixedParameters", "varyingParameters", "objectives", "aeroSolverOptions"]
+        allowedUserOptions = defaultOptions
+        allowedUserOptions.extend(requiredOptions)
+
+        userProvidedOptions = list(options.keys())
+
+        # Checking if user provided option contains only allowed attributes
+        if not set(userProvidedOptions).issubset(allowedUserOptions):
+            self._error("Option dictionary contains unrecognized attribute(s).")
+
+        # Checking if user has mentioned all the requried attributes
+        if not set(requiredOptions).issubset(userProvidedOptions):
+            self._error("Option dictionary doesn't contain all the requried options. \
+                        {} attribute(s) is/are missing.".format(set(requiredOptions) - set(userProvidedOptions)))
+
+        ############ Checking parameters
+        self._checkParameters(options)
+
+        ############ Checking objectives
+        self._checkObjectives(options)
+
+        ############ Checking aeroSolverOptions
+        if type(options["aeroSolverOptions"]) != dict:
+            self._error("\"aeroSolverOptions\" attribute is not a dictionary.")
+
+        ############ Checking directory
+        if "directory" in userProvidedOptions:
+            if type(options["directory"]) is not str:
+                self._error("\"directory\" attribute is not string.")
+
+        ############ Checking noOfProcessors
+        if "noOfProcessors" in userProvidedOptions:
+            if type(options["noOfProcessors"]) is not int:
+                self._error("\"noOfProcessors\" attribute is not an integer.")
 
     def getObjectives(self, user_sample):
         """
             Method for running a single sample analysis.
         """
+        
+        directory = self.options["directory"]
 
         # Checking whether the type is consistent
         if self.options["type"] != "single":
             self._error("You can run getObjectives() method only when type is single.")
 
-        # Checking if the sample provided by user is consistent
-        noOfDV = len(self.options["designVariables"].keys())
-
-        if type(user_sample) == list:
+        if type(user_sample) != list:
             self._error("Sample provided by user is not a list")
 
-        if len(user_sample) != noOfDV:
+        if len(user_sample) != len(self.options["varyingParameters"].keys()):
             self._error("No of values provided by user is not matching the number of design variables.")
 
-        # Creating input dictionary for this analysis
+        # Creating new directory for the analysis
+        os.system("mkdir {}/{}".format(directory, self.sampleNo))
 
+        # Setting up sample variable for single analysis
+        self._createSample(user_sample)
         
-        # input = {}
-        # sample = {}
-        # parameters = self.options["parameters"]
-        # objectives = self.options["objectives"]
+        # Creating input file for single analysis
+        self._createInputFile()
 
-        
+        # Pasting essential files in the directory for running directory
+        pkgdir = sys.modules["datgen"].__path__[0]
+        filepath = os.path.join(pkgdir, "runscripts/runscript_aerodynamics.py")
+        shutil.copy(filepath, "{}/{}".format(directory, self.sampleNo))
+        os.system("cp -r {} {}/{}".format(self.options["aeroSolverOptions"]["gridFile"], directory, self.sampleNo))
 
-        # for key in self.options["designVariables"]:
-        #     sample[key] = 
+        # Changing directory and running the analysis
+        os.chdir("{}/{}".format(self.options["directory"], self.sampleNo))
+        print("Running analysis {}".format(self.sampleNo))
+        os.system("mpirun -n {} python runscript_aerodynamics.py >> log.txt".format(self.options["noOfProcessors"]))
 
-        # input = {
-        #     "aeroSolverOptions" : self.options["aeroSolverOptions"],
-        #     "sample" : sample,
-        #     "parameters" : parameters,
-        #     "objectives" : objectives
-        # }
-        
-        # directory = self.options["directory"]
-        # self.sampleNo = self.sampleNo + 1
+        # Cleaning up the analysis directory
+        os.system("rm -r input.pickle runscript_aerodynamics.py reports")
 
-        # os.system("mkdir {}/{}".format(directory, self.sampleNo))
-        # pkgdir = sys.modules["datgen"].__path__[0]
-        # filepath = os.path.join(pkgdir, "runscripts/runscript_aerodynamics.py")
-        # shutil.copy(filepath, "{}/{}".format(directory, self.sampleNo))
-        # os.system("cp -r {} {}/{}".format(self.options["aeroSolverOptions"]["gridFile"], directory, self.sampleNo))
+        filehandler = open("output.pickle", 'rb')
+        output = pickle.load(filehandler)
+        y = []
 
-        
+        for value in self.options["objectives"]:
+            y.append(output[value][0])
 
-        # os.chdir("{}/{}".format(directory, self.sampleNo))
-        # filehandler = open("input.pickle", "xb")
-        # pickle.dump(input, filehandler)
-        # filehandler.close()
-        # os.chdir("../..")
+        os.system("rm -r output.pickle {}".format(self.options["aeroSolverOptions"]["gridFile"]))
+        os.chdir("../..")
 
-    def _createSample(self):
+        self.sampleNo = self.sampleNo + 1
+
+        return y
+
+    def _createSample(self, user_sample):
         """
-            Method for creating a sample for single analysis.
+            Method for creating a samples dictionary for single analysis.
         """
 
-        dummy = np.array([])
         self.samples = {}
 
-        for key in self.options["designVariables"]:
-
-            if key == "aoa" or "mach":
-                lowerBound = np.append(lowerBound, self.options["designVariables"][key]["lowerBound"])
-                upperBound = np.append(upperBound, self.options["designVariables"][key]["upperBound"])
-            else:
-                self._error("Unrecognized design variable")
-
-            self.samples[key] = np.array([])
-            dummy = np.append(dummy, key)
-
-        dim = len(lowerBound)
-
-        samples = lhs(dim, samples=self.options["numberOfSamples"], criterion='cm', iterations=50)
-
-        samples = lowerBound + samples * (upperBound - lowerBound)
-
-        self.x = samples
-
-        for sampleNo in range(self.options["numberOfSamples"]):
-            sample = samples[sampleNo,:]
-
-            for key in self.options["designVariables"]:
-                self.samples[key] = np.append(self.samples[key], sample[(dummy == key)])
+        for index, key in enumerate(self.options["varyingParameters"]):
+            self.samples[key] = user_sample[index]
 
     # ----------------------------------------------------------------------------
     #          Other required methods, irrespective of type of analysis.
@@ -452,48 +465,22 @@ class Aerodynamics():
             if set(["lowerBound", "upperBoubnd"]) == set(options["varyingParameters"][key]):
                 self._error(key + " dictionary can only have \"lowerBound\" and \"upperBound\" attributes.")
 
-            if type(options["varyingParameters"][key]["lowerBound"]) != float:
+            lbType = type(options["varyingParameters"][key]["lowerBound"])
+            if lbType != int and lbType != float:
                 print(type(options["varyingParameters"][key]["lowerBound"]))
-                self._error("Value of \"lowerBound\" in " + key + " dictionary is not a float.")
+                self._error("Value of \"lowerBound\" in " + key + " dictionary is not a number.")
                 
-            if type(options["varyingParameters"][key]["upperBound"]) != float:
-                self._error("Value of \"upperBound\" in " + key + " dictionary is not a float.")
+            ubType = type(options["varyingParameters"][key]["upperBound"])
+            if ubType != int and ubType != float:
+                self._error("Value of \"upperBound\" in " + key + " dictionary is not a number.")
 
             if not options["varyingParameters"][key]["upperBound"] > options["varyingParameters"][key]["lowerBound"]:
                 self._error("Value of upper bound in " + key + " dictionary is smaller or equal to lower bound.")
 
         for key in options["fixedParameters"]:
-            if type(options["fixedParameters"][key]) != int:
-                self._error("Value of " + key + " in \"fixedParameters\" dictionary is not a dictionary.")
-
-    # def _checkBounds(self, options):
-    #     """
-    #         Method for checking bounds provided by user.
-    #     """
-
-    #     dim = len(options["varyingParameters"].keys())
-
-    #     if not type(options["lowerBound"]) == list:
-    #         self._error("Lower bound option is not a list")
-
-    #     if not len(options["lowerBound"]) == dim:
-    #         self._error("Lower bound list size is not correct.")
-
-    #     if not type(options["upperBound"]) == list:
-    #         self._error("Upper bound option is not a list")
-
-    #     if not len(options["upperBound"]) == dim:
-    #         self._error("Two entries in upper bounds list are need")
-
-    #     for index, lb in enumerate(options["lowerBound"]):
-    #         if type(lb) is not int:
-    #             self._error("Lower bound at index location {} is not an integer.".format(index+1))
-
-    #         if type(options["upperBound"][index]) is not int:
-    #             self._error("Upper bound at index location {} is not an integer.".format(index+1))
-
-    #         if lb >= options["upperBound"][index]:
-    #             self._error("Lower bound at index location {} is greater than or equal upper bound.".format(index+1))
+            valueType = type(options["fixedParameters"][key])
+            if valueType != int and valueType != float:
+                self._error("Value of " + key + " in \"fixedParameters\" dictionary is not a number.")
 
     def _checkObjectives(self, options):
         """
@@ -515,10 +502,13 @@ class Aerodynamics():
         """
 
         for key in options.keys():
-            # If the value is dictionary, update the default dictionary.
-            # Otherwise, assign values.
-            if isinstance(options[key], dict): 
-                self.options[key].update(options[key]) 
+            if isinstance(options[key], dict):
+                if key in self.options.keys():
+                    # If the value is dictionary, update the default dictionary.
+                    # Otherwise, assign values.
+                    self.options[key].update(options[key]) 
+                else:
+                    self.options[key] = options[key]
             else:
                 self.options[key] = options[key]
 
@@ -549,14 +539,14 @@ class Aerodynamics():
 
         directory = self.options["directory"]
 
+        input = {}
+        sample = {}
+        parameters = self.options["fixedParameters"]
+        objectives = self.options["objectives"]
+
         if self.options["type"] == "multi":
             for sampleNo in range(self.options["numberOfSamples"]):
                 os.chdir("{}/{}".format(directory,sampleNo))
-
-                input = {}
-                sample = {}
-                parameters = self.options["fixedParameters"]
-                objectives = self.options["objectives"]
 
                 for key in self.samples:
                     sample[key] = self.samples[key][sampleNo]
@@ -574,19 +564,11 @@ class Aerodynamics():
                 os.chdir("../..")
 
         elif self.options["type"] == "single":
-            os.chdir("{}/{}".format(directory,sampleNo))
-
-            input = {}
-            sample = {}
-            parameters = self.options["parameters"]
-            objectives = self.options["objectives"]
-
-            for key in self.samples:
-                sample[key] = self.samples[key][sampleNo]
+            os.chdir("{}/{}".format(directory, self.sampleNo))
 
             input = {
                 "aeroSolverOptions" : self.options["aeroSolverOptions"],
-                "sample" : sample,
+                "sample" : self.samples,
                 "parameters" : parameters,
                 "objectives" : objectives
             }
