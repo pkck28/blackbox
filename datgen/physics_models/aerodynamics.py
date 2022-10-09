@@ -448,16 +448,25 @@ class Aerodynamics():
         userVaryingParameters = options["varyingParameters"].keys()
         userFixedParameters = options["fixedParameters"].keys()
 
+        # Checking if user provided correct verying parameters
         if not set(userVaryingParameters).issubset(set(varyingParameters)):
             self._error("\"varyingParameters\" dictionary contains attribute(s) which are not allowed vary. \
                 Only \"aoa\", \"mach\", \"altitude\" are allowed.")
 
+        # Checking for common elements between fixed and varying parameters
+        commonElements = set(userVaryingParameters).intersection(set(userFixedParameters))
+        if len(commonElements) != 0:
+            self._error("\"fixedParameters\" and \"varyingParameters\" dictionary contains common attributes.")
+
+        # Calculating list of requried fixed parameters
         requiredFixedParameters = list(set(parameters) - set(userVaryingParameters))
 
+        # Checking if user provided all the requried fixed parameters based on the varying parameters
         if not set(requiredFixedParameters) == set(userFixedParameters):
-            self._error("Fixed Parameter dictionary doesn't contain all the required attribute(s).\
+            self._error("\"fixedParameters\" dictionary doesn't contain all the required attribute(s).\
                 {} attribute(s) is/are missing.".format(set(requiredFixedParameters) - set(userFixedParameters)))
         
+        # Checking varyingParameter dictionary
         for key in options["varyingParameters"]:
             if type(options["varyingParameters"][key]) != dict:
                 self._error("Value of " + key + " in \"varyingParameters\" dictionary is not a dictionary.")
@@ -477,6 +486,7 @@ class Aerodynamics():
             if not options["varyingParameters"][key]["upperBound"] > options["varyingParameters"][key]["lowerBound"]:
                 self._error("Value of upper bound in " + key + " dictionary is smaller or equal to lower bound.")
 
+        # Checking fixedParameter dictionary
         for key in options["fixedParameters"]:
             valueType = type(options["fixedParameters"][key])
             if valueType != int and valueType != float:

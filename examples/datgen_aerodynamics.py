@@ -47,7 +47,7 @@ fixedParameters = {
     "altitude" : 10000, # in m
     "areaRef" : 45.5, # in sq. m
     "chordRef" : 3.25, # in m
-    # "aoa" : 2 # in deg
+    "aoa" : 2 # in deg
 }
 
 objectvies = ["cl", "cd"]
