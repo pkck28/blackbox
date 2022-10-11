@@ -175,7 +175,7 @@ class Aerodynamics():
         for sampleNo in range(self.options["numberOfSamples"]):
             os.chdir("{}/{}".format(self.options["directory"],sampleNo))
             print("Running analysis {} of {}".format(sampleNo + 1, self.options["numberOfSamples"]))
-            os.system("mpirun -n {} python runscript_aerodynamics.py >> log.txt".format(self.options["noOfProcessors"]))
+            os.system("mpirun -n {} --use-hwthread-cpus python runscript_aerodynamics.py >> log.txt".format(self.options["noOfProcessors"]))
             os.system("rm -r input.pickle runscript_aerodynamics.py reports")
 
             filehandler = open("output.pickle", 'rb')
@@ -385,7 +385,7 @@ class Aerodynamics():
         # Changing directory and running the analysis
         os.chdir("{}/{}".format(self.options["directory"], self.sampleNo))
         print("Running analysis {}".format(self.sampleNo))
-        os.system("mpirun -n {} python runscript_aerodynamics.py >> log.txt".format(self.options["noOfProcessors"]))
+        os.system("mpirun -n {} --use-hwthread-cpus python runscript_aerodynamics.py >> log.txt".format(self.options["noOfProcessors"]))
 
         # Cleaning up the analysis directory
         os.system("rm -r input.pickle runscript_aerodynamics.py reports")
