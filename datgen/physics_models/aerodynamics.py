@@ -5,6 +5,7 @@ import sys
 import numpy as np
 from pyDOE2 import lhs, fullfact
 import pickle
+from pyroapi import optim
 from scipy.io import savemat
 import math
 
@@ -74,12 +75,9 @@ class Aerodynamics():
         # Creating an empty options dictionary
         self.options = {}
         self.options["type"] = "multi"
-        self.options["directory"] = "output"
-        self.options["noOfProcessors"] = 4
-        self.options["aeroSolver"] = "adflow"
 
         # Setting up default options
-        # self._getDefaultOptions()
+        self._getDefaultOptions()
 
         # Validating user provided options
         self._checkOptionsForMultiAnalysis(options)
@@ -141,6 +139,11 @@ class Aerodynamics():
         ############ Checking aeroSolverOptions
         if type(options["aeroSolverOptions"]) != dict:
             self._error("\"aeroSolverOptions\" attribute is not a dictionary.")
+
+        # Checking for common elements between fixed and varying parameters
+        commonElements = set(options["aeroSolverOptions"].keys()).intersection(set(["printAllOptions", "printIntro", "outputDirectory"]))
+        if len(commonElements) != 0:
+            self._error("Please remove {} attribute from the \"aeroSolverOptions\"".format(commonElements))
 
         ############ Checking directory
         if "directory" in userProvidedOptions:
@@ -279,9 +282,12 @@ class Aerodynamics():
         # Creating an empty options dictionary
         self.options = {}
         self.options["type"] = "single"
+        
+        # Setting up default options
+        self._getDefaultOptions()
+
+        # Changing default directory value for single analysis
         self.options["directory"] = "additional_samples"
-        self.options["noOfProcessors"] = 4
-        self.options["aeroSolver"] = "adflow"
 
         # Sample Number under current instantiation
         self.sampleNo = 0
@@ -300,13 +306,7 @@ class Aerodynamics():
         self._setOptions(options)
 
         # Setting up the folder for saving the result
-        directory = self.options["directory"]
-
-        if not os.path.isdir(directory):
-            os.system("mkdir {}".format(directory))
-        else:
-            os.system("rm -r {}".format(directory))
-            os.system("mkdir {}".format(directory))
+        self._setDirectory()
 
     def _checkOptionsForSingleAnalysis(self, options):
         """
@@ -339,6 +339,11 @@ class Aerodynamics():
         ############ Checking aeroSolverOptions
         if type(options["aeroSolverOptions"]) != dict:
             self._error("\"aeroSolverOptions\" attribute is not a dictionary.")
+
+        # Checking for common elements between fixed and varying parameters
+        commonElements = set(options["aeroSolverOptions"].keys()).intersection(set(["printAllOptions", "printIntro", "outputDirectory"]))
+        if len(commonElements) != 0:
+            self._error("Please remove {} attribute from the \"aeroSolverOptions\"".format(commonElements))
 
         ############ Checking directory
         if "directory" in userProvidedOptions:
@@ -535,12 +540,14 @@ class Aerodynamics():
             os.system("rm -r {}".format(directory))
             os.system("mkdir {}".format(directory))
 
-        for sampleNo in range(self.options["numberOfSamples"]):
-            os.system("mkdir {}/{}".format(directory,sampleNo))
-            pkgdir = sys.modules["datgen"].__path__[0]
-            filepath = os.path.join(pkgdir, "runscripts/runscript_aerodynamics.py")
-            shutil.copy(filepath, "{}/{}".format(directory,sampleNo))
-            os.system("cp -r {} {}/{}".format(self.options["aeroSolverOptions"]["gridFile"],directory,sampleNo))
+        if self.options["type"] == "multi":
+
+            for sampleNo in range(self.options["numberOfSamples"]):
+                os.system("mkdir {}/{}".format(directory,sampleNo))
+                pkgdir = sys.modules["datgen"].__path__[0]
+                filepath = os.path.join(pkgdir, "runscripts/runscript_aerodynamics.py")
+                shutil.copy(filepath, "{}/{}".format(directory,sampleNo))
+                os.system("cp -r {} {}/{}".format(self.options["aeroSolverOptions"]["gridFile"],directory,sampleNo))
 
     def _createInputFile(self):
         """
