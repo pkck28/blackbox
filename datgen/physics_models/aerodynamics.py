@@ -5,7 +5,6 @@ import sys
 import numpy as np
 from pyDOE2 import lhs, fullfact
 import pickle
-from pyroapi import optim
 from scipy.io import savemat
 import math
 
@@ -34,7 +33,6 @@ class Aerodynamics():
             "directory" : Folder name where the data.mat file will be saved (string, "output").
             "noOfProcessors" : Number of processors to use (integer, 4).
             "aeroSolver" : Name of the aerodynamics solver (string, "adflow").
-            "structSolver" : Name of the structural solver (string, "tacs").
         Compulsory: (.) shows datatype.
             "numberOfSamples" : number of samples to be generated (integer).
             "fixedParameters" : List of all the valid fixed parameters (list of strings).
@@ -42,6 +40,19 @@ class Aerodynamics():
             "lowerBound" : List of lower bound values for varying parameters (list of integers).
             "upperBound" : List of upper bound values for varying parameters (list of integers).
             "samplingMethod" : name of the sampling method ("lhs" or "fullfactorial") (string).
+            "objectives" : List of desired objectives in y (list of string).
+
+        For "single", following is the list of possible attributes:
+        
+        Optional: (.,.) shows datatype and defualt value respectively.
+            "directory" : Folder name where the analysis output will be saved (string, "additional_samples").
+            "noOfProcessors" : Number of processors to use (integer, 4).
+            "aeroSolver" : Name of the aerodynamics solver (string, "adflow").
+        Compulsory: (.) shows datatype.
+            "fixedParameters" : List of all the valid fixed parameters (list of strings).
+            "varyingParameters" : List of all the valid varying parameters (list of strings).
+            "lowerBound" : List of lower bound values for varying parameters (list of integers).
+            "upperBound" : List of upper bound values for varying parameters (list of integers).
             "objectives" : List of desired objectives in y (list of string).
     """
     

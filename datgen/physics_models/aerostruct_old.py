@@ -15,165 +15,51 @@ class DefaultOptions():
 
     def __init__(self):
 
+        # Setting up the design variable dict
+        self.designVariables = {}
+
+        # Sampling options
+        self.samplingMethod = "lhs"
+        self.numberOfSamples = 2
+
         # Solver Options
         self.aeroSolver = "adflow"
         self.structSolver = "tacs"
+        self.aeroSolverOptions = {}
+        self.structSolverOptions = {}
 
-        # Other options
-        self.directory = "output"
-        self.noOfProcessors = 4
-
-class AeroStruct():
-    """
-        Class contains essential methods for generating aero-struct data.
-        There are two values possible for type: "single" and "multi" (default). 
-        For "multi", following is the list of possible attributes:
-        
-        Optional: (.,.) shows datatype and defualt value respectively.
-            "directory" : Folder name where the data.mat file will be saved (string, "output").
-            "noOfProcessors" : Number of processors to use (integer, 4).
-            "aeroSolver" : Name of the aerodynamics solver (string, "adflow").
-            "structSolver" : Name of the structural solver (string, "tacs").
-        Compulsory: (.) shows datatype.
-            "numberOfSamples" : number of samples to be generated (integer).
-            "fixedParameters" : List of all the valid fixed parameters (list of strings).
-            "varyingParameters" : List of all the valid varying parameters (list of strings).
-            "lowerBound" : List of lower bound values for varying parameters (list of integers).
-            "upperBound" : List of upper bound values for varying parameters (list of integers).
-            "samplingMethod" : name of the sampling method ("lhs" or "fullfactorial") (string).
-            "objectives" : List of desired objectives in y (list of string).
-
-        For "single", following is the list of possible attributes:
-        
-        Optional: (.,.) shows datatype and defualt value respectively.
-            "directory" : Folder name where the analysis output will be saved (string, "additional_samples").
-            "noOfProcessors" : Number of processors to use (integer, 4).
-            "aeroSolver" : Name of the aerodynamics solver (string, "adflow").
-            "structSolver" : Name of the structural solver (string, "tacs").
-        Compulsory: (.) shows datatype.
-            "fixedParameters" : List of all the valid fixed parameters (list of strings).
-            "varyingParameters" : List of all the valid varying parameters (list of strings).
-            "lowerBound" : List of lower bound values for varying parameters (list of integers).
-            "upperBound" : List of upper bound values for varying parameters (list of integers).
-            "objectives" : List of desired objectives in y (list of string).
-    """
-
-    def __init__(self, type="multi", options=None):
-        # If 'options' is None, notify the user
-        if options is not None:
-            if not isinstance(options, dict):
-                self._error("The 'options' argument provided is not a dictionary.")
-            elif options == {}:
-                self._error("The 'options' argument provided is an empty dictionary.")
-        else:
-            self._error("Options argument not provided.")
-
-        if type == "multi":
-            self._setupMultiAnalysis(options)
-        elif type == "single":
-            self._setupSingleAnalysis(options)
-
-        else:
-            self._error("Value of type argument not recognized.")
-
-    def _setupMultiAnalysis(self, options):
-        """
-            Method to perform initialization when the type is "multi".
-        """
-
-        # Creating an empty options dictionary
-        self.options = {}
-        self.options["type"] = "multi"
-
-        # Setting up default options
-        self._getDefaultOptions()
-
-        # Validating user provided options
-        self._checkOptionsForMultiAnalysis(options)
-
-        # Setting some default solver options
-        self.options["aeroSolverOptions"] = {
+        if self.aeroSolver == "adflow":
+            self.aeroSolverOptions = {
                 "printAllOptions": False,
                 "printIntro": False,
                 "outputDirectory": "."
             }
+
+        self.directory = "output"
+
+class AeroStruct():
+
+    def __init__(self, options):
+        
+        # If 'options' is None, notify the user
+        if options is None:
+            self._error("The 'options' argument not provided.")
+        
+        # If 'options' is not a dictionary, notify the user
+        if not isinstance(options, dict):
+            self._error("The 'options' argument provided is not a dictionary.")
+
+        # Creating an empty options dictionary
+        self.options = {}
+
+        # Setting up default options
+        self._getDefaultOptions()
 
         # Updating/Appending the default option list with user provided options
         self._setOptions(options)
 
         # Setting up the folders for saving the results
         self._setDirectory()
-
-    def _checkOptionsForMultiAnalysis(self, options):
-        """
-            This method validates user provided options for type = "multi".
-        """
-
-        # Creating list of various different options
-        defaultOptions = list(self.options.keys())
-        requiredOptions = ["fixedParameters", "varyingParameters", "aeroObjectives", "structObjectives", \
-                            "numberOfSamples", "samplingMethod", "aeroSolverOptions", "structGridFile"]
-        allowedUserOptions = defaultOptions
-        allowedUserOptions.extend(requiredOptions)
-
-        userProvidedOptions = list(options.keys())
-
-        # Checking if user provided option contains only allowed attributes
-        if not set(userProvidedOptions).issubset(allowedUserOptions):
-            self._error("Option dictionary contains unrecognized attribute(s).")
-
-        # Checking if user has mentioned all the requried attributes
-        if not set(requiredOptions).issubset(userProvidedOptions):
-            self._error("Option dictionary doesn't contain all the requried options. \
-                        {} attribute(s) is/are missing.".format(set(requiredOptions) - set(userProvidedOptions)))
-
-        ############ Checking parameters
-        self._checkParameters(options)
-
-        ############ Checking objectives
-        self._checkObjectives(options)
-
-        ############ Checking numberOfSamples
-        if type(options["numberOfSamples"]) is not int:
-            self._error("\"numberOfSamples\" attribute is not an integer.")
-
-        # Setting minimum limit on number of samples
-        if options["numberOfSamples"] < 2:
-            self._error("Number of samples need to least 2.")
-
-        ############ Checking samplingMethod
-        if options["samplingMethod"] not in ["lhs", "fullfactorial"]:
-            self._error("\"samplingMethod\" attribute is not correct. \"lhs\" and \"fullfactorial\" are only allowed.")
-
-        ############ Checking aeroSolverOptions
-        if type(options["aeroSolverOptions"]) != dict:
-            self._error("\"aeroSolverOptions\" attribute is not a dictionary.")
-
-        # Checking for common elements between fixed and varying parameters
-        commonElements = set(options["aeroSolverOptions"].keys()).intersection(set(["printAllOptions", "printIntro", "outputDirectory"]))
-        if len(commonElements) != 0:
-            self._error("Please remove {} attribute from the \"aeroSolverOptions\"".format(commonElements))
-
-        ############ Checking structGridFile option
-        if type(options["structGridFile"]) == str:
-            self._error("\"structGridFile\" option is not a string.")
-
-        if not os.path.isfile(options["structGridFile"]):
-            self._error("{} file doesn't exists, please check".format(options["structGridFile"]))
-
-        ############ Checking directory
-        if "directory" in userProvidedOptions:
-            if type(options["directory"]) is not str:
-                self._error("\"directory\" attribute is not string.")
-
-        ############ Checking noOfProcessors
-        if "noOfProcessors" in userProvidedOptions:
-            if type(options["noOfProcessors"]) is not int:
-                self._error("\"noOfProcessors\" attribute is not an integer.")
-
-    # ----------------------------------------------------------------------------
-    #               All the methods for multi analysis
-    # ----------------------------------------------------------------------------
 
     def _getDefaultOptions(self):
         """
@@ -344,25 +230,6 @@ class AeroStruct():
             filehandler.close()
 
             os.chdir("../..")
-
-    # ----------------------------------------------------------------------------
-    #          Other required methods, irrespective of type of analysis.
-    # ----------------------------------------------------------------------------
-
-    def _checkObjectives(self, options):
-        """
-            Checking the objectives provided by the user
-        """
-
-        allowedAeroObjectives = ["cl", "cd", "lift", "drag"]
-        allowedStructObjectives = []
-
-        if type(options["objectives"]) == list:
-            if not set(options["objectives"]).issubset(allowedObjectives):
-                self._error("One or more objective(s) are not valid. Only these \
-                    objectives are supported: {}".format(allowedObjectives))
-        else:
-            self._error("\"objectives\" option is not a list.")
 
     def _error(self, message):
         """
