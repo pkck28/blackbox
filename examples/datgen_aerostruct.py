@@ -1,6 +1,6 @@
 from datgen import AeroStruct
 
-aeroOptions = {
+aeroSolverOptions = {
             # I/O Parameters
             "gridFile": "wing_vol.cgns",
             "monitorvariables": ["resrho", "mach", "cl", "cd"],
@@ -36,26 +36,37 @@ aeroOptions = {
             "forcesAsTractions": False, # Using MELD, If using RLT, then True
 }
 
-structOptions = {
-    "gridFile": "wingbox.bdf"
-}
-
-designVariables = {
-    "mach" : {
-        "lowerBound": 0.6,
-        "upperBound": 0.85
-    },
+varyingParameters = {
     "aoa" : {
         "lowerBound": 0,
-        "upperBound": 5
+        "upperBound": 10
+    },
+    "mach" : {
+        "lowerBound": 0.6,
+        "upperBound": 0.8
     }
 }
 
+fixedParameters = {
+    "altitude" : 10000, # in m
+    "areaRef" : 45.5, # in sq. m
+    "chordRef" : 3.25, # in m
+    # "aoa" : 2 # in deg
+}
+
+objectvies = ["cl", "cd"]
+
 options = {
-    "aeroSolverOptions": aeroOptions,
-    "structSolverOptions": structOptions,
-    "designVariables": designVariables,
-    "numberOfSamples": 2
+    "aeroSolverOptions": aeroSolverOptions,
+    "fixedParameters" : fixedParameters,
+    "varyingParameters" : varyingParameters,
+    "numberOfSamples": 2,
+    "directory" : "training_single",
+    "noOfProcessors" : 10,
+    "objectives" : objectvies,
+    "samplingMethod" : "lhs",
+    "structMeshFile" : "wingbox.bdf",
+    "structSolverSetupFile" : "tacsSetup.py"
 }
 
 test = AeroStruct(options=options)

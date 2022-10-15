@@ -194,6 +194,7 @@ class Aerodynamics():
 
             filehandler = open("output.pickle", 'rb')
             output = pickle.load(filehandler)
+            filehandler.close()
 
             for value in self.options["objectives"]:
                 y[value] = np.append(y[value], output[value])

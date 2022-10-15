@@ -3,9 +3,10 @@ import os
 import shutil
 import sys
 import numpy as np
-from pyDOE2 import lhs
+from pyDOE2 import lhs, fullfact
 import pickle
 from scipy.io import savemat
+import math
 
 class DefaultOptions():
     """
@@ -76,6 +77,10 @@ class AeroStruct():
         else:
             self._error("Value of type argument not recognized.")
 
+    # ----------------------------------------------------------------------------
+    #               All the methods for multi analysis
+    # ----------------------------------------------------------------------------
+
     def _setupMultiAnalysis(self, options):
         """
             Method to perform initialization when the type is "multi".
@@ -111,8 +116,10 @@ class AeroStruct():
 
         # Creating list of various different options
         defaultOptions = list(self.options.keys())
-        requiredOptions = ["fixedParameters", "varyingParameters", "aeroObjectives", "structObjectives", \
-                            "numberOfSamples", "samplingMethod", "aeroSolverOptions", "structGridFile"]
+        requiredOptions = ["fixedParameters", "varyingParameters", "objectives", \
+                            "numberOfSamples", "samplingMethod", "aeroSolverOptions", \
+                            "structMeshFile", "structSolverSetupFile"]
+        
         allowedUserOptions = defaultOptions
         allowedUserOptions.extend(requiredOptions)
 
@@ -130,7 +137,7 @@ class AeroStruct():
         ############ Checking parameters
         self._checkParameters(options)
 
-        ############ Checking objectives
+        ############ Checking aero-objectives
         self._checkObjectives(options)
 
         ############ Checking numberOfSamples
@@ -149,17 +156,26 @@ class AeroStruct():
         if type(options["aeroSolverOptions"]) != dict:
             self._error("\"aeroSolverOptions\" attribute is not a dictionary.")
 
-        # Checking for common elements between fixed and varying parameters
+        # Checking for not allowed solver aero solver options
         commonElements = set(options["aeroSolverOptions"].keys()).intersection(set(["printAllOptions", "printIntro", "outputDirectory"]))
         if len(commonElements) != 0:
             self._error("Please remove {} attribute from the \"aeroSolverOptions\"".format(commonElements))
 
         ############ Checking structGridFile option
-        if type(options["structGridFile"]) == str:
-            self._error("\"structGridFile\" option is not a string.")
+        if not type(options["structMeshFile"]) == str:
+            self._error("\"structMeshFile\" option is not a string.")
 
-        if not os.path.isfile(options["structGridFile"]):
-            self._error("{} file doesn't exists, please check".format(options["structGridFile"]))
+        # Checking if file actually exists.
+        if not os.path.isfile(options["structMeshFile"]):
+            self._error("{} file doesn't exists, please check".format(options["structMeshFile"]))
+
+        ############ Checking structSolverSetupFile option
+        if not type(options["structSolverSetupFile"]) == str:
+            self._error("\"structSolverSetupFile\" option is not a string.")
+
+        # Checking if file actually exists.
+        if not os.path.isfile(options["structSolverSetupFile"]):
+            self._error("{} file doesn't exists, please check".format(options["structSolverSetupFile"]))
 
         ############ Checking directory
         if "directory" in userProvidedOptions:
@@ -171,88 +187,27 @@ class AeroStruct():
             if type(options["noOfProcessors"]) is not int:
                 self._error("\"noOfProcessors\" attribute is not an integer.")
 
-    # ----------------------------------------------------------------------------
-    #               All the methods for multi analysis
-    # ----------------------------------------------------------------------------
-
-    def _getDefaultOptions(self):
-        """
-            Setting up the initial values of options which are common across all functions.
-        """
-        
-        defaultOptions = DefaultOptions()
-
-        for key in vars(defaultOptions):
-            value = getattr(defaultOptions, key)
-            self.options[key] = value
-
-    def _setOptions(self, options):
-        """
-            Method for assigning user provided options.
-            This method should be called only after checks.
-        """
-
-        # List of allowed design variables
-        dvlist = ["aoa", "mach"]
-
-        # Design variables checking and assignment
-        if "designVariables" not in options or type(options["designVariables"]) == {}:
-            self._error("Design variable option is not provided.")
-        
-        if type(options["designVariables"]) == dict:
-            if not set(options["designVariables"].keys()).issubset(set(dvlist)):
-                self._error("One or more design variable(s) is not recognized.")
-        else:
-            self._error("Design variable option is not a dictionary.")
-        
-        # Checking whether the provided option is valid
-        for key in options.keys():
-            # Checking whether the provided option is valid
-            if key in self.options.keys():
-                # If the value is dictionary, update the default dictionary.
-                # Otherwise, assign values.
-                if isinstance(options[key], dict): 
-                    self.options[key].update(options[key]) 
-                else:
-                    self.options[key] = options[key]
-            else:
-                self._error(key + " is not a valid option. Please remove/edit it.")
-
-    def _setDirectory(self):
-        """
-            Method for setting up directories for analysis
-        """
-
-        directory = self.options["directory"]
-
-        if not os.path.isdir(directory):
-            os.system("mkdir {}".format(directory))
-        else:
-            os.system("rm -r {}".format(directory))
-            os.system("mkdir {}".format(directory))
-
-        for sampleNo in range(self.options["numberOfSamples"]):
-            os.system("mkdir {}/{}".format(directory,sampleNo))
-            pkgdir = sys.modules["datgen"].__path__[0]
-            filepath = os.path.join(pkgdir, "runscripts/runscript_aerostruct.py")
-            shutil.copy(filepath, "{}/{}".format(directory,sampleNo))
-            os.system("cp -r {} {}/{}".format(self.options["aeroSolverOptions"]["gridFile"],directory,sampleNo))
-            os.system("cp -r {} {}/{}".format(self.options["structSolverOptions"]["gridFile"],directory,sampleNo))
-            os.system("cp -r {} {}/{}".format("tacsSetup.py",directory,sampleNo))
-
     def generateSamples(self):
         """
             Method to generate samples and save the data for further use.
         """
 
+        if self.options["type"] != "multi":
+            self._error("You can call generateSamples() method only when type is multi.")
+
         if self.options["samplingMethod"] == "lhs":
             self._lhs()
+        elif self.options["samplingMethod"] == "fullfactorial":
+            self._fullfactorial()
 
         self._createInputFile()
 
-        cl = np.array([])
-        cd = np.array([])
-        failure = np.array([])
+        y = {}
+
+        for value in self.options["objectives"]:
+            y[value] = np.array([])
+
+        y["failure"] = np.array([])
 
         for sampleNo in range(self.options["numberOfSamples"]):
             os.chdir("{}/{}".format(self.options["directory"],sampleNo))
@@ -265,19 +220,23 @@ class AeroStruct():
             output = pickle.load(filehandler)
             filehandler.close()
 
-            cl = np.append(cl, output["cl"])
-            cd = np.append(cd, output["cd"])
-            failure = np.append(cd, output["failure"])
+            for value in self.options["objectives"]:
+                y[value] = np.append(y[value], output[value])
 
-            os.system("rm -r output.pickle tacsSetup.py")
-            os.system("rm -r {} {}".format(self.options["aeroSolverOptions"]["gridFile"],
-                                                  self.options["structSolverOptions"]["gridFile"]))
+            y["failure"] = np.append(y["failure"], output["failure"])
+
+            os.system("rm -r output.pickle tacsSetup.py {} {}".format("grid.cgns", "mesh.bdf"))
             os.chdir("../..")
 
-        data = {'cl': cl, 'cd': cd, 'failure': failure}
+        for index, value in enumerate(self.options["objectives"]):
+            if index == 0:
+                Y = y[value].reshape(-1,1)
+                Y = np.concatenate((Y, y["failure"].reshape(-1,1)), axis=1)
+            else:
+                Y = np.concatenate((Y, y[value].reshape(-1,1)), axis=1)
+                Y = np.concatenate((Y, y["failure"].reshape(-1,1)), axis=1)
 
-        for key in self.samples:
-                data[key] = self.samples[key]
+        data = {'x' : self.x, 'y' : Y}
 
         os.chdir("{}".format(self.options["directory"]))
         savemat("data.mat", data)
@@ -286,6 +245,9 @@ class AeroStruct():
     def _lhs(self):
         """
             Method for creating a lhs sample.
+            Stores a 2D numpy array of size (samples vs  dimensions).
+            Each row represents a new sample and each column corresponds to
+            a particular design variable.
         """
 
         # lower and upper bound are created as numpy arrays and dummy is a normal list here.
@@ -294,13 +256,9 @@ class AeroStruct():
         dummy = np.array([])
         self.samples = {}
 
-        for key in self.options["designVariables"]:
-
-            if key == "aoa" or "mach":
-                lowerBound = np.append(lowerBound, self.options["designVariables"][key]["lowerBound"])
-                upperBound = np.append(upperBound, self.options["designVariables"][key]["upperBound"])
-            else:
-                self._error("Unrecognized design variable")
+        for key in self.options["varyingParameters"]:
+            lowerBound = np.append(lowerBound, self.options["varyingParameters"][key]["lowerBound"])
+            upperBound = np.append(upperBound, self.options["varyingParameters"][key]["upperBound"])
 
             self.samples[key] = np.array([])
             dummy = np.append(dummy, key)
@@ -309,12 +267,50 @@ class AeroStruct():
 
         samples = lhs(dim, samples=self.options["numberOfSamples"], criterion='cm', iterations=50)
 
-        samples = lowerBound + (upperBound - lowerBound) * samples
+        samples = lowerBound + samples * (upperBound - lowerBound)
+
+        self.x = samples
 
         for sampleNo in range(self.options["numberOfSamples"]):
             sample = samples[sampleNo,:]
 
-            for key in self.options["designVariables"]:
+            for key in self.options["varyingParameters"]:
+                self.samples[key] = np.append(self.samples[key], sample[(dummy == key)])
+
+    def _fullfactorial(self):
+        """
+            Method for creating a full-factorial sample.
+        """
+
+        # lower and upper bound are created as numpy arrays and dummy is a normal list here.
+        lowerBound = np.array([])
+        upperBound = np.array([])
+        dummy = np.array([])
+        self.samples = {}
+
+        for key in self.options["varyingParameters"]:
+            lowerBound = np.append(lowerBound, self.options["varyingParameters"][key]["lowerBound"])
+            upperBound = np.append(upperBound, self.options["varyingParameters"][key]["upperBound"])
+
+            self.samples[key] = np.array([])
+            dummy = np.append(dummy, key)
+
+        dim = len(lowerBound)
+
+        samplesInEachDimension = round(math.exp( math.log(self.options["numberOfSamples"]) / dim ))
+
+        print("{} full-factorial samples are generated".format(samplesInEachDimension**dim))
+
+        samples = fullfact([samplesInEachDimension]*dim)
+
+        samples = lowerBound + samples * (upperBound - lowerBound) / (samplesInEachDimension- 1)
+
+        self.x = samples
+
+        for sampleNo in range(self.options["numberOfSamples"]):
+            sample = samples[sampleNo,:]
+
+            for key in self.options["varyingParameters"]:
                 self.samples[key] = np.append(self.samples[key], sample[(dummy == key)])
 
     def _createInputFile(self):
@@ -349,13 +345,86 @@ class AeroStruct():
     #          Other required methods, irrespective of type of analysis.
     # ----------------------------------------------------------------------------
 
+    def _getDefaultOptions(self):
+        """
+            Setting up the initial values of options which are common across all functions.
+        """
+        
+        defaultOptions = DefaultOptions()
+
+        for key in vars(defaultOptions):
+            value = getattr(defaultOptions, key)
+            self.options[key] = value
+
+    def _checkParameters(self, options):
+        """
+            Method to check whether user provided correct parameters.
+        """
+
+        # Checking datatype of provided parameter option
+        if not type(options["varyingParameters"]) == dict:
+            self._error("\"varyingParameters\" option is not a dictionary.")
+        if not type(options["fixedParameters"]) == dict:
+            self._error("\"fixedParameters\" option is not a dictionary.")    
+
+        # Defining list of parameters
+        parameters = ["areaRef", "chordRef"]
+        varyingParameters = ["aoa", "mach", "altitude"]
+        parameters.extend(varyingParameters)
+
+        userVaryingParameters = options["varyingParameters"].keys()
+        userFixedParameters = options["fixedParameters"].keys()
+
+        # Checking if user provided correct verying parameters
+        if not set(userVaryingParameters).issubset(set(varyingParameters)):
+            self._error("\"varyingParameters\" dictionary contains attribute(s) which are not allowed vary. \
+                Only \"aoa\", \"mach\", \"altitude\" are allowed.")
+
+        # Checking for common elements between fixed and varying parameters
+        commonElements = set(userVaryingParameters).intersection(set(userFixedParameters))
+        if len(commonElements) != 0:
+            self._error("\"fixedParameters\" and \"varyingParameters\" dictionary contains common attributes.")
+
+        # Calculating list of requried fixed parameters
+        requiredFixedParameters = list(set(parameters) - set(userVaryingParameters))
+
+        # Checking if user provided all the requried fixed parameters based on the varying parameters
+        if not set(requiredFixedParameters) == set(userFixedParameters):
+            self._error("\"fixedParameters\" dictionary doesn't contain all the required attribute(s).\
+                {} attribute(s) is/are missing.".format(set(requiredFixedParameters) - set(userFixedParameters)))
+        
+        # Checking varyingParameter dictionary
+        for key in options["varyingParameters"]:
+            if type(options["varyingParameters"][key]) != dict:
+                self._error("Value of " + key + " in \"varyingParameters\" dictionary is not a dictionary.")
+            
+            if set(["lowerBound", "upperBoubnd"]) == set(options["varyingParameters"][key]):
+                self._error(key + " dictionary can only have \"lowerBound\" and \"upperBound\" attributes.")
+
+            lbType = type(options["varyingParameters"][key]["lowerBound"])
+            if lbType != int and lbType != float:
+                print(type(options["varyingParameters"][key]["lowerBound"]))
+                self._error("Value of \"lowerBound\" in " + key + " dictionary is not a number.")
+                
+            ubType = type(options["varyingParameters"][key]["upperBound"])
+            if ubType != int and ubType != float:
+                self._error("Value of \"upperBound\" in " + key + " dictionary is not a number.")
+
+            if not options["varyingParameters"][key]["upperBound"] > options["varyingParameters"][key]["lowerBound"]:
+                self._error("Value of upper bound in " + key + " dictionary is smaller or equal to lower bound.")
+
+        # Checking fixedParameter dictionary
+        for key in options["fixedParameters"]:
+            valueType = type(options["fixedParameters"][key])
+            if valueType != int and valueType != float:
+                self._error("Value of " + key + " in \"fixedParameters\" dictionary is not a number.")
+
     def _checkObjectives(self, options):
         """
             Checking the objectives provided by the user
         """
 
-        allowedAeroObjectives = ["cl", "cd", "lift", "drag"]
-        allowedStructObjectives = []
+        allowedObjectives = ["cl", "cd", "lift", "drag"]
 
         if type(options["objectives"]) == list:
             if not set(options["objectives"]).issubset(allowedObjectives):
@@ -363,6 +432,93 @@ class AeroStruct():
                     objectives are supported: {}".format(allowedObjectives))
         else:
             self._error("\"objectives\" option is not a list.")
+
+    def _setOptions(self, options):
+        """
+            Method for assigning user provided options.
+        """
+
+        for key in options.keys():
+            if isinstance(options[key], dict):
+                if key in self.options.keys():
+                    # If the value is dictionary, update the default dictionary.
+                    # Otherwise, assign values.
+                    self.options[key].update(options[key]) 
+                else:
+                    self.options[key] = options[key]
+            else:
+                self.options[key] = options[key]
+
+    def _setDirectory(self):
+        """
+            Method for setting up directories for analysis
+        """
+
+        directory = self.options["directory"]
+
+        if not os.path.isdir(directory):
+            os.system("mkdir {}".format(directory))
+        else:
+            os.system("rm -r {}".format(directory))
+            os.system("mkdir {}".format(directory))
+
+        if self.options["type"] == "multi":
+
+            for sampleNo in range(self.options["numberOfSamples"]):
+                os.system("mkdir {}/{}".format(directory,sampleNo))
+                pkgdir = sys.modules["datgen"].__path__[0]
+                filepath = os.path.join(pkgdir, "runscripts/runscript_aerostruct.py")
+                shutil.copy(filepath, "{}/{}".format(directory,sampleNo))
+                os.system("cp -r {} {}/{}/grid.cgns".format(self.options["aeroSolverOptions"]["gridFile"],directory,sampleNo))
+                os.system("cp -r {} {}/{}/mesh.bdf".format(self.options["structMeshFile"],directory,sampleNo))
+                os.system("cp -r {} {}/{}/tacsSetup.py".format(self.options["structSolverSetupFile"],directory,sampleNo))
+
+    def _createInputFile(self):
+        """
+            Method to create an input file for analysis
+        """
+
+        directory = self.options["directory"]
+
+        input = {}
+        sample = {}
+        parameters = self.options["fixedParameters"]
+        objectives = self.options["objectives"]
+
+        if self.options["type"] == "multi":
+            for sampleNo in range(self.options["numberOfSamples"]):
+                os.chdir("{}/{}".format(directory,sampleNo))
+
+                for key in self.samples:
+                    sample[key] = self.samples[key][sampleNo]
+
+                input = {
+                    "aeroSolverOptions" : self.options["aeroSolverOptions"],
+                    "sample" : sample,
+                    "parameters" : parameters,
+                    "objectives" : objectives
+                }
+
+                filehandler = open("input.pickle", "xb")
+                pickle.dump(input, filehandler)
+                filehandler.close()
+                os.chdir("../..")
+
+        elif self.options["type"] == "single":
+            os.chdir("{}/{}".format(directory, self.sampleNo))
+
+            input = {
+                "aeroSolverOptions" : self.options["aeroSolverOptions"],
+                "sample" : self.samples,
+                "parameters" : parameters,
+                "objectives" : objectives
+            }
+
+            filehandler = open("input.pickle", "xb")
+            pickle.dump(input, filehandler)
+            filehandler.close()
+
+            os.chdir("../..")
 
     def _error(self, message):
         """

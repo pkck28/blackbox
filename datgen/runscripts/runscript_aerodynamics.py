@@ -23,6 +23,7 @@ class Top(Multipoint):
             Method used to set various parameters need by openmdao model.
         """
 
+        # Reading input file for the analysis
         filehandler = open("input.pickle", 'rb') 
         input = pickle.load(filehandler)
         filehandler.close()
@@ -37,6 +38,7 @@ class Top(Multipoint):
 
     def setup(self):
 
+        # Initialize the aerodynamics solver using builder class object
         adflow_builder = ADflowBuilder(self.aero_options, scenario="aerodynamic")
         adflow_builder.initialize(self.comm)
 
@@ -46,6 +48,7 @@ class Top(Multipoint):
         # IVC to keep the top level DVs
         self.add_subsystem("dvs", om.IndepVarComp(), promotes=["*"])
 
+        # Adding design variables in the design variable IVC
         if "aoa" in self.sample.keys():
             self.dvs.add_output("aoa", val=self.sample["aoa"], units="deg")
         if "mach" in self.sample.keys():
@@ -86,6 +89,7 @@ class Top(Multipoint):
         # Assigning objectives obtained from user
         evalFuncs = self.objectives
 
+        # Defining aero-problem for adflow
         aero_problem = AeroProblem(
             name="ap",
             mach=mach,
@@ -146,3 +150,4 @@ if prob.model.comm.rank == 0:
     
     filehandler = open("output.pickle", "xb")
     pickle.dump(output, filehandler)
+    filehandler.close()
