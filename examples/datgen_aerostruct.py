@@ -39,11 +39,11 @@ aeroSolverOptions = {
 varyingParameters = {
     "aoa" : {
         "lowerBound": 0,
-        "upperBound": 10
+        "upperBound": 5
     },
     "mach" : {
         "lowerBound": 0.6,
-        "upperBound": 0.8
+        "upperBound": 0.9
     }
 }
 
@@ -65,8 +65,8 @@ options = {
     "noOfProcessors" : 10,
     "objectives" : objectvies,
     "samplingMethod" : "lhs",
-    "structMeshFile" : "wingbox.bdf",
-    "structSolverSetupFile" : "tacsSetup.py"
+    "structMeshFile" : "structuralMesh.bdf",
+    "structSolverSetupFile" : "structuralSolverSetup.py"
 }
 
 test = AeroStruct(options=options)

@@ -35,7 +35,7 @@ def problem_setup(scenario_name, fea_assembler, problem):
     """
     # Add TACS Functions
     # Only include mass from elements that belong to pytacs components (i.e. skip concentrated masses)
-    problem.addFunction("mass", functions.StructuralMass)
+    # problem.addFunction("mass", functions.StructuralMass)
     problem.addFunction("ks_vmfailure", functions.KSFailure, safetyFactor=1.0, ksWeight=50.0)
 
     # Add gravity load
