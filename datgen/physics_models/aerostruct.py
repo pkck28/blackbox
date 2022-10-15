@@ -204,10 +204,10 @@ class AeroStruct():
 
         y = {}
 
-        for value in self.options["objectives"]:
-            y[value] = np.array([])
+        # for value in self.options["objectives"]:
+        #     y[value] = np.array([])
 
-        y["failure"] = np.array([])
+        # y["failure"] = np.array([])
 
         for sampleNo in range(self.options["numberOfSamples"]):
             os.chdir("{}/{}".format(self.options["directory"],sampleNo))
@@ -220,21 +220,21 @@ class AeroStruct():
             output = pickle.load(filehandler)
             filehandler.close()
 
-            for value in self.options["objectives"]:
+            for value in output.keys():
+                if sampleNo == 0:
+                    y[value] = np.array([])
                 y[value] = np.append(y[value], output[value])
 
-            y["failure"] = np.append(y["failure"], output["failure"])
+            # y["failure"] = np.append(y["failure"], output["failure"])
 
             os.system("rm -r output.pickle tacsSetup.py {} {}".format("grid.cgns", "mesh.bdf"))
             os.chdir("../..")
 
-        for index, value in enumerate(self.options["objectives"]):
+        for index, value in enumerate(output.keys()):
             if index == 0:
                 Y = y[value].reshape(-1,1)
-                Y = np.concatenate((Y, y["failure"].reshape(-1,1)), axis=1)
             else:
                 Y = np.concatenate((Y, y[value].reshape(-1,1)), axis=1)
-                Y = np.concatenate((Y, y["failure"].reshape(-1,1)), axis=1)
 
         data = {'x' : self.x, 'y' : Y}
 
@@ -313,33 +313,121 @@ class AeroStruct():
             for key in self.options["varyingParameters"]:
                 self.samples[key] = np.append(self.samples[key], sample[(dummy == key)])
 
-    def _createInputFile(self):
+    # ----------------------------------------------------------------------------
+    #               All the methods for multi analysis
+    # ----------------------------------------------------------------------------
+
+    def _setupSingleAnalysis(self, options):
         """
-            Method to create an input file for analysis
+            Method to perform initialization when the type is "single".
         """
 
-        directory = self.options["directory"]
+        # Creating an empty options dictionary
+        self.options = {}
+        self.options["type"] = "single"
 
-        for sampleNo in range(self.options["numberOfSamples"]):
-            os.chdir("{}/{}".format(directory,sampleNo))
+        # Setting up default options
+        self._getDefaultOptions()
 
-            input = {}
-            sample = {}
+        # Changing default directory value for single analysis
+        self.options["directory"] = "additional_samples"
 
-            for key in self.samples:
-                sample[key] = self.samples[key][sampleNo]
+        # Sample Number under current instantiation
+        self.sampleNo = 0
 
-            input = {
-                "aeroSolverOptions" : self.options["aeroSolverOptions"],
-                "structSolverOptions" : self.options["structSolverOptions"],
-                "sample" : sample
+        # Validating user provided options
+        self._checkOptionsForSingleAnalysis(options)
+
+        # Setting some default solver options
+        self.options["aeroSolverOptions"] = {
+                "printAllOptions": False,
+                "printIntro": False,
+                "outputDirectory": "."
             }
 
-            filehandler = open("input.pickle", "xb")
-            pickle.dump(input, filehandler)
-            filehandler.close()
+        # Updating/Appending the default option list with user provided options
+        self._setOptions(options)
 
-            os.chdir("../..")
+        # Setting up the folders for saving the results
+        self._setDirectory()
+
+    def _checkOptionsForSingleAnalysis(self, options):
+        """
+            This method validates user provided options for type = "single".
+        """
+
+        # Creating list of various different options
+        defaultOptions = list(self.options.keys())
+        requiredOptions = ["fixedParameters", "varyingParameters", "objectives", \
+                            "numberOfSamples", "samplingMethod", "aeroSolverOptions", \
+                            "structMeshFile", "structSolverSetupFile"]
+        
+        allowedUserOptions = defaultOptions
+        allowedUserOptions.extend(requiredOptions)
+
+        userProvidedOptions = list(options.keys())
+
+        # Checking if user provided option contains only allowed attributes
+        if not set(userProvidedOptions).issubset(allowedUserOptions):
+            self._error("Option dictionary contains unrecognized attribute(s).")
+
+        # Checking if user has mentioned all the requried attributes
+        if not set(requiredOptions).issubset(userProvidedOptions):
+            self._error("Option dictionary doesn't contain all the requried options. \
+                        {} attribute(s) is/are missing.".format(set(requiredOptions) - set(userProvidedOptions)))
+
+        ############ Checking parameters
+        self._checkParameters(options)
+
+        ############ Checking aero-objectives
+        self._checkObjectives(options)
+
+        ############ Checking numberOfSamples
+        if type(options["numberOfSamples"]) is not int:
+            self._error("\"numberOfSamples\" attribute is not an integer.")
+
+        # Setting minimum limit on number of samples
+        if options["numberOfSamples"] < 2:
+            self._error("Number of samples need to least 2.")
+
+        ############ Checking samplingMethod
+        if options["samplingMethod"] not in ["lhs", "fullfactorial"]:
+            self._error("\"samplingMethod\" attribute is not correct. \"lhs\" and \"fullfactorial\" are only allowed.")
+
+        ############ Checking aeroSolverOptions
+        if type(options["aeroSolverOptions"]) != dict:
+            self._error("\"aeroSolverOptions\" attribute is not a dictionary.")
+
+        # Checking for not allowed solver aero solver options
+        commonElements = set(options["aeroSolverOptions"].keys()).intersection(set(["printAllOptions", "printIntro", "outputDirectory"]))
+        if len(commonElements) != 0:
+            self._error("Please remove {} attribute from the \"aeroSolverOptions\"".format(commonElements))
+
+        ############ Checking structGridFile option
+        if not type(options["structMeshFile"]) == str:
+            self._error("\"structMeshFile\" option is not a string.")
+
+        # Checking if file actually exists.
+        if not os.path.isfile(options["structMeshFile"]):
+            self._error("{} file doesn't exists, please check".format(options["structMeshFile"]))
+
+        ############ Checking structSolverSetupFile option
+        if not type(options["structSolverSetupFile"]) == str:
+            self._error("\"structSolverSetupFile\" option is not a string.")
+
+        # Checking if file actually exists.
+        if not os.path.isfile(options["structSolverSetupFile"]):
+            self._error("{} file doesn't exists, please check".format(options["structSolverSetupFile"]))
+
+        ############ Checking directory
+        if "directory" in userProvidedOptions:
+            if type(options["directory"]) is not str:
+                self._error("\"directory\" attribute is not string.")
+
+        ############ Checking noOfProcessors
+        if "noOfProcessors" in userProvidedOptions:
+            if type(options["noOfProcessors"]) is not int:
+                self._error("\"noOfProcessors\" attribute is not an integer.")
 
     # ----------------------------------------------------------------------------
     #          Other required methods, irrespective of type of analysis.

@@ -199,9 +199,17 @@ if prob.model.comm.rank == 0:
         if "drag" == value:
             print("drag = ", prob["scenario.aero_post.drag"])
             output["drag"] = prob["scenario.aero_post.drag"]
+        if prob["scenario.struct_post.eval_funcs.ks_vmfailure"]:
+            print("failure = ", prob["scenario.struct_post.eval_funcs.ks_vmfailure"])
+            output["failure"] = prob["scenario.struct_post.eval_funcs.ks_vmfailure"]
+        if prob["scenario.struct_post.mass_funcs.mass"]:
+            print("mass = ", prob["scenario.struct_post.mass_funcs.mass"])
+            output["mass"] = prob["scenario.struct_post.mass_funcs.mass"]
 
-    print("failure = ", prob["scenario.struct_post.eval_funcs.ks_vmfailure"])
-    output["failure"] = prob["scenario.struct_post.eval_funcs.ks_vmfailure"]
+    # print(prob.model.list_outputs(val=False))
+    # print(type(prob.model.list_outputs(val=False)))
+    # print("ks_vmfailure" in prob.model.list_outputs(val=False))
+    # print("mass" in prob.model.list_outputs(val=False))
     
     filehandler = open("output.pickle", "xb")
     pickle.dump(output, filehandler)
