@@ -204,31 +204,28 @@ class AeroStruct():
 
         y = {}
 
-        # for value in self.options["objectives"]:
-        #     y[value] = np.array([])
-
-        # y["failure"] = np.array([])
-
         for sampleNo in range(self.options["numberOfSamples"]):
             os.chdir("{}/{}".format(self.options["directory"],sampleNo))
             print("Running analysis {} of {}".format(sampleNo + 1, self.options["numberOfSamples"]))
-            os.system("mpirun -n 10 python runscript_aerostruct.py >> log.txt")
+
+            os.system("mpirun -n {} --use-hwthread-cpus python runscript_aerostruct.py >> log.txt".format(self.options["noOfProcessors"]))
             os.system("f5totec scenario_000.f5")
-            os.system("rm -r input.pickle runscript_aerostruct.py reports")
+            os.system("mv scenario_000.plt struct_analysis_result.plt")
+            os.system("mv asp_000_surf.plt aero_analysis_result.plt")
+            os.system("rm -r input.pickle runscript_aerostruct.py reports\
+                         tacsSetup.py grid.cgns mesh.bdf scenario_000.f5")
 
             filehandler = open("output.pickle", 'rb')
             output = pickle.load(filehandler)
             filehandler.close()
 
+            os.system("rm -r output.pickle")
+            os.chdir("../..")
+
             for value in output.keys():
                 if sampleNo == 0:
                     y[value] = np.array([])
                 y[value] = np.append(y[value], output[value])
-
-            # y["failure"] = np.append(y["failure"], output["failure"])
-
-            os.system("rm -r output.pickle tacsSetup.py {} {}".format("grid.cgns", "mesh.bdf"))
-            os.chdir("../..")
 
         for index, value in enumerate(output.keys()):
             if index == 0:

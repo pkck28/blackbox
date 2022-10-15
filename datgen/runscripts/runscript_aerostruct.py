@@ -185,6 +185,14 @@ prob.run_model()
 if prob.model.comm.rank == 0:
 
     output = {}
+    
+    for value in prob.model.list_outputs(val=False, out_stream=None):
+        if value[0] == "scenario.struct_post.eval_funcs.ks_vmfailure":
+            prob.model.objectives.append("failure")
+        if value[0] == "scenario.struct_post.mass_funcs.mass":
+            prob.model.objectives.append("mass")
+
+    print(prob.get_val("mesh_struct.fea_mesh.x_struct0", get_remote=False))
 
     for value in prob.model.objectives:
         if "cl" == value:
@@ -199,17 +207,12 @@ if prob.model.comm.rank == 0:
         if "drag" == value:
             print("drag = ", prob["scenario.aero_post.drag"])
             output["drag"] = prob["scenario.aero_post.drag"]
-        if prob["scenario.struct_post.eval_funcs.ks_vmfailure"]:
+        if "failure" == value:
             print("failure = ", prob["scenario.struct_post.eval_funcs.ks_vmfailure"])
             output["failure"] = prob["scenario.struct_post.eval_funcs.ks_vmfailure"]
-        if prob["scenario.struct_post.mass_funcs.mass"]:
+        if "mass" == value:
             print("mass = ", prob["scenario.struct_post.mass_funcs.mass"])
             output["mass"] = prob["scenario.struct_post.mass_funcs.mass"]
-
-    # print(prob.model.list_outputs(val=False))
-    # print(type(prob.model.list_outputs(val=False)))
-    # print("ks_vmfailure" in prob.model.list_outputs(val=False))
-    # print("mass" in prob.model.list_outputs(val=False))
     
     filehandler = open("output.pickle", "xb")
     pickle.dump(output, filehandler)

@@ -183,24 +183,25 @@ class Aerodynamics():
 
         y = {}
 
-        for value in self.options["objectives"]:
-            y[value] = np.array([])
-
         for sampleNo in range(self.options["numberOfSamples"]):
             os.chdir("{}/{}".format(self.options["directory"],sampleNo))
             print("Running analysis {} of {}".format(sampleNo + 1, self.options["numberOfSamples"]))
+
             os.system("mpirun -n {} --use-hwthread-cpus python runscript_aerodynamics.py >> log.txt".format(self.options["noOfProcessors"]))
+
             os.system("rm -r input.pickle runscript_aerodynamics.py reports")
 
             filehandler = open("output.pickle", 'rb')
             output = pickle.load(filehandler)
             filehandler.close()
 
-            for value in self.options["objectives"]:
-                y[value] = np.append(y[value], output[value])
-
             os.system("rm -r output.pickle {}".format(self.options["aeroSolverOptions"]["gridFile"]))
             os.chdir("../..")
+
+            for value in self.options["objectives"]:
+                if sampleNo == 0:
+                    y[value] = np.array([])
+                y[value] = np.append(y[value], output[value])
 
         for index, value in enumerate(self.options["objectives"]):
             if index == 0:
@@ -397,25 +398,26 @@ class Aerodynamics():
         pkgdir = sys.modules["datgen"].__path__[0]
         filepath = os.path.join(pkgdir, "runscripts/runscript_aerodynamics.py")
         shutil.copy(filepath, "{}/{}".format(directory, self.sampleNo))
-        os.system("cp -r {} {}/{}".format(self.options["aeroSolverOptions"]["gridFile"], directory, self.sampleNo))
+        os.system("cp -r {} {}/{}/grid.cgns".format(self.options["aeroSolverOptions"]["gridFile"], directory, self.sampleNo))
 
         # Changing directory and running the analysis
         os.chdir("{}/{}".format(self.options["directory"], self.sampleNo))
         print("Running analysis {}".format(self.sampleNo))
         os.system("mpirun -n {} --use-hwthread-cpus python runscript_aerodynamics.py >> log.txt".format(self.options["noOfProcessors"]))
+        os.system("mv ap_000_surf.plt aero_analysis_result.plt")
 
         # Cleaning up the analysis directory
-        os.system("rm -r input.pickle runscript_aerodynamics.py reports")
+        os.system("rm -r input.pickle runscript_aerodynamics.py reports grid.cgns")
 
         filehandler = open("output.pickle", 'rb')
         output = pickle.load(filehandler)
         y = []
 
+        os.system("rm -r output.pickle")
+        os.chdir("../..")
+
         for value in self.options["objectives"]:
             y.append(output[value][0])
-
-        os.system("rm -r output.pickle {}".format(self.options["aeroSolverOptions"]["gridFile"]))
-        os.chdir("../..")
 
         self.sampleNo = self.sampleNo + 1
 
@@ -559,7 +561,7 @@ class Aerodynamics():
                 pkgdir = sys.modules["datgen"].__path__[0]
                 filepath = os.path.join(pkgdir, "runscripts/runscript_aerodynamics.py")
                 shutil.copy(filepath, "{}/{}".format(directory,sampleNo))
-                os.system("cp -r {} {}/{}".format(self.options["aeroSolverOptions"]["gridFile"],directory,sampleNo))
+                os.system("cp -r {} {}/{}/grid.cgns".format(self.options["aeroSolverOptions"]["gridFile"],directory,sampleNo))
 
     def _createInputFile(self):
         """

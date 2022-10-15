@@ -29,6 +29,7 @@ class Top(Multipoint):
         filehandler.close()
 
         self.aero_options = input["aeroSolverOptions"]
+        self.aero_options["gridFile"] = "grid.cgns"
 
         self.sample = input["sample"]
 
