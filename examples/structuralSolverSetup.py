@@ -8,6 +8,7 @@ nu = 0.33  # poisson's ratio
 kcorr = 5.0 / 6.0  # shear correction factor
 ys = 324.0e6  # yield stress, Pa
 
+
 # Shell thickness
 t = 0.003  # m
 tMin = 0.002  # m
@@ -30,8 +31,8 @@ def element_callback(dvNum, compID, compDescript, elemDescripts, specialDVs, **k
 
 def problem_setup(scenario_name, fea_assembler, problem):
     """
-    Helper function to add fixed forces and eval functions
-    to structural problems used in tacs builder
+        Helper function to add fixed forces and eval functions
+        to structural problems used in tacs builder.
     """
     # Add TACS Functions
     # Only include mass from elements that belong to pytacs components (i.e. skip concentrated masses)

@@ -56,32 +56,32 @@ options = {
     "aeroSolverOptions": aeroSolverOptions,
     "fixedParameters" : fixedParameters,
     "varyingParameters" : varyingParameters,
-    # "numberOfSamples": 5,
-    "directory" : "training_single",
+    "numberOfSamples": 5,
+    "directory" : "aero_training_multi",
     "noOfProcessors" : 10,
     "objectives" : objectvies,
-    # "samplingMethod" : "lhs"
+    "samplingMethod" : "lhs"
 }
 
-test = Aerodynamics(type="single", options=options)
-
-# start = time.time()
-# test.generateSamples()
-# end = time.time()
-
-# print(end-start + " seconds")
+test = Aerodynamics(options=options)
 
 start = time.time()
-
-sample = [2, 0.8]
-print(test.getObjectives(sample))
-
-sample = [3, 0.7]
-print(test.getObjectives(sample))
-
-sample = [0, 0.9]
-print(test.getObjectives(sample))
-
+test.generateSamples()
 end = time.time()
 
 print(str(end-start) + " seconds")
+
+# start = time.time()
+
+# sample = [2, 0.8]
+# print(test.getObjectives(sample))
+
+# sample = [3, 0.7]
+# print(test.getObjectives(sample))
+
+# sample = [0, 0.9]
+# print(test.getObjectives(sample))
+
+# end = time.time()
+
+# print(str(end-start) + " seconds")

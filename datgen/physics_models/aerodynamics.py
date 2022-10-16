@@ -35,12 +35,11 @@ class Aerodynamics():
             "aeroSolver" : Name of the aerodynamics solver (string, "adflow").
         Compulsory: (.) shows datatype.
             "numberOfSamples" : number of samples to be generated (integer).
-            "fixedParameters" : List of all the valid fixed parameters (list of strings).
-            "varyingParameters" : List of all the valid varying parameters (list of strings).
-            "lowerBound" : List of lower bound values for varying parameters (list of integers).
-            "upperBound" : List of upper bound values for varying parameters (list of integers).
+            "fixedParameters" : Dictionary of all the valid fixed parameters (dict).
+            "varyingParameters" : Dictionary of all the valid varying parameters (dict).
             "samplingMethod" : name of the sampling method ("lhs" or "fullfactorial") (string).
             "objectives" : List of desired objectives in y (list of string).
+            "aeroSolverOptions" : Dictionary of containing various ADflow options (dict).
 
         For "single", following is the list of possible attributes:
         
@@ -49,11 +48,10 @@ class Aerodynamics():
             "noOfProcessors" : Number of processors to use (integer, 4).
             "aeroSolver" : Name of the aerodynamics solver (string, "adflow").
         Compulsory: (.) shows datatype.
-            "fixedParameters" : List of all the valid fixed parameters (list of strings).
-            "varyingParameters" : List of all the valid varying parameters (list of strings).
-            "lowerBound" : List of lower bound values for varying parameters (list of integers).
-            "upperBound" : List of upper bound values for varying parameters (list of integers).
+            "fixedParameters" : Dictionary of all the valid fixed parameters (dict).
+            "varyingParameters" : Dictionary of all the valid varying parameters (dict).
             "objectives" : List of desired objectives in y (list of string).
+            "aeroSolverOptions" : Dictionary of containing various ADflow options (dict).
     """
     
     def __init__(self, type="multi", options=None):
@@ -188,14 +186,14 @@ class Aerodynamics():
             print("Running analysis {} of {}".format(sampleNo + 1, self.options["numberOfSamples"]))
 
             os.system("mpirun -n {} --use-hwthread-cpus python runscript_aerodynamics.py >> log.txt".format(self.options["noOfProcessors"]))
-
-            os.system("rm -r input.pickle runscript_aerodynamics.py reports")
+            os.system("mv ap_000_surf.plt aero_analysis_result.plt")
+            os.system("rm -r input.pickle runscript_aerodynamics.py reports grid.cgns")
 
             filehandler = open("output.pickle", 'rb')
             output = pickle.load(filehandler)
             filehandler.close()
 
-            os.system("rm -r output.pickle {}".format(self.options["aeroSolverOptions"]["gridFile"]))
+            os.system("rm -r output.pickle")
             os.chdir("../..")
 
             for value in self.options["objectives"]:
@@ -411,12 +409,14 @@ class Aerodynamics():
 
         filehandler = open("output.pickle", 'rb')
         output = pickle.load(filehandler)
-        y = []
+        filehandler.close()
 
         os.system("rm -r output.pickle")
         os.chdir("../..")
 
-        for value in self.options["objectives"]:
+        y = []
+
+        for value in output:
             y.append(output[value][0])
 
         self.sampleNo = self.sampleNo + 1

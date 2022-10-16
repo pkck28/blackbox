@@ -1,4 +1,5 @@
 from datgen import AeroStruct
+import time
 
 aeroSolverOptions = {
             # I/O Parameters
@@ -60,15 +61,34 @@ options = {
     "aeroSolverOptions": aeroSolverOptions,
     "fixedParameters" : fixedParameters,
     "varyingParameters" : varyingParameters,
-    "numberOfSamples": 2,
+    # "numberOfSamples": 2,
     "directory" : "training_single",
     "noOfProcessors" : 10,
     "objectives" : objectvies,
-    "samplingMethod" : "lhs",
+    # "samplingMethod" : "lhs",
     "structMeshFile" : "structuralMesh.bdf",
     "structSolverSetupFile" : "structuralSolverSetup.py"
 }
 
-test = AeroStruct(options=options)
+test = AeroStruct(type="single", options=options)
 
-test.generateSamples()
+# start = time.time()
+# test.generateSamples()
+# end = time.time()
+
+# print(end-start + " seconds")
+
+start = time.time()
+
+sample = [2, 0.8]
+print(test.getObjectives(sample))
+
+sample = [3, 0.7]
+print(test.getObjectives(sample))
+
+sample = [0, 0.9]
+print(test.getObjectives(sample))
+
+end = time.time()
+
+print(str(end-start) + " seconds")

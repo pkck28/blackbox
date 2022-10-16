@@ -28,6 +28,7 @@ class AeroStruct():
     """
         Class contains essential methods for generating aero-struct data.
         There are two values possible for type: "single" and "multi" (default). 
+
         For "multi", following is the list of possible attributes:
         
         Optional: (.,.) shows datatype and defualt value respectively.
@@ -37,12 +38,13 @@ class AeroStruct():
             "structSolver" : Name of the structural solver (string, "tacs").
         Compulsory: (.) shows datatype.
             "numberOfSamples" : number of samples to be generated (integer).
-            "fixedParameters" : List of all the valid fixed parameters (list of strings).
-            "varyingParameters" : List of all the valid varying parameters (list of strings).
-            "lowerBound" : List of lower bound values for varying parameters (list of integers).
-            "upperBound" : List of upper bound values for varying parameters (list of integers).
+            "fixedParameters" : Dictionary of all the valid fixed parameters (dict).
+            "varyingParameters" : Dictionary of all the valid varying parameters (dict).
             "samplingMethod" : name of the sampling method ("lhs" or "fullfactorial") (string).
-            "objectives" : List of desired objectives in y (list of string).
+            "objectives" : List of desired aero-objectives in y (list of string).
+            "aeroSolverOptions" : Dictionary of containing various ADflow options (dict).
+            "structMeshFile" : Name of the structural mesh file (string).
+            "structSolverSetupFile" : Name of the structural solver setup file for TACS (string).
 
         For "single", following is the list of possible attributes:
         
@@ -52,11 +54,12 @@ class AeroStruct():
             "aeroSolver" : Name of the aerodynamics solver (string, "adflow").
             "structSolver" : Name of the structural solver (string, "tacs").
         Compulsory: (.) shows datatype.
-            "fixedParameters" : List of all the valid fixed parameters (list of strings).
-            "varyingParameters" : List of all the valid varying parameters (list of strings).
-            "lowerBound" : List of lower bound values for varying parameters (list of integers).
-            "upperBound" : List of upper bound values for varying parameters (list of integers).
-            "objectives" : List of desired objectives in y (list of string).
+            "fixedParameters" : Dictionary of all the valid fixed parameters (dict).
+            "varyingParameters" : Dictionary of all the valid varying parameters (dict).
+            "objectives" : List of desired aero-objectives in y (list of string).
+            "aeroSolverOptions" : Dictionary of containing various ADflow options (dict).
+            "structMeshFile" : Name of the structural mesh file (string).
+            "structSolverSetupFile" : Name of the structural solver setup file for TACS (string).
     """
 
     def __init__(self, type="multi", options=None):
@@ -311,7 +314,7 @@ class AeroStruct():
                 self.samples[key] = np.append(self.samples[key], sample[(dummy == key)])
 
     # ----------------------------------------------------------------------------
-    #               All the methods for multi analysis
+    #               All the methods for single analysis
     # ----------------------------------------------------------------------------
 
     def _setupSingleAnalysis(self, options):
@@ -356,8 +359,7 @@ class AeroStruct():
         # Creating list of various different options
         defaultOptions = list(self.options.keys())
         requiredOptions = ["fixedParameters", "varyingParameters", "objectives", \
-                            "numberOfSamples", "samplingMethod", "aeroSolverOptions", \
-                            "structMeshFile", "structSolverSetupFile"]
+                            "aeroSolverOptions", "structMeshFile", "structSolverSetupFile"]
         
         allowedUserOptions = defaultOptions
         allowedUserOptions.extend(requiredOptions)
@@ -378,18 +380,6 @@ class AeroStruct():
 
         ############ Checking aero-objectives
         self._checkObjectives(options)
-
-        ############ Checking numberOfSamples
-        if type(options["numberOfSamples"]) is not int:
-            self._error("\"numberOfSamples\" attribute is not an integer.")
-
-        # Setting minimum limit on number of samples
-        if options["numberOfSamples"] < 2:
-            self._error("Number of samples need to least 2.")
-
-        ############ Checking samplingMethod
-        if options["samplingMethod"] not in ["lhs", "fullfactorial"]:
-            self._error("\"samplingMethod\" attribute is not correct. \"lhs\" and \"fullfactorial\" are only allowed.")
 
         ############ Checking aeroSolverOptions
         if type(options["aeroSolverOptions"]) != dict:
@@ -425,6 +415,78 @@ class AeroStruct():
         if "noOfProcessors" in userProvidedOptions:
             if type(options["noOfProcessors"]) is not int:
                 self._error("\"noOfProcessors\" attribute is not an integer.")
+
+    def getObjectives(self, user_sample):
+        """
+            Method for running a single sample analysis.
+        """
+
+        directory = self.options["directory"]
+
+        # Checking whether the type is consistent
+        if self.options["type"] != "single":
+            self._error("You can run getObjectives() method only when type is single.")
+
+        if type(user_sample) != list:
+            self._error("Sample provided by user is not a list")
+
+        if len(user_sample) != len(self.options["varyingParameters"].keys()):
+            self._error("No of values provided by user is not matching the number of design variables.")
+
+        # Creating new directory for the analysis
+        os.system("mkdir {}/{}".format(directory, self.sampleNo))
+
+        # Setting up sample variable for single analysis
+        self._createSample(user_sample)
+        
+        # Creating input file for single analysis
+        self._createInputFile()
+
+        # Pasting essential files in the directory for running directory
+        pkgdir = sys.modules["datgen"].__path__[0]
+        filepath = os.path.join(pkgdir, "runscripts/runscript_aerostruct.py")
+        shutil.copy(filepath, "{}/{}".format(directory, self.sampleNo))
+        os.system("cp -r {} {}/{}/grid.cgns".format(self.options["aeroSolverOptions"]["gridFile"], directory, self.sampleNo))
+        os.system("cp -r {} {}/{}/mesh.bdf".format(self.options["structMeshFile"],directory, self.sampleNo))
+        os.system("cp -r {} {}/{}/tacsSetup.py".format(self.options["structSolverSetupFile"],directory, self.sampleNo))
+
+        # Changing directory and running the analysis
+        os.chdir("{}/{}".format(self.options["directory"], self.sampleNo))
+        print("Running analysis {}".format(self.sampleNo))
+        os.system("mpirun -n {} --use-hwthread-cpus python runscript_aerostruct.py >> log.txt".format(self.options["noOfProcessors"]))
+        os.system("f5totec scenario_000.f5")
+        os.system("mv scenario_000.plt struct_analysis_result.plt")
+        os.system("mv asp_000_surf.plt aero_analysis_result.plt")
+
+        # Cleaning up the analysis directory
+        os.system("rm -r input.pickle runscript_aerostruct.py reports\
+                    tacsSetup.py grid.cgns mesh.bdf scenario_000.f5")
+
+        filehandler = open("output.pickle", 'rb')
+        output = pickle.load(filehandler)
+        filehandler.close()
+
+        os.system("rm -r output.pickle")
+        os.chdir("../..")
+
+        y = []
+
+        for value in output:
+            y.append(output[value][0])
+
+        self.sampleNo = self.sampleNo + 1
+
+        return y
+
+    def _createSample(self, user_sample):
+        """
+            Method for creating a samples dictionary for single analysis.
+        """
+
+        self.samples = {}
+
+        for index, key in enumerate(self.options["varyingParameters"]):
+            self.samples[key] = user_sample[index]
 
     # ----------------------------------------------------------------------------
     #          Other required methods, irrespective of type of analysis.
@@ -554,9 +616,9 @@ class AeroStruct():
                 pkgdir = sys.modules["datgen"].__path__[0]
                 filepath = os.path.join(pkgdir, "runscripts/runscript_aerostruct.py")
                 shutil.copy(filepath, "{}/{}".format(directory,sampleNo))
-                os.system("cp -r {} {}/{}/grid.cgns".format(self.options["aeroSolverOptions"]["gridFile"],directory,sampleNo))
-                os.system("cp -r {} {}/{}/mesh.bdf".format(self.options["structMeshFile"],directory,sampleNo))
-                os.system("cp -r {} {}/{}/tacsSetup.py".format(self.options["structSolverSetupFile"],directory,sampleNo))
+                os.system("cp -r {} {}/{}/grid.cgns".format(self.options["aeroSolverOptions"]["gridFile"], directory, sampleNo))
+                os.system("cp -r {} {}/{}/mesh.bdf".format(self.options["structMeshFile"], directory, sampleNo))
+                os.system("cp -r {} {}/{}/tacsSetup.py".format(self.options["structSolverSetupFile"], directory, sampleNo))
 
     def _createInputFile(self):
         """

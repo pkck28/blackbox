@@ -10,3 +10,5 @@ examples/training_data
 examples/testing_data
 examples/plot.py
 examples/forrester
+examples/aero_training_single
+examples/aero_training_multi
