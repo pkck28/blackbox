@@ -10,41 +10,36 @@ import math
 
 class DefaultOptions():
     """
-        Class creates a default option list (for solvers and other settings)
+        Class creates a default option list (for solver and other settings)
         which is later edited/appended with user provided options.
     """
 
     def __init__(self):
 
-        # Solver Options
+        # Aero solver Options
         self.aeroSolver = "adflow"
-        self.structSolver = "tacs"
 
         # Other options
         self.directory = "output"
         self.noOfProcessors = 4
 
-class AeroStruct():
+class Aerodynamics():
     """
-        Class contains essential methods for generating aero-struct data.
+        Class contains essential methods for generating aerodynamic data.
         There are two values possible for type: "single" and "multi" (default). 
-
         For "multi", following is the list of possible attributes:
         
         Optional: (.,.) shows datatype and defualt value respectively.
             "directory" : Folder name where the data.mat file will be saved (string, "output").
             "noOfProcessors" : Number of processors to use (integer, 4).
             "aeroSolver" : Name of the aerodynamics solver (string, "adflow").
-            "structSolver" : Name of the structural solver (string, "tacs").
         Compulsory: (.) shows datatype.
             "numberOfSamples" : number of samples to be generated (integer).
             "fixedParameters" : Dictionary of all the valid fixed parameters (dict).
             "varyingParameters" : Dictionary of all the valid varying parameters (dict).
             "samplingMethod" : name of the sampling method ("lhs" or "fullfactorial") (string).
-            "objectives" : List of desired aero-objectives in y (list of string).
+            "objectives" : List of desired objectives in y (list of string).
             "aeroSolverOptions" : Dictionary of containing various ADflow options (dict).
-            "structMeshFile" : Name of the structural mesh file (string).
-            "structSolverSetupFile" : Name of the structural solver setup file for TACS (string).
 
         For "single", following is the list of possible attributes:
         
@@ -52,16 +47,13 @@ class AeroStruct():
             "directory" : Folder name where the analysis output will be saved (string, "additional_samples").
             "noOfProcessors" : Number of processors to use (integer, 4).
             "aeroSolver" : Name of the aerodynamics solver (string, "adflow").
-            "structSolver" : Name of the structural solver (string, "tacs").
         Compulsory: (.) shows datatype.
             "fixedParameters" : Dictionary of all the valid fixed parameters (dict).
             "varyingParameters" : Dictionary of all the valid varying parameters (dict).
-            "objectives" : List of desired aero-objectives in y (list of string).
+            "objectives" : List of desired objectives in y (list of string).
             "aeroSolverOptions" : Dictionary of containing various ADflow options (dict).
-            "structMeshFile" : Name of the structural mesh file (string).
-            "structSolverSetupFile" : Name of the structural solver setup file for TACS (string).
     """
-
+    
     def __init__(self, type="multi", options=None):
         # If 'options' is None, notify the user
         if options is not None:
@@ -120,9 +112,7 @@ class AeroStruct():
         # Creating list of various different options
         defaultOptions = list(self.options.keys())
         requiredOptions = ["fixedParameters", "varyingParameters", "objectives", \
-                            "numberOfSamples", "samplingMethod", "aeroSolverOptions", \
-                            "structMeshFile", "structSolverSetupFile"]
-        
+                            "numberOfSamples", "samplingMethod", "aeroSolverOptions"]
         allowedUserOptions = defaultOptions
         allowedUserOptions.extend(requiredOptions)
 
@@ -140,7 +130,7 @@ class AeroStruct():
         ############ Checking parameters
         self._checkParameters(options)
 
-        ############ Checking aero-objectives
+        ############ Checking objectives
         self._checkObjectives(options)
 
         ############ Checking numberOfSamples
@@ -159,26 +149,10 @@ class AeroStruct():
         if type(options["aeroSolverOptions"]) != dict:
             self._error("\"aeroSolverOptions\" attribute is not a dictionary.")
 
-        # Checking for not allowed solver aero solver options
+        # Checking for common elements between fixed and varying parameters
         commonElements = set(options["aeroSolverOptions"].keys()).intersection(set(["printAllOptions", "printIntro", "outputDirectory"]))
         if len(commonElements) != 0:
             self._error("Please remove {} attribute from the \"aeroSolverOptions\"".format(commonElements))
-
-        ############ Checking structGridFile option
-        if not type(options["structMeshFile"]) == str:
-            self._error("\"structMeshFile\" option is not a string.")
-
-        # Checking if file actually exists.
-        if not os.path.isfile(options["structMeshFile"]):
-            self._error("{} file doesn't exists, please check".format(options["structMeshFile"]))
-
-        ############ Checking structSolverSetupFile option
-        if not type(options["structSolverSetupFile"]) == str:
-            self._error("\"structSolverSetupFile\" option is not a string.")
-
-        # Checking if file actually exists.
-        if not os.path.isfile(options["structSolverSetupFile"]):
-            self._error("{} file doesn't exists, please check".format(options["structSolverSetupFile"]))
 
         ############ Checking directory
         if "directory" in userProvidedOptions:
@@ -192,7 +166,7 @@ class AeroStruct():
 
     def generateSamples(self):
         """
-            Method to generate samples and save the data for further use.
+            Method to generate multiple samples and save the data for further use.
         """
 
         if self.options["type"] != "multi":
@@ -211,12 +185,9 @@ class AeroStruct():
             os.chdir("{}/{}".format(self.options["directory"],sampleNo))
             print("Running analysis {} of {}".format(sampleNo + 1, self.options["numberOfSamples"]))
 
-            os.system("mpirun -n {} --use-hwthread-cpus python runscript_aerostruct.py >> log.txt".format(self.options["noOfProcessors"]))
-            os.system("f5totec scenario_000.f5")
-            os.system("mv scenario_000.plt struct_analysis_result.plt")
-            os.system("mv asp_000_surf.plt aero_analysis_result.plt")
-            os.system("rm -r input.pickle runscript_aerostruct.py reports\
-                         tacsSetup.py grid.cgns mesh.bdf scenario_000.f5")
+            os.system("mpirun -n {} --use-hwthread-cpus python runscript_aerodynamics.py >> log.txt".format(self.options["noOfProcessors"]))
+            os.system("mv ap_000_surf.plt aero_analysis_result.plt")
+            os.system("rm -r input.pickle runscript_aerodynamics.py reports grid.cgns")
 
             filehandler = open("output.pickle", 'rb')
             output = pickle.load(filehandler)
@@ -225,12 +196,12 @@ class AeroStruct():
             os.system("rm -r output.pickle")
             os.chdir("../..")
 
-            for value in output.keys():
+            for value in self.options["objectives"]:
                 if sampleNo == 0:
                     y[value] = np.array([])
                 y[value] = np.append(y[value], output[value])
 
-        for index, value in enumerate(output.keys()):
+        for index, value in enumerate(self.options["objectives"]):
             if index == 0:
                 Y = y[value].reshape(-1,1)
             else:
@@ -318,14 +289,11 @@ class AeroStruct():
     # ----------------------------------------------------------------------------
 
     def _setupSingleAnalysis(self, options):
-        """
-            Method to perform initialization when the type is "single".
-        """
 
         # Creating an empty options dictionary
         self.options = {}
         self.options["type"] = "single"
-
+        
         # Setting up default options
         self._getDefaultOptions()
 
@@ -348,7 +316,7 @@ class AeroStruct():
         # Updating/Appending the default option list with user provided options
         self._setOptions(options)
 
-        # Setting up the folders for saving the results
+        # Setting up the folder for saving the result
         self._setDirectory()
 
     def _checkOptionsForSingleAnalysis(self, options):
@@ -358,9 +326,7 @@ class AeroStruct():
 
         # Creating list of various different options
         defaultOptions = list(self.options.keys())
-        requiredOptions = ["fixedParameters", "varyingParameters", "objectives", \
-                            "aeroSolverOptions", "structMeshFile", "structSolverSetupFile"]
-        
+        requiredOptions = ["fixedParameters", "varyingParameters", "objectives", "aeroSolverOptions"]
         allowedUserOptions = defaultOptions
         allowedUserOptions.extend(requiredOptions)
 
@@ -378,33 +344,17 @@ class AeroStruct():
         ############ Checking parameters
         self._checkParameters(options)
 
-        ############ Checking aero-objectives
+        ############ Checking objectives
         self._checkObjectives(options)
 
         ############ Checking aeroSolverOptions
         if type(options["aeroSolverOptions"]) != dict:
             self._error("\"aeroSolverOptions\" attribute is not a dictionary.")
 
-        # Checking for not allowed solver aero solver options
+        # Checking for common elements between fixed and varying parameters
         commonElements = set(options["aeroSolverOptions"].keys()).intersection(set(["printAllOptions", "printIntro", "outputDirectory"]))
         if len(commonElements) != 0:
             self._error("Please remove {} attribute from the \"aeroSolverOptions\"".format(commonElements))
-
-        ############ Checking structGridFile option
-        if not type(options["structMeshFile"]) == str:
-            self._error("\"structMeshFile\" option is not a string.")
-
-        # Checking if file actually exists.
-        if not os.path.isfile(options["structMeshFile"]):
-            self._error("{} file doesn't exists, please check".format(options["structMeshFile"]))
-
-        ############ Checking structSolverSetupFile option
-        if not type(options["structSolverSetupFile"]) == str:
-            self._error("\"structSolverSetupFile\" option is not a string.")
-
-        # Checking if file actually exists.
-        if not os.path.isfile(options["structSolverSetupFile"]):
-            self._error("{} file doesn't exists, please check".format(options["structSolverSetupFile"]))
 
         ############ Checking directory
         if "directory" in userProvidedOptions:
@@ -420,7 +370,7 @@ class AeroStruct():
         """
             Method for running a single sample analysis.
         """
-
+        
         directory = self.options["directory"]
 
         # Checking whether the type is consistent
@@ -444,23 +394,18 @@ class AeroStruct():
 
         # Pasting essential files in the directory for running directory
         pkgdir = sys.modules["datgen"].__path__[0]
-        filepath = os.path.join(pkgdir, "runscripts/runscript_aerostruct.py")
+        filepath = os.path.join(pkgdir, "runscripts/runscript_aerodynamics.py")
         shutil.copy(filepath, "{}/{}".format(directory, self.sampleNo))
         os.system("cp -r {} {}/{}/grid.cgns".format(self.options["aeroSolverOptions"]["gridFile"], directory, self.sampleNo))
-        os.system("cp -r {} {}/{}/mesh.bdf".format(self.options["structMeshFile"],directory, self.sampleNo))
-        os.system("cp -r {} {}/{}/tacsSetup.py".format(self.options["structSolverSetupFile"],directory, self.sampleNo))
 
         # Changing directory and running the analysis
         os.chdir("{}/{}".format(self.options["directory"], self.sampleNo))
         print("Running analysis {}".format(self.sampleNo))
-        os.system("mpirun -n {} --use-hwthread-cpus python runscript_aerostruct.py >> log.txt".format(self.options["noOfProcessors"]))
-        os.system("f5totec scenario_000.f5")
-        os.system("mv scenario_000.plt struct_analysis_result.plt")
-        os.system("mv asp_000_surf.plt aero_analysis_result.plt")
+        os.system("mpirun -n {} --use-hwthread-cpus python runscript_aerodynamics.py >> log.txt".format(self.options["noOfProcessors"]))
+        os.system("mv ap_000_surf.plt aero_analysis_result.plt")
 
         # Cleaning up the analysis directory
-        os.system("rm -r input.pickle runscript_aerostruct.py reports\
-                    tacsSetup.py grid.cgns mesh.bdf scenario_000.f5")
+        os.system("rm -r input.pickle runscript_aerodynamics.py reports grid.cgns")
 
         filehandler = open("output.pickle", 'rb')
         output = pickle.load(filehandler)
@@ -494,7 +439,7 @@ class AeroStruct():
 
     def _getDefaultOptions(self):
         """
-            Setting up the initial values of options which are common across all functions.
+            Setting up the initial values of options.
         """
         
         defaultOptions = DefaultOptions()
@@ -545,7 +490,7 @@ class AeroStruct():
             if type(options["varyingParameters"][key]) != dict:
                 self._error("Value of " + key + " in \"varyingParameters\" dictionary is not a dictionary.")
             
-            if set(["lowerBound", "upperBound"]) != set(options["varyingParameters"][key]):
+            if set(["lowerBound", "upperBoubnd"]) == set(options["varyingParameters"][key]):
                 self._error(key + " dictionary can only have \"lowerBound\" and \"upperBound\" attributes.")
 
             lbType = type(options["varyingParameters"][key]["lowerBound"])
@@ -598,7 +543,7 @@ class AeroStruct():
 
     def _setDirectory(self):
         """
-            Method for setting up directories for analysis
+            Method for setting up directory.
         """
 
         directory = self.options["directory"]
@@ -614,11 +559,9 @@ class AeroStruct():
             for sampleNo in range(self.options["numberOfSamples"]):
                 os.system("mkdir {}/{}".format(directory,sampleNo))
                 pkgdir = sys.modules["datgen"].__path__[0]
-                filepath = os.path.join(pkgdir, "runscripts/runscript_aerostruct.py")
+                filepath = os.path.join(pkgdir, "runscripts/runscript_aerodynamics.py")
                 shutil.copy(filepath, "{}/{}".format(directory,sampleNo))
-                os.system("cp -r {} {}/{}/grid.cgns".format(self.options["aeroSolverOptions"]["gridFile"], directory, sampleNo))
-                os.system("cp -r {} {}/{}/mesh.bdf".format(self.options["structMeshFile"], directory, sampleNo))
-                os.system("cp -r {} {}/{}/tacsSetup.py".format(self.options["structSolverSetupFile"], directory, sampleNo))
+                os.system("cp -r {} {}/{}/grid.cgns".format(self.options["aeroSolverOptions"]["gridFile"],directory,sampleNo))
 
     def _createInputFile(self):
         """
@@ -683,7 +626,6 @@ class AeroStruct():
                 i += len(word) + 1
         msg += " " * (78 - i) + "|\n" + "+" + "-" * 78 + "+" + "\n"
  
-        # if comm.rank == 0:
         print(msg, flush=True)
 
-        exit()    
+        exit()

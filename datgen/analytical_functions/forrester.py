@@ -206,8 +206,8 @@ class Forrester():
         if self.options["type"] != "single":
             self._error("You cannot call getObjectives() method when type is not \"single\".")
 
-        if type(x) != int:
-            self._error("Provided x is not an integer.")
+        # if type(x) != int and type(x) != float:
+        #     self._error("Provided x is not an integer.")
 
         return self._function(x)
 

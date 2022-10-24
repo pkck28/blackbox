@@ -33,13 +33,23 @@ aeroSolverOptions = {
 }
 
 varyingParameters = {
+    "twist" : {
+        "lowerBound": -10,
+        "upperBound": 10,
+        "numberOfVariables": 7
+    },
+    "shape" : {
+        "lowerBound": -0.15,
+        "upperBound": 0.15,
+        "numberOfVariables": 96
+    },
     "aoa" : {
         "lowerBound": 0,
         "upperBound": 10
     },
     "mach" : {
         "lowerBound": 0.6,
-        "upperBound": 0.8
+        "upperBound": 0.85
     }
 }
 
@@ -47,7 +57,7 @@ fixedParameters = {
     "altitude" : 10000, # in m
     "areaRef" : 45.5, # in sq. m
     "chordRef" : 3.25, # in m
-    # "aoa" : 2 # in deg
+    # "mach" : 0.8
 }
 
 objectvies = ["cl", "cd"]
@@ -56,20 +66,21 @@ options = {
     "aeroSolverOptions": aeroSolverOptions,
     "fixedParameters" : fixedParameters,
     "varyingParameters" : varyingParameters,
-    "numberOfSamples": 5,
-    "directory" : "aero_training_multi",
+    "numberOfSamples": 2,
+    "directory" : "aero_training_single",
     "noOfProcessors" : 10,
     "objectives" : objectvies,
-    "samplingMethod" : "lhs"
+    "samplingMethod" : "lhs",
+    "ffdFile" : "ffd.xyz"
 }
 
 test = Aerodynamics(options=options)
 
-start = time.time()
+# start = time.time()
 test.generateSamples()
-end = time.time()
+# end = time.time()
 
-print(str(end-start) + " seconds")
+# print(str(end-start) + " seconds")
 
 # start = time.time()
 

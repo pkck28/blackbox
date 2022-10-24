@@ -161,12 +161,6 @@ class Rosenbrock():
             self._error("Two entries in upper bounds list are need")
 
         for index, lb in enumerate(options["lowerBound"]):
-            if type(lb) is not int:
-                self._error("Lower bound for variable {} is not an integer.".format(index+1))
-
-            if type(options["upperBound"][index]) is not int:
-                self._error("Upper bound for variable {} is not an integer.".format(index+1))
-
             if lb >= options["upperBound"][index]:
                 self._error("Lower bound for variable {} is greater than or equal upper bound.".format(index+1))
 
@@ -327,9 +321,9 @@ class Rosenbrock():
         elif len(x) != 2:
             self._error("Provided x doesn't contain two entries.")
 
-        for index, number in enumerate(x):
-            if type(number) != int:
-                self._error("{} entry in x is not an integer.".format(index+1))
+        # for index, number in enumerate(x):
+        #     if type(number) != int:
+        #         self._error("{} entry in x is not an integer.".format(index+1))
 
         return self._function(x)
 
