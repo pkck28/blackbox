@@ -1,5 +1,6 @@
 from datgen import Aerodynamics
 import time
+import numpy as np
 
 aeroSolverOptions = {
             # I/O Parameters
@@ -21,8 +22,8 @@ aeroSolverOptions = {
             # ANK Solver Parameters
             "useANKSolver": True,
             "nsubiterturb": 5,
-            "anksecondordswitchtol": 1e-4,
-            "ankcoupledswitchtol": 1e-6,
+            "anksecondordswitchtol": 1e-5,
+            "ankcoupledswitchtol": 1e-7,
             "ankinnerpreconits": 2,
             "ankouterpreconits": 2,
             "anklinresmax": 0.1,
@@ -47,17 +48,17 @@ varyingParameters = {
         "lowerBound": 0,
         "upperBound": 10
     },
-    "mach" : {
-        "lowerBound": 0.6,
-        "upperBound": 0.85
-    }
+    # "mach" : {
+    #     "lowerBound": 0.6,
+    #     "upperBound": 0.85
+    # }
 }
 
 fixedParameters = {
     "altitude" : 10000, # in m
     "areaRef" : 45.5, # in sq. m
     "chordRef" : 3.25, # in m
-    # "mach" : 0.8
+    "mach" : 0.8
 }
 
 objectvies = ["cl", "cd"]
@@ -66,7 +67,7 @@ options = {
     "aeroSolverOptions": aeroSolverOptions,
     "fixedParameters" : fixedParameters,
     "varyingParameters" : varyingParameters,
-    "numberOfSamples": 2,
+    "numberOfSamples": 5,
     "directory" : "aero_training_single",
     "noOfProcessors" : 10,
     "objectives" : objectvies,
@@ -84,7 +85,7 @@ test.generateSamples()
 
 # start = time.time()
 
-# sample = [2, 0.8]
+# sample = np.ones(104)
 # print(test.getObjectives(sample))
 
 # sample = [3, 0.7]

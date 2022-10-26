@@ -432,8 +432,8 @@ class Aerodynamics():
         if self.options["type"] != "single":
             self._error("You can run getObjectives() method only when type is single.")
 
-        if type(user_sample) != list:
-            self._error("Sample provided by user is not a list")
+        # if type(user_sample) != list:
+        #     self._error("Sample provided by user is not a list")
 
         if len(user_sample) != len(self.options["varyingParameters"].keys()):
             self._error("No of values provided by user is not matching the number of design variables.")
@@ -444,39 +444,39 @@ class Aerodynamics():
         # Setting up sample variable for single analysis
         self._createSample(user_sample)
         
-        # Creating input file for single analysis
-        self._createInputFile()
+        # # Creating input file for single analysis
+        # self._createInputFile()
 
-        # Pasting essential files in the directory for running directory
-        pkgdir = sys.modules["datgen"].__path__[0]
-        filepath = os.path.join(pkgdir, "runscripts/runscript_aerodynamics.py")
-        shutil.copy(filepath, "{}/{}".format(directory, self.sampleNo))
-        os.system("cp -r {} {}/{}/grid.cgns".format(self.options["aeroSolverOptions"]["gridFile"], directory, self.sampleNo))
+        # # Pasting essential files in the directory for running directory
+        # pkgdir = sys.modules["datgen"].__path__[0]
+        # filepath = os.path.join(pkgdir, "runscripts/runscript_aerodynamics.py")
+        # shutil.copy(filepath, "{}/{}".format(directory, self.sampleNo))
+        # os.system("cp -r {} {}/{}/grid.cgns".format(self.options["aeroSolverOptions"]["gridFile"], directory, self.sampleNo))
 
-        # Changing directory and running the analysis
-        os.chdir("{}/{}".format(self.options["directory"], self.sampleNo))
-        print("Running analysis {}".format(self.sampleNo))
-        os.system("mpirun -n {} --use-hwthread-cpus python runscript_aerodynamics.py >> log.txt".format(self.options["noOfProcessors"]))
-        os.system("mv ap_000_surf.plt aero_analysis_result.plt")
+        # # Changing directory and running the analysis
+        # os.chdir("{}/{}".format(self.options["directory"], self.sampleNo))
+        # print("Running analysis {}".format(self.sampleNo))
+        # os.system("mpirun -n {} --use-hwthread-cpus python runscript_aerodynamics.py >> log.txt".format(self.options["noOfProcessors"]))
+        # os.system("mv ap_000_surf.plt aero_analysis_result.plt")
 
-        # Cleaning up the analysis directory
-        os.system("rm -r input.pickle runscript_aerodynamics.py reports grid.cgns")
+        # # Cleaning up the analysis directory
+        # os.system("rm -r input.pickle runscript_aerodynamics.py reports grid.cgns")
 
-        filehandler = open("output.pickle", 'rb')
-        output = pickle.load(filehandler)
-        filehandler.close()
+        # filehandler = open("output.pickle", 'rb')
+        # output = pickle.load(filehandler)
+        # filehandler.close()
 
-        os.system("rm -r output.pickle")
-        os.chdir("../..")
+        # os.system("rm -r output.pickle")
+        # os.chdir("../..")
 
-        y = []
+        # y = []
 
-        for value in output:
-            y.append(output[value][0])
+        # for value in output:
+        #     y.append(output[value][0])
 
-        self.sampleNo = self.sampleNo + 1
+        # self.sampleNo = self.sampleNo + 1
 
-        return y
+        # return y
 
     def _createSample(self, user_sample):
         """
@@ -484,9 +484,19 @@ class Aerodynamics():
         """
 
         self.samples = {}
+        dummy = np.array([])
 
-        for index, key in enumerate(self.options["varyingParameters"]):
-            self.samples[key] = user_sample[index]
+        for key in self.options["varyingParameters"]:
+            if key == "twist" or key == "shape":
+                number = self.options["varyingParameters"][key]["numberOfVariables"]
+                dummy = np.append(dummy, [key] * number)
+            else:
+                dummy = np.append(dummy, key)
+
+        for key in enumerate(self.options["varyingParameters"]):
+            self.samples[key] = user_sample[(dummy == key)]
+
+        print(self.samples)
 
     # ----------------------------------------------------------------------------
     #          Other required methods, irrespective of type of analysis.

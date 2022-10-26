@@ -4,6 +4,11 @@ import pickle
 import os
 import numpy as np
 
+# Importing warnings package
+# and supressing the warnings
+import warnings
+warnings.filterwarnings("ignore")
+
 # Reading input file for the analysis
 filehandler = open("input.pickle", 'rb') 
 input = pickle.load(filehandler)
@@ -25,13 +30,13 @@ options = {
   'symmetryPlanes':[],
   'aExp': 3.0,
   'bExp': 5.0,
-  'LdefFact': 1.0,
+  'LdefFact': 50.0,
   'alpha': 0.25,
   'errTol': 0.0001,
-  'evalMode': 'exact',
+  'evalMode': 'fast',
   'useRotations': True,
   'zeroCornerRotations': True,
-  'cornerAngle': 25.0,
+  'cornerAngle': 30.0,
   'bucketSize': 8,
 }
 
@@ -86,5 +91,6 @@ mesh.warpMesh()
 
 # Write the new grid file.
 mesh.writeGrid('deformed_grid.cgns')
-os.system('rm grid.cgns ffd.xyz')
-os.system('mv deformed_grid.cgns grid.cgns')
+os.system('cgns_utils symmZero deformed_grid.cgns z deformed_grid_hardzero.cgns')
+os.system('rm grid.cgns deformed_grid.cgns ffd.xyz')
+os.system('mv deformed_grid_hardzero.cgns grid.cgns')
