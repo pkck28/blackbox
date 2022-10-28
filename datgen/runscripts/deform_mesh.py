@@ -22,6 +22,9 @@ for key in sample:
     if key == "twist" or key == "shape":
         geoDV[key] = sample[key]
 
+print("Design Variables:")
+print(geoDV)
+
 options = {
   'gridFile':'grid.cgns',
   'fileType':'CGNS',
@@ -30,9 +33,9 @@ options = {
   'symmetryPlanes':[],
   'aExp': 3.0,
   'bExp': 5.0,
-  'LdefFact': 50.0,
-  'alpha': 0.25,
-  'errTol': 0.0001,
+  'LdefFact': 10.0,
+  'alpha': 0.2, # changed
+  'errTol': 1e-10, # changed
   'evalMode': 'fast',
   'useRotations': True,
   'zeroCornerRotations': True,
@@ -68,7 +71,10 @@ if "twist" in geoDV.keys():
 
 # Add shape as a DV based on user selection
 if "shape" in geoDV.keys():
-    DVGeo.addLocalDV("shape", lower=-0.25, upper=0.25, axis="y", scale=1)
+    if input["aeroSolverOptions"]["liftindex"] == 3:
+        DVGeo.addLocalDV("shape", lower=-0.25, upper=0.25, axis="z", scale=1)
+    elif input["aeroSolverOptions"]["liftindex"] == 2:
+        DVGeo.addLocalDV("shape", lower=-0.25, upper=0.25, axis="y", scale=1)
 
 # Get Design Variables
 dvDict = DVGeo.getValues()
@@ -91,6 +97,10 @@ mesh.warpMesh()
 
 # Write the new grid file.
 mesh.writeGrid('deformed_grid.cgns')
-os.system('cgns_utils symmZero deformed_grid.cgns z deformed_grid_hardzero.cgns')
-os.system('rm grid.cgns deformed_grid.cgns ffd.xyz')
-os.system('mv deformed_grid_hardzero.cgns grid.cgns')
+print(input["aeroSolverOptions"]["liftindex"])
+if input["aeroSolverOptions"]["liftindex"] == 3:
+    os.system('cgns_utils symmZero deformed_grid.cgns y grid.cgns')
+elif input["aeroSolverOptions"]["liftindex"] == 2:
+    os.system('cgns_utils symmZero deformed_grid.cgns z grid.cgns')
+# os.system('mv deformed_grid.cgns grid.cgns')
+os.system('rm deformed_grid.cgns ffd.xyz')

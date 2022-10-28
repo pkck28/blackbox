@@ -4,14 +4,15 @@ import numpy as np
 
 aeroSolverOptions = {
             # I/O Parameters
-            "gridFile": "wing_vol.cgns",
+            "gridFile": "wing_vol_L1.cgns",
             "monitorvariables": ["resrho", "cl", "cd", "mach"],
             "writeTecplotSurfaceSolution": True,
             # Physics Parameters
             "equationType": "RANS",
             ######################################### Very important to change this according to the mesh
             ### Check the mesh and set the value
-            "liftindex": 2,  # y is the lift direction
+            # "liftindex": 2,  # y is the lift direction
+            "liftindex": 3,  # z is the lift direction
             # Solver Parameters
             "smoother": "DADI",
             "CFL": 0.5,
@@ -22,8 +23,8 @@ aeroSolverOptions = {
             # ANK Solver Parameters
             "useANKSolver": True,
             "nsubiterturb": 5,
-            "anksecondordswitchtol": 1e-5,
-            "ankcoupledswitchtol": 1e-7,
+            "anksecondordswitchtol": 1e-4,
+            "ankcoupledswitchtol": 1e-6,
             "ankinnerpreconits": 2,
             "ankouterpreconits": 2,
             "anklinresmax": 0.1,
@@ -48,17 +49,17 @@ varyingParameters = {
         "lowerBound": 0,
         "upperBound": 10
     },
-    # "mach" : {
-    #     "lowerBound": 0.6,
-    #     "upperBound": 0.85
-    # }
+    "mach" : {
+        "lowerBound": 0.6,
+        "upperBound": 0.85
+    }
 }
 
 fixedParameters = {
     "altitude" : 10000, # in m
     "areaRef" : 45.5, # in sq. m
     "chordRef" : 3.25, # in m
-    "mach" : 0.8
+    # "mach" : 0.8
 }
 
 objectvies = ["cl", "cd"]
@@ -72,7 +73,7 @@ options = {
     "noOfProcessors" : 10,
     "objectives" : objectvies,
     "samplingMethod" : "lhs",
-    "ffdFile" : "ffd.xyz"
+    "ffdFile" : "ffd_lift_Z.xyz"
 }
 
 test = Aerodynamics(options=options)
