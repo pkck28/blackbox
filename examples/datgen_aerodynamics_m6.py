@@ -4,7 +4,7 @@ import numpy as np
 
 aeroSolverOptions = {
             # I/O Parameters
-            "gridFile": "oneraM6_vol.cgns",
+            "gridFile": "wing_vol.cgns",
             "monitorvariables": ["resrho", "cl", "cd", "mach"],
             "writeTecplotSurfaceSolution": True,
             # Physics Parameters
@@ -38,12 +38,12 @@ varyingParameters = {
     "twist" : {
         "lowerBound": -10,
         "upperBound": 10,
-        "numberOfVariables": 5
+        "numberOfVariables": 7 #5
     },
     "shape" : {
-        "lowerBound": -0.02,
-        "upperBound": 0.02,
-        "numberOfVariables": 120
+        "lowerBound": -0.2, #-0.02
+        "upperBound": 0.2, #0.02
+        "numberOfVariables": 96 #120
     },
     "aoa" : {
         "lowerBound": 0,
@@ -57,7 +57,7 @@ varyingParameters = {
 
 fixedParameters = {
     "altitude" : 10000, # in m
-    "areaRef" : 0.7575, # in sq. m
+    "areaRef" : 45.5, # in sq. m
     "chordRef" : 3.25, # in m
     # "mach" : 0.8
 }
@@ -73,7 +73,7 @@ options = {
     "noOfProcessors" : 8,
     "objectives" : objectvies,
     "samplingMethod" : "lhs",
-    "ffdFile" : "oneraM6_FFD.xyz"
+    "ffdFile" : "ffd.xyz"
 }
 
 test = Aerodynamics(options=options)

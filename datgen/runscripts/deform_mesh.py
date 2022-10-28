@@ -25,6 +25,7 @@ for key in sample:
 print("Design Variables:")
 print(geoDV)
 
+# All are default expect useRotation and zeroCornerRotation
 options = {
   'gridFile':'grid.cgns',
   'fileType':'CGNS',
@@ -33,11 +34,11 @@ options = {
   'symmetryPlanes':[],
   'aExp': 3.0,
   'bExp': 5.0,
-  'LdefFact': 10.0,
-  'alpha': 0.2, # changed
-  'errTol': 1e-10, # changed
+  'LdefFact': 1.0,
+  'alpha': 0.25,
+  'errTol': 0.0005,
   'evalMode': 'fast',
-  'useRotations': True,
+  'useRotations': False,
   'zeroCornerRotations': True,
   'cornerAngle': 30.0,
   'bucketSize': 8,
@@ -97,10 +98,14 @@ mesh.warpMesh()
 
 # Write the new grid file.
 mesh.writeGrid('deformed_grid.cgns')
-print(input["aeroSolverOptions"]["liftindex"])
-if input["aeroSolverOptions"]["liftindex"] == 3:
-    os.system('cgns_utils symmZero deformed_grid.cgns y grid.cgns')
-elif input["aeroSolverOptions"]["liftindex"] == 2:
-    os.system('cgns_utils symmZero deformed_grid.cgns z grid.cgns')
-# os.system('mv deformed_grid.cgns grid.cgns')
-os.system('rm deformed_grid.cgns ffd.xyz')
+
+# print(input["aeroSolverOptions"]["liftindex"])
+# if input["aeroSolverOptions"]["liftindex"] == 3:
+#     os.system('cgns_utils symmZero deformed_grid.cgns y')
+# elif input["aeroSolverOptions"]["liftindex"] == 2:
+#     os.system('cgns_utils symmZero deformed_grid.cgns z')
+
+# Clean up
+os.system('rm grid.cgns')
+os.system('mv deformed_grid.cgns grid.cgns')
+os.system('rm ffd.xyz')
