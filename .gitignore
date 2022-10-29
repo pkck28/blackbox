@@ -12,3 +12,7 @@ examples/plot.py
 examples/forrester
 examples/aero_training_single
 examples/aero_training_multi
+examples/mach/multi
+examples/mach/single
+examples/onera/multi
+examples/onera/single
