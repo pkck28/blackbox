@@ -41,8 +41,8 @@ varyingParameters = {
         "numberOfVariables": 5
     },
     "shape" : {
-        "lowerBound": -0.02,
-        "upperBound": 0.02,
+        "lowerBound": -0.015,
+        "upperBound": 0.015,
         "numberOfVariables": 120
     },
     "aoa" : {
