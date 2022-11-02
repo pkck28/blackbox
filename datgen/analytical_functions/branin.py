@@ -26,7 +26,8 @@ class Branin():
             
         a = 1, b = 5.1/(4pi^2), c = 5/pi, r = 6, s = 10, t = 1/(8pi) 
 
-        -5 <= x1 <= 10, 0 <= x2 <= 15    
+        -5 <= x1 <= 10, 0 <= x2 <= 15, f(x') = 0.397887 with 
+        x' = (-pi,12.275), x' = (pi,2.275), x' = (3pi,2.475)
     
         There are two values possible for type: "single" and "multi" (default). For
         "multi", following is the list of possible attributes:
