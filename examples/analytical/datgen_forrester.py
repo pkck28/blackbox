@@ -12,6 +12,6 @@ object_1 = Forrester(options=options)
 object_1.generateSamples()
 
 # Example for getting value of one sample
-object_2 = Forrester(type="single")
-x = 0.5
-print(object_2.getObjectives(x))
+# object_2 = Forrester(type="single")
+# x = 0.5
+# print(object_2.getObjectives(x))

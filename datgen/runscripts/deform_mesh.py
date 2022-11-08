@@ -59,9 +59,7 @@ DVGeo.addPointSet(coords0, "wing_surface_mesh")
 # Add twist as a DV based on user selection
 if "twist" in geoDV.keys():
     # Create reference axis
-    nRefAxPts = DVGeo.addRefAxis("wing", xFraction=0.25, alignIndex="j")
-
-    print(nRefAxPts)
+    nRefAxPts = DVGeo.addRefAxis("wing", xFraction=0.25, alignIndex="k")
 
     # Set the Twist Variable
     def twist(val, geo):

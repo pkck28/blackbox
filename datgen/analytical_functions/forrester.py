@@ -2,6 +2,7 @@
 import os
 import numpy as np
 from scipy.io import savemat
+from ..base import BaseClass
 
 class DefaultOptions():
     """
@@ -13,7 +14,7 @@ class DefaultOptions():
         self.directory = "output"
 
 
-class Forrester():
+class Forrester(BaseClass):
     """
         Class contains essential methods for generating data
         of Forrester Function:
@@ -36,6 +37,8 @@ class Forrester():
     """
 
     def __init__(self, type="multi", options=None):
+
+        # super.__init__(self)
 
         # Initializing based on the type
         if type == "multi":
@@ -225,23 +228,3 @@ class Forrester():
         y = (6*x - 2)**2 * np.sin(12*x - 4)
 
         return y
-
-    def _error(self, message):
-        """
-            Method for printing errors in nice manner.
-        """
-
-        msg = "\n+" + "-" * 78 + "+" + "\n" + "| Datgen Error: "
-        i = 19
-        for word in message.split():
-            if len(word) + i + 1 > 78:  # Finish line and start new one
-                msg += " " * (78 - i) + "|\n| " + word + " "
-                i = 1 + len(word) + 1
-            else:
-                msg += word + " "
-                i += len(word) + 1
-        msg += " " * (78 - i) + "|\n" + "+" + "-" * 78 + "+" + "\n"
- 
-        print(msg, flush=True)
-
-        exit()

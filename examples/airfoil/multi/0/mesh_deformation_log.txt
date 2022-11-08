@@ -1,0 +1,39 @@
+Design Variables:
+{'shape': array([-0.025, -0.025, -0.025,  0.025,  0.025, -0.025, -0.025, -0.025,
+        0.025, -0.025, -0.025, -0.025])}
++----------------------------------------+
+|          All IDWarp Options:           |
++----------------------------------------+
+{'LdefFact': 1.0,
+ 'aExp': 3.0,
+ 'alpha': 0.25,
+ 'bExp': 5.0,
+ 'bucketSize': 8,
+ 'cornerAngle': 30.0,
+ 'errTol': 0.0005,
+ 'evalMode': 'fast',
+ 'fileType': 'CGNS',
+ 'gridFile': 'grid.cgns',
+ 'restartFile': None,
+ 'specifiedSurfaces': None,
+ 'symmTol': 1e-06,
+ 'symmetryPlanes': None,
+ 'symmetrySurfaces': None,
+ 'useRotations': True,
+ 'zeroCornerRotations': True}
++-------------------- Symmetry Planes -------------------+
+|           Point                        Normal          |
+| (  0.000   0.000   0.000)    (  0.000   0.000  -1.000) |
+| (  0.000   0.000   1.000)    (  0.000   0.000   1.000) |
++--------------------------------------------------------+
+  -> Reading CGNS File: grid.cgns
+    -> Number of Zones:           1
+#------------------------------#
+ Total Volume Nodes :     64758 
+#------------------------------#
+#--------------------------------#
+ Unique Surface Nodes :       500 
+#--------------------------------#
+ Computing Denomenator Estimate...
+ Load Balancing...
+ Finished Mesh Initialization.

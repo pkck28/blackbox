@@ -23,6 +23,7 @@ class DefaultOptions():
         self.directory = "output"
         self.noOfProcessors = 4
         self.ffdFile = None
+        self.shape = "wing"
 
 class Aerodynamics():
     """
@@ -165,7 +166,7 @@ class Aerodynamics():
             if type(options["noOfProcessors"]) is not int:
                 self._error("\"noOfProcessors\" attribute is not an integer.")
 
-        ############ Checking FFD file exists - This is done in checkParamters() method since this
+        ############ Checking FFD file attribute exists - This is done in checkParamters() method since this
         ############ attribute is required only when varying parameter contain twist or shape
 
     def generateSamples(self):
@@ -198,8 +199,14 @@ class Aerodynamics():
 
             # Deform the mesh if DV has twist or shape
             if FFD:
-                os.system("python deform_mesh.py >> mesh_deformation_log.txt")
-                os.system("rm deform_mesh.py")
+                if self.options["shape"] == "wing":
+                    os.system("python deform_mesh.py >> mesh_deformation_log.txt")
+                    os.system("rm deform_mesh.py")
+                elif self.options["shape"] == "airfoil":
+                    os.system("python deform_airfoil_mesh.py >> mesh_deformation_log.txt")
+                    os.system("rm deform_airfoil_mesh.py")
+                else:
+                    exit()
             
             # Run the analysis
             os.system("mpirun -n {} --use-hwthread-cpus python runscript_aerodynamics.py >> analysis_log.txt".format(self.options["noOfProcessors"]))
@@ -651,9 +658,17 @@ class Aerodynamics():
                 shutil.copy(filepath, "{}/{}".format(directory,sampleNo))
                 os.system("cp -r {} {}/{}/grid.cgns".format(self.options["aeroSolverOptions"]["gridFile"],directory,sampleNo))
                 if FFD:
-                    pkgdir = sys.modules["datgen"].__path__[0]
-                    filepath = os.path.join(pkgdir, "runscripts/deform_mesh.py")
-                    shutil.copy(filepath, "{}/{}".format(directory,sampleNo))
+                    if self.options["shape"] == "wing":
+                        pkgdir = sys.modules["datgen"].__path__[0]
+                        filepath = os.path.join(pkgdir, "runscripts/deform_mesh.py")
+                        shutil.copy(filepath, "{}/{}".format(directory,sampleNo))
+                    elif self.options["shape"] == "airfoil":
+                        pkgdir = sys.modules["datgen"].__path__[0]
+                        filepath = os.path.join(pkgdir, "runscripts/deform_airfoil_mesh.py")
+                        shutil.copy(filepath, "{}/{}".format(directory,sampleNo))
+                    else:
+                        exit()
+                    
                     os.system("cp -r {} {}/{}/ffd.xyz".format(self.options["ffdFile"],directory,sampleNo))
 
     def _createInputFile(self):

@@ -1,6 +1,5 @@
 from datgen import Aerodynamics
 import time
-import numpy as np
 
 aeroSolverOptions = {
             # I/O Parameters
@@ -36,8 +35,8 @@ aeroSolverOptions = {
 
 varyingParameters = {
     "twist" : {
-        "lowerBound": -10,
-        "upperBound": 10,
+        "lowerBound": -5,
+        "upperBound": 5,
         "numberOfVariables": 7
     },
     "shape" : {
