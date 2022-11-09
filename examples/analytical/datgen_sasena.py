@@ -1,4 +1,4 @@
-from datgen import Sasena
+from blackbox import Sasena
 from scipy.io import loadmat
 
 options = {

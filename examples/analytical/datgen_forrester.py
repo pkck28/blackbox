@@ -1,4 +1,4 @@
-from datgen import Forrester
+from blackbox import Forrester
 
 options = {
     "lowerBound" : 0,

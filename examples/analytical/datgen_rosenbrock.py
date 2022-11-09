@@ -1,4 +1,4 @@
-from datgen import Rosenbrock
+from blackbox import Rosenbrock
 
 options = {
     "parameters" : {

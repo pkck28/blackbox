@@ -10,38 +10,41 @@ import math
 
 class DefaultOptions():
     """
-        Class creates a default option list (for solver and other settings)
+        Class creates a default option list (for solvers and other settings)
         which is later edited/appended with user provided options.
     """
 
     def __init__(self):
 
-        # Aero solver Options
+        # Solver Options
         self.aeroSolver = "adflow"
+        self.structSolver = "tacs"
 
         # Other options
         self.directory = "output"
         self.noOfProcessors = 4
-        self.ffdFile = None
-        self.shape = "wing"
 
-class Aerodynamics():
+class AeroStruct():
     """
-        Class contains essential methods for generating aerodynamic data.
+        Class contains essential methods for generating aero-struct data.
         There are two values possible for type: "single" and "multi" (default). 
+
         For "multi", following is the list of possible attributes:
         
         Optional: (.,.) shows datatype and defualt value respectively.
             "directory" : Folder name where the data.mat file will be saved (string, "output").
             "noOfProcessors" : Number of processors to use (integer, 4).
             "aeroSolver" : Name of the aerodynamics solver (string, "adflow").
+            "structSolver" : Name of the structural solver (string, "tacs").
         Compulsory: (.) shows datatype.
             "numberOfSamples" : number of samples to be generated (integer).
             "fixedParameters" : Dictionary of all the valid fixed parameters (dict).
             "varyingParameters" : Dictionary of all the valid varying parameters (dict).
             "samplingMethod" : name of the sampling method ("lhs" or "fullfactorial") (string).
-            "objectives" : List of desired objectives in y (list of string).
+            "objectives" : List of desired aero-objectives in y (list of string).
             "aeroSolverOptions" : Dictionary of containing various ADflow options (dict).
+            "structMeshFile" : Name of the structural mesh file (string).
+            "structSolverSetupFile" : Name of the structural solver setup file for TACS (string).
 
         For "single", following is the list of possible attributes:
         
@@ -49,13 +52,16 @@ class Aerodynamics():
             "directory" : Folder name where the analysis output will be saved (string, "additional_samples").
             "noOfProcessors" : Number of processors to use (integer, 4).
             "aeroSolver" : Name of the aerodynamics solver (string, "adflow").
+            "structSolver" : Name of the structural solver (string, "tacs").
         Compulsory: (.) shows datatype.
             "fixedParameters" : Dictionary of all the valid fixed parameters (dict).
             "varyingParameters" : Dictionary of all the valid varying parameters (dict).
-            "objectives" : List of desired objectives in y (list of string).
+            "objectives" : List of desired aero-objectives in y (list of string).
             "aeroSolverOptions" : Dictionary of containing various ADflow options (dict).
+            "structMeshFile" : Name of the structural mesh file (string).
+            "structSolverSetupFile" : Name of the structural solver setup file for TACS (string).
     """
-    
+
     def __init__(self, type="multi", options=None):
         # If 'options' is None, notify the user
         if options is not None:
@@ -114,7 +120,9 @@ class Aerodynamics():
         # Creating list of various different options
         defaultOptions = list(self.options.keys())
         requiredOptions = ["fixedParameters", "varyingParameters", "objectives", \
-                            "numberOfSamples", "samplingMethod", "aeroSolverOptions"]
+                            "numberOfSamples", "samplingMethod", "aeroSolverOptions", \
+                            "structMeshFile", "structSolverSetupFile"]
+        
         allowedUserOptions = defaultOptions
         allowedUserOptions.extend(requiredOptions)
 
@@ -132,7 +140,7 @@ class Aerodynamics():
         ############ Checking parameters
         self._checkParameters(options)
 
-        ############ Checking objectives
+        ############ Checking aero-objectives
         self._checkObjectives(options)
 
         ############ Checking numberOfSamples
@@ -151,10 +159,26 @@ class Aerodynamics():
         if type(options["aeroSolverOptions"]) != dict:
             self._error("\"aeroSolverOptions\" attribute is not a dictionary.")
 
-        # Checking for not allowed aero solver options
+        # Checking for not allowed solver aero solver options
         commonElements = set(options["aeroSolverOptions"].keys()).intersection(set(["printAllOptions", "printIntro", "outputDirectory"]))
         if len(commonElements) != 0:
             self._error("Please remove {} attribute from the \"aeroSolverOptions\"".format(commonElements))
+
+        ############ Checking structGridFile option
+        if not type(options["structMeshFile"]) == str:
+            self._error("\"structMeshFile\" option is not a string.")
+
+        # Checking if file actually exists.
+        if not os.path.isfile(options["structMeshFile"]):
+            self._error("{} file doesn't exists, please check".format(options["structMeshFile"]))
+
+        ############ Checking structSolverSetupFile option
+        if not type(options["structSolverSetupFile"]) == str:
+            self._error("\"structSolverSetupFile\" option is not a string.")
+
+        # Checking if file actually exists.
+        if not os.path.isfile(options["structSolverSetupFile"]):
+            self._error("{} file doesn't exists, please check".format(options["structSolverSetupFile"]))
 
         ############ Checking directory
         if "directory" in userProvidedOptions:
@@ -166,12 +190,9 @@ class Aerodynamics():
             if type(options["noOfProcessors"]) is not int:
                 self._error("\"noOfProcessors\" attribute is not an integer.")
 
-        ############ Checking FFD file attribute exists - This is done in checkParamters() method since this
-        ############ attribute is required only when varying parameter contain twist or shape
-
     def generateSamples(self):
         """
-            Method to generate multiple samples and save the data for further use.
+            Method to generate samples and save the data for further use.
         """
 
         if self.options["type"] != "multi":
@@ -186,32 +207,16 @@ class Aerodynamics():
 
         y = {}
 
-        FFD = False
-
-        for key in self.options["varyingParameters"]:
-            if key == "twist" or key == "shape":
-                FFD = True
-
-        # Running analysis
         for sampleNo in range(self.options["numberOfSamples"]):
             os.chdir("{}/{}".format(self.options["directory"],sampleNo))
             print("Running analysis {} of {}".format(sampleNo + 1, self.options["numberOfSamples"]))
 
-            # Deform the mesh if DV has twist or shape
-            if FFD:
-                if self.options["shape"] == "wing":
-                    os.system("python deform_mesh.py >> mesh_deformation_log.txt")
-                    os.system("rm deform_mesh.py")
-                elif self.options["shape"] == "airfoil":
-                    os.system("python deform_airfoil_mesh.py >> mesh_deformation_log.txt")
-                    os.system("rm deform_airfoil_mesh.py")
-                else:
-                    exit()
-            
-            # Run the analysis
-            os.system("mpirun -n {} --use-hwthread-cpus python runscript_aerodynamics.py >> analysis_log.txt".format(self.options["noOfProcessors"]))
-            os.system("mv ap_000_surf.plt aero_analysis_result.plt")
-            os.system("rm -r input.pickle runscript_aerodynamics.py reports grid.cgns")
+            os.system("mpirun -n {} --use-hwthread-cpus python runscript_aerostruct.py >> log.txt".format(self.options["noOfProcessors"]))
+            os.system("f5totec scenario_000.f5")
+            os.system("mv scenario_000.plt struct_analysis_result.plt")
+            os.system("mv asp_000_surf.plt aero_analysis_result.plt")
+            os.system("rm -r input.pickle runscript_aerostruct.py reports\
+                         tacsSetup.py grid.cgns mesh.bdf scenario_000.f5")
 
             filehandler = open("output.pickle", 'rb')
             output = pickle.load(filehandler)
@@ -220,12 +225,12 @@ class Aerodynamics():
             os.system("rm -r output.pickle")
             os.chdir("../..")
 
-            for value in self.options["objectives"]:
+            for value in output.keys():
                 if sampleNo == 0:
                     y[value] = np.array([])
                 y[value] = np.append(y[value], output[value])
 
-        for index, value in enumerate(self.options["objectives"]):
+        for index, value in enumerate(output.keys()):
             if index == 0:
                 Y = y[value].reshape(-1,1)
             else:
@@ -251,57 +256,31 @@ class Aerodynamics():
         dummy = np.array([])
         self.samples = {}
 
-        # Generating lower and upper bound
         for key in self.options["varyingParameters"]:
-
-            if key == "twist" or key == "shape":
-                number = self.options["varyingParameters"][key]["numberOfVariables"]
-                lowerBound = np.append(lowerBound, [self.options["varyingParameters"][key]["lowerBound"]] * number)
-                upperBound = np.append(upperBound, [self.options["varyingParameters"][key]["upperBound"]] * number)
-                dummy = np.append(dummy, [key] * number)
-            else:
-                lowerBound = np.append(lowerBound, self.options["varyingParameters"][key]["lowerBound"])
-                upperBound = np.append(upperBound, self.options["varyingParameters"][key]["upperBound"])
-                dummy = np.append(dummy, key)
+            lowerBound = np.append(lowerBound, self.options["varyingParameters"][key]["lowerBound"])
+            upperBound = np.append(upperBound, self.options["varyingParameters"][key]["upperBound"])
 
             self.samples[key] = np.array([])
+            dummy = np.append(dummy, key)
 
-        # Dimension of the variable
         dim = len(lowerBound)
 
-        # Generating samples
         samples = lhs(dim, samples=self.options["numberOfSamples"], criterion='cm', iterations=50)
 
-        # Scaling the samples
         samples = lowerBound + samples * (upperBound - lowerBound)
 
-        # Saving the X in the data
         self.x = samples
 
-        # Extracting the generated samples for each variable and storing them together
         for sampleNo in range(self.options["numberOfSamples"]):
             sample = samples[sampleNo,:]
 
             for key in self.options["varyingParameters"]:
-                self.samples[key] = np.append(self.samples[key], [sample[(dummy == key)]])
-
-        # Reshaping the array so that they can be divided using sample number
-        for key in self.samples.keys():
-            if key == "twist" or key == "shape":
-                number = self.options["varyingParameters"][key]["numberOfVariables"]
-                self.samples[key] = self.samples[key].reshape((-1,number))
+                self.samples[key] = np.append(self.samples[key], sample[(dummy == key)])
 
     def _fullfactorial(self):
         """
             Method for creating a full-factorial sample.
-            Stores a 2D numpy array of size (samples vs  dimensions).
-            Each row represents a new sample and each column corresponds to
-            a particular design variable.
         """
-
-        for key in self.options["varyingParameters"]:
-            if key == "twist" or key == "shape":
-                self._error("Full-factorial sampling when twist or shape is a DV is not recommended. Please use LHS.")
 
         # lower and upper bound are created as numpy arrays and dummy is a normal list here.
         lowerBound = np.array([])
@@ -309,53 +288,44 @@ class Aerodynamics():
         dummy = np.array([])
         self.samples = {}
 
-        # Generating lower and upper bound
         for key in self.options["varyingParameters"]:
-            if key == "twist" or key == "shape":
-                number = self.options["varyingParameters"][key]["numberOfVariables"]
-                lowerBound = np.append(lowerBound, [self.options["varyingParameters"][key]["lowerBound"]] * number)
-                upperBound = np.append(upperBound, [self.options["varyingParameters"][key]["upperBound"]] * number)
-                dummy = np.append(dummy, [key] * number)
-            else:
-                lowerBound = np.append(lowerBound, self.options["varyingParameters"][key]["lowerBound"])
-                upperBound = np.append(upperBound, self.options["varyingParameters"][key]["upperBound"])
-                dummy = np.append(dummy, key)
+            lowerBound = np.append(lowerBound, self.options["varyingParameters"][key]["lowerBound"])
+            upperBound = np.append(upperBound, self.options["varyingParameters"][key]["upperBound"])
 
             self.samples[key] = np.array([])
+            dummy = np.append(dummy, key)
 
-        # Dimension of the variable
         dim = len(lowerBound)
 
-        # Calculating number of samples in each dimension
         samplesInEachDimension = round(math.exp( math.log(self.options["numberOfSamples"]) / dim ))
 
         print("{} full-factorial samples are generated".format(samplesInEachDimension**dim))
 
-        # Generating samples
         samples = fullfact([samplesInEachDimension]*dim)
 
-        # Scaling the samples
         samples = lowerBound + samples * (upperBound - lowerBound) / (samplesInEachDimension- 1)
 
-        # Saving the X in the data
         self.x = samples
 
-        # Reshaping the array so that they can be divided using sample number
-        for key in self.samples.keys():
-            if key == "twist" or key == "shape":
-                number = self.options["varyingParameters"][key]["numberOfVariables"]
-                self.samples[key] = self.samples[key].reshape((-1,number))
+        for sampleNo in range(self.options["numberOfSamples"]):
+            sample = samples[sampleNo,:]
+
+            for key in self.options["varyingParameters"]:
+                self.samples[key] = np.append(self.samples[key], sample[(dummy == key)])
 
     # ----------------------------------------------------------------------------
     #               All the methods for single analysis
     # ----------------------------------------------------------------------------
 
     def _setupSingleAnalysis(self, options):
+        """
+            Method to perform initialization when the type is "single".
+        """
 
         # Creating an empty options dictionary
         self.options = {}
         self.options["type"] = "single"
-        
+
         # Setting up default options
         self._getDefaultOptions()
 
@@ -378,7 +348,7 @@ class Aerodynamics():
         # Updating/Appending the default option list with user provided options
         self._setOptions(options)
 
-        # Setting up the folder for saving the result
+        # Setting up the folders for saving the results
         self._setDirectory()
 
     def _checkOptionsForSingleAnalysis(self, options):
@@ -388,7 +358,9 @@ class Aerodynamics():
 
         # Creating list of various different options
         defaultOptions = list(self.options.keys())
-        requiredOptions = ["fixedParameters", "varyingParameters", "objectives", "aeroSolverOptions"]
+        requiredOptions = ["fixedParameters", "varyingParameters", "objectives", \
+                            "aeroSolverOptions", "structMeshFile", "structSolverSetupFile"]
+        
         allowedUserOptions = defaultOptions
         allowedUserOptions.extend(requiredOptions)
 
@@ -406,17 +378,33 @@ class Aerodynamics():
         ############ Checking parameters
         self._checkParameters(options)
 
-        ############ Checking objectives
+        ############ Checking aero-objectives
         self._checkObjectives(options)
 
         ############ Checking aeroSolverOptions
         if type(options["aeroSolverOptions"]) != dict:
             self._error("\"aeroSolverOptions\" attribute is not a dictionary.")
 
-        # Checking for common elements between fixed and varying parameters
+        # Checking for not allowed solver aero solver options
         commonElements = set(options["aeroSolverOptions"].keys()).intersection(set(["printAllOptions", "printIntro", "outputDirectory"]))
         if len(commonElements) != 0:
             self._error("Please remove {} attribute from the \"aeroSolverOptions\"".format(commonElements))
+
+        ############ Checking structGridFile option
+        if not type(options["structMeshFile"]) == str:
+            self._error("\"structMeshFile\" option is not a string.")
+
+        # Checking if file actually exists.
+        if not os.path.isfile(options["structMeshFile"]):
+            self._error("{} file doesn't exists, please check".format(options["structMeshFile"]))
+
+        ############ Checking structSolverSetupFile option
+        if not type(options["structSolverSetupFile"]) == str:
+            self._error("\"structSolverSetupFile\" option is not a string.")
+
+        # Checking if file actually exists.
+        if not os.path.isfile(options["structSolverSetupFile"]):
+            self._error("{} file doesn't exists, please check".format(options["structSolverSetupFile"]))
 
         ############ Checking directory
         if "directory" in userProvidedOptions:
@@ -432,15 +420,15 @@ class Aerodynamics():
         """
             Method for running a single sample analysis.
         """
-        
+
         directory = self.options["directory"]
 
         # Checking whether the type is consistent
         if self.options["type"] != "single":
             self._error("You can run getObjectives() method only when type is single.")
 
-        # if type(user_sample) != list:
-        #     self._error("Sample provided by user is not a list")
+        if type(user_sample) != list:
+            self._error("Sample provided by user is not a list")
 
         if len(user_sample) != len(self.options["varyingParameters"].keys()):
             self._error("No of values provided by user is not matching the number of design variables.")
@@ -451,39 +439,44 @@ class Aerodynamics():
         # Setting up sample variable for single analysis
         self._createSample(user_sample)
         
-        # # Creating input file for single analysis
-        # self._createInputFile()
+        # Creating input file for single analysis
+        self._createInputFile()
 
-        # # Pasting essential files in the directory for running directory
-        # pkgdir = sys.modules["datgen"].__path__[0]
-        # filepath = os.path.join(pkgdir, "runscripts/runscript_aerodynamics.py")
-        # shutil.copy(filepath, "{}/{}".format(directory, self.sampleNo))
-        # os.system("cp -r {} {}/{}/grid.cgns".format(self.options["aeroSolverOptions"]["gridFile"], directory, self.sampleNo))
+        # Pasting essential files in the directory for running directory
+        pkgdir = sys.modules["datgen"].__path__[0]
+        filepath = os.path.join(pkgdir, "runscripts/runscript_aerostruct.py")
+        shutil.copy(filepath, "{}/{}".format(directory, self.sampleNo))
+        os.system("cp -r {} {}/{}/grid.cgns".format(self.options["aeroSolverOptions"]["gridFile"], directory, self.sampleNo))
+        os.system("cp -r {} {}/{}/mesh.bdf".format(self.options["structMeshFile"],directory, self.sampleNo))
+        os.system("cp -r {} {}/{}/tacsSetup.py".format(self.options["structSolverSetupFile"],directory, self.sampleNo))
 
-        # # Changing directory and running the analysis
-        # os.chdir("{}/{}".format(self.options["directory"], self.sampleNo))
-        # print("Running analysis {}".format(self.sampleNo))
-        # os.system("mpirun -n {} --use-hwthread-cpus python runscript_aerodynamics.py >> log.txt".format(self.options["noOfProcessors"]))
-        # os.system("mv ap_000_surf.plt aero_analysis_result.plt")
+        # Changing directory and running the analysis
+        os.chdir("{}/{}".format(self.options["directory"], self.sampleNo))
+        print("Running analysis {}".format(self.sampleNo))
+        os.system("mpirun -n {} --use-hwthread-cpus python runscript_aerostruct.py >> log.txt".format(self.options["noOfProcessors"]))
+        os.system("f5totec scenario_000.f5")
+        os.system("mv scenario_000.plt struct_analysis_result.plt")
+        os.system("mv asp_000_surf.plt aero_analysis_result.plt")
 
-        # # Cleaning up the analysis directory
-        # os.system("rm -r input.pickle runscript_aerodynamics.py reports grid.cgns")
+        # Cleaning up the analysis directory
+        os.system("rm -r input.pickle runscript_aerostruct.py reports\
+                    tacsSetup.py grid.cgns mesh.bdf scenario_000.f5")
 
-        # filehandler = open("output.pickle", 'rb')
-        # output = pickle.load(filehandler)
-        # filehandler.close()
+        filehandler = open("output.pickle", 'rb')
+        output = pickle.load(filehandler)
+        filehandler.close()
 
-        # os.system("rm -r output.pickle")
-        # os.chdir("../..")
+        os.system("rm -r output.pickle")
+        os.chdir("../..")
 
-        # y = []
+        y = []
 
-        # for value in output:
-        #     y.append(output[value][0])
+        for value in output:
+            y.append(output[value][0])
 
-        # self.sampleNo = self.sampleNo + 1
+        self.sampleNo = self.sampleNo + 1
 
-        # return y
+        return y
 
     def _createSample(self, user_sample):
         """
@@ -491,19 +484,9 @@ class Aerodynamics():
         """
 
         self.samples = {}
-        dummy = np.array([])
 
-        for key in self.options["varyingParameters"]:
-            if key == "twist" or key == "shape":
-                number = self.options["varyingParameters"][key]["numberOfVariables"]
-                dummy = np.append(dummy, [key] * number)
-            else:
-                dummy = np.append(dummy, key)
-
-        for key in enumerate(self.options["varyingParameters"]):
-            self.samples[key] = user_sample[(dummy == key)]
-
-        print(self.samples)
+        for index, key in enumerate(self.options["varyingParameters"]):
+            self.samples[key] = user_sample[index]
 
     # ----------------------------------------------------------------------------
     #          Other required methods, irrespective of type of analysis.
@@ -511,7 +494,7 @@ class Aerodynamics():
 
     def _getDefaultOptions(self):
         """
-            Setting up the initial values of options.
+            Setting up the initial values of options which are common across all functions.
         """
         
         defaultOptions = DefaultOptions()
@@ -534,8 +517,6 @@ class Aerodynamics():
         # Defining list of parameters
         parameters = ["areaRef", "chordRef"]
         varyingParameters = ["aoa", "mach", "altitude"]
-        optionalVaryingParameters = ["twist", "shape"]
-        varyingParameters.extend(optionalVaryingParameters)
         parameters.extend(varyingParameters)
 
         userVaryingParameters = options["varyingParameters"].keys()
@@ -544,7 +525,7 @@ class Aerodynamics():
         # Checking if user provided correct verying parameters
         if not set(userVaryingParameters).issubset(set(varyingParameters)):
             self._error("\"varyingParameters\" dictionary contains attribute(s) which are not allowed vary. \
-                Only \"aoa\", \"mach\", \"altitude\", \"twist\", \"shape\" are allowed.")
+                Only \"aoa\", \"mach\", \"altitude\" are allowed.")
 
         # Checking for common elements between fixed and varying parameters
         commonElements = set(userVaryingParameters).intersection(set(userFixedParameters))
@@ -552,36 +533,20 @@ class Aerodynamics():
             self._error("\"fixedParameters\" and \"varyingParameters\" dictionary contains common attributes.")
 
         # Calculating list of requried fixed parameters
-        requiredFixedParameters = list(set(parameters) - set(userVaryingParameters) - set(optionalVaryingParameters))
+        requiredFixedParameters = list(set(parameters) - set(userVaryingParameters))
 
         # Checking if user provided all the requried fixed parameters based on the varying parameters
         if not set(requiredFixedParameters) == set(userFixedParameters):
-            temp = set(requiredFixedParameters) - set(userFixedParameters)
-            if len(temp) != 0:
-                self._error("\"fixedParameters\" dictionary must contain only the required attribute(s).\
-                {} attribute(s) is/are missing.".format(temp))
-            temp = set(userFixedParameters) - set(requiredFixedParameters)
-            if len(temp) != 0:
-                self._error("\"fixedParameters\" dictionary contains extra attribute(s).\
-                {} attribute(s) is/are extra.".format(temp))
+            self._error("\"fixedParameters\" dictionary doesn't contain all the required attribute(s).\
+                {} attribute(s) is/are missing.".format(set(requiredFixedParameters) - set(userFixedParameters)))
         
         # Checking varyingParameter dictionary
         for key in options["varyingParameters"]:
             if type(options["varyingParameters"][key]) != dict:
                 self._error("Value of " + key + " in \"varyingParameters\" dictionary is not a dictionary.")
-
-            if key == "twist" or key == "shape":
-                # Checking for FFD file attribute
-                if "ffdFile" not in options.keys():
-                    self._error("\"ffdFile\" attribute not provided in options dictionary, this is requried for twist or shape.")
-                # Checking if FFD file exists or not
-                if not os.path.isfile(options["ffdFile"]):
-                    self._error("{} file doesn't exists, please check".format(options["ffdFile"]))
-                if set(["lowerBound", "upperBound", "numberOfVariables"]) != set(options["varyingParameters"][key]):
-                    self._error(key + " dictionary need to have \"lowerBound\", \"upperBound\", and \"numberOfVariables\" attributes only.")
-            else:
-                if set(["lowerBound", "upperBound"]) != set(options["varyingParameters"][key]):
-                    self._error(key + " dictionary need to have \"lowerBound\" and \"upperBound\" attributes only.")
+            
+            if set(["lowerBound", "upperBound"]) != set(options["varyingParameters"][key]):
+                self._error(key + " dictionary can only have \"lowerBound\" and \"upperBound\" attributes.")
 
             lbType = type(options["varyingParameters"][key]["lowerBound"])
             if lbType != int and lbType != float:
@@ -633,7 +598,7 @@ class Aerodynamics():
 
     def _setDirectory(self):
         """
-            Method for setting up directory.
+            Method for setting up directories for analysis
         """
 
         directory = self.options["directory"]
@@ -645,31 +610,15 @@ class Aerodynamics():
             os.system("mkdir {}".format(directory))
 
         if self.options["type"] == "multi":
-            FFD = False
-            for key in self.options["varyingParameters"].keys():
-                if key == "twist" or key == "shape":
-                    FFD = True
-                    break
 
             for sampleNo in range(self.options["numberOfSamples"]):
                 os.system("mkdir {}/{}".format(directory,sampleNo))
-                pkgdir = sys.modules["datgen"].__path__[0]
-                filepath = os.path.join(pkgdir, "runscripts/runscript_aerodynamics.py")
+                pkgdir = sys.modules["blackbox"].__path__[0]
+                filepath = os.path.join(pkgdir, "runscripts/runscript_aerostruct.py")
                 shutil.copy(filepath, "{}/{}".format(directory,sampleNo))
-                os.system("cp -r {} {}/{}/grid.cgns".format(self.options["aeroSolverOptions"]["gridFile"],directory,sampleNo))
-                if FFD:
-                    if self.options["shape"] == "wing":
-                        pkgdir = sys.modules["datgen"].__path__[0]
-                        filepath = os.path.join(pkgdir, "runscripts/deform_mesh.py")
-                        shutil.copy(filepath, "{}/{}".format(directory,sampleNo))
-                    elif self.options["shape"] == "airfoil":
-                        pkgdir = sys.modules["datgen"].__path__[0]
-                        filepath = os.path.join(pkgdir, "runscripts/deform_airfoil_mesh.py")
-                        shutil.copy(filepath, "{}/{}".format(directory,sampleNo))
-                    else:
-                        exit()
-                    
-                    os.system("cp -r {} {}/{}/ffd.xyz".format(self.options["ffdFile"],directory,sampleNo))
+                os.system("cp -r {} {}/{}/grid.cgns".format(self.options["aeroSolverOptions"]["gridFile"], directory, sampleNo))
+                os.system("cp -r {} {}/{}/mesh.bdf".format(self.options["structMeshFile"], directory, sampleNo))
+                os.system("cp -r {} {}/{}/tacsSetup.py".format(self.options["structSolverSetupFile"], directory, sampleNo))
 
     def _createInputFile(self):
         """
@@ -688,10 +637,7 @@ class Aerodynamics():
                 os.chdir("{}/{}".format(directory,sampleNo))
 
                 for key in self.samples:
-                    if key == "twist" or key == "shape":
-                        sample[key] = self.samples[key][sampleNo,:]
-                    else:
-                        sample[key] = self.samples[key][sampleNo]
+                    sample[key] = self.samples[key][sampleNo]
 
                 input = {
                     "aeroSolverOptions" : self.options["aeroSolverOptions"],
@@ -737,6 +683,7 @@ class Aerodynamics():
                 i += len(word) + 1
         msg += " " * (78 - i) + "|\n" + "+" + "-" * 78 + "+" + "\n"
  
+        # if comm.rank == 0:
         print(msg, flush=True)
 
-        exit()
+        exit()    

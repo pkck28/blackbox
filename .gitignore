@@ -1,8 +1,8 @@
-datgen.egg-info/
-datgen/__pycache__/
-datgen/analytical_functions/__pycache__
-datgen/physics_models/__pycache__
-datgen/base/__pycache__
+blackbox.egg-info/
+blackbox/__pycache__/
+blackbox/analytical_functions/__pycache__
+blackbox/physics_models/__pycache__
+blackbox/base/__pycache__
 examples/training
 examples/training_single
 examples/output

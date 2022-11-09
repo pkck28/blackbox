@@ -1,4 +1,4 @@
-from datgen import AeroStruct
+from blackbox import AeroStruct
 import time
 
 aeroSolverOptions = {

@@ -1,4 +1,4 @@
-from datgen import Aerodynamics
+from blackbox import Aerodynamics
 import time
 
 aeroSolverOptions = {

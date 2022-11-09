@@ -1,4 +1,4 @@
-from datgen import Branin
+from blackbox import Branin
 import numpy as np
 from metaplot import branin_plot
 from scipy.io import loadmat

@@ -1,8 +1,8 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='datgen',
+    name='blackbox',
     version='0.0.5',
-    packages=find_packages(where=".", include=['datgen']),
+    packages=find_packages(where=".", include=['blackbox']),
     install_requires=[],
 )

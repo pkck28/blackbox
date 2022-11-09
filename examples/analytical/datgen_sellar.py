@@ -1,4 +1,4 @@
-from datgen import Sellar
+from blackbox import Sellar
 import numpy as np
 
 options = {

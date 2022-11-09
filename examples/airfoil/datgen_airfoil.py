@@ -1,4 +1,4 @@
-from datgen import Aerodynamics
+from blackbox import Aerodynamics
 
 aeroSolverOptions = {
     # Common Parameters
