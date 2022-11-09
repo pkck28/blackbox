@@ -2,7 +2,7 @@ from datgen import Sellar
 import numpy as np
 
 options = {
-    "numberOfSamples" : 100,
+    "numberOfSamples" : 4,
     "directory" : "forrester",
     "samplingMethod" : "lhs",
     "directory" : "sellar"
@@ -14,5 +14,6 @@ options = {
 
 # Example for generating samples
 object_1 = Sellar(type="single")
-x = np.array([1.977, 0.0, 0.0])
-print(object_1.getObjectives(x))
+x = np.array([-1.0, 7.5, 0.5])
+result, d1, d2 = object_1.getObjectives(x)
+print(result)

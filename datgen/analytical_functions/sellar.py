@@ -85,6 +85,8 @@ class Sellar(BaseClass):
 
         self.options["lowerBound"] = [-10, 0, 0]
         self.options["upperBound"] = [10, 10, 10]
+        self.d1_counts = 0
+        self.d2_counts = 0
 
         # Updating/Appending the default option list with user provided options
         self._setOptions(options)
@@ -149,15 +151,15 @@ class Sellar(BaseClass):
 
         for index, sample in enumerate(self.x):
             if index == 0:
-                self. y = self._function(sample).reshape(1,-1)
+                self.y = self._function(sample).reshape(1,-1)
             else:
                 result = self._function(sample).reshape(1,-1)
                 self.y = np.concatenate((self.y, result))
 
-        print(self.x)
-        print(self.y)
-
         data = {"x" : self.x, "y" : self.y }
+
+        print("Total Discipline 1 counts: " + str(self.d1_counts))
+        print("Total Discipline 2 counts: " + str(self.d2_counts))
 
         # Saving data file in the specified folder
         os.chdir(self.options["directory"])
@@ -221,6 +223,9 @@ class Sellar(BaseClass):
             Output will be a numpy array of y, g1, g2 in order.
         """
 
+        self.d1_counts = 0
+        self.d2_counts = 0
+
         if self.options["type"] != "single":
             self._error("You cannot call getObjectives() method when type is not \"single\".")
 
@@ -234,7 +239,7 @@ class Sellar(BaseClass):
             if type(number) != np.float64:
                 self._error("{} entry in x is not a float.".format(index+1))
 
-        return self._function(x)
+        return self._function(x), self.d1_counts, self.d2_counts
 
     # ----------------------------------------------------------------------------
     #          Other required methods, irrespective of type of analysis.
@@ -266,6 +271,9 @@ class Sellar(BaseClass):
         filehandler.close()
 
         os.system("rm -r input.pickle output.pickle runscript_sellar.py reports")
+
+        self.d1_counts += output["d1_counts"]
+        self.d2_counts += output["d2_counts"]
 
         return output["y"]
     

@@ -89,10 +89,8 @@ class SellarMDA(om.Group):
     def setup(self):
         # Adding MDA components
         cycle = self.add_subsystem('cycle', om.Group(), promotes=['*'])
-        cycle.add_subsystem('d1', SellarDis1(), promotes_inputs=['x', 'y2'],
-                            promotes_outputs=['y1'])
-        cycle.add_subsystem('d2', SellarDis2(), promotes_inputs=['x', 'y1'],
-                            promotes_outputs=['y2'])                         
+        cycle.add_subsystem('d1', SellarDis1(), promotes_inputs=['x', 'y2'],promotes_outputs=['y1'])
+        cycle.add_subsystem('d2', SellarDis2(), promotes_inputs=['x', 'y1'],promotes_outputs=['y2'])                         
 
         # Nonlinear Block Gauss Seidel is a gradient free solver
         # iprint = 0 stops printing mda sovler details
@@ -113,6 +111,8 @@ prob.run_model()
 
 output = {}
 output["y"] = np.array([prob['obj'][0], prob['con1'][0], prob['con2'][0]])
+output["d1_counts"] = prob.model.cycle.d1.iter_count
+output["d2_counts"] = prob.model.cycle.d2.iter_count
 
 filehandler = open("output.pickle", "xb")
 pickle.dump(output, filehandler)
