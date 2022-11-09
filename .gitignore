@@ -17,3 +17,6 @@ examples/mach/multi
 examples/mach/single
 examples/onera/multi
 examples/onera/single
+examples/output
+examples/sellar
+examples/forrester

@@ -14,7 +14,7 @@ object_1.generateSamples()
 
 data = loadmat("output/data.mat")
 
-branin_plot(data, save=True)
+branin_plot(data)
 
 # x = np.array([-np.pi, 12.275])
 
