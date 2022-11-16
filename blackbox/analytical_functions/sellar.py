@@ -158,6 +158,7 @@ class Sellar(BaseClass):
 
         data = {"x" : self.x, "y" : self.y }
 
+        print("{} {} samples generated".format(self.options["numberOfSamples"], self.options["samplingMethod"]))
         print("Total Discipline 1 counts: " + str(self.d1_counts))
         print("Total Discipline 2 counts: " + str(self.d2_counts))
 
@@ -179,7 +180,7 @@ class Sellar(BaseClass):
 
         dim = len(self.options["lowerBound"])
 
-        samples = lhs(dim, samples=self.options["numberOfSamples"], criterion='cm', iterations=100)
+        samples = lhs(dim, samples=self.options["numberOfSamples"], criterion='cm', iterations=200)
 
         self.x = lowerBound + (upperBound - lowerBound) * samples
 
@@ -247,11 +248,11 @@ class Sellar(BaseClass):
 
     def _function(self, x):
         """
-            Sasena function. Note: Output of function should always be
+            Sellar function. Note: Output of function should always be
             of size num_samples X 4 (f and three constraints).
         """
 
-        pkgdir = sys.modules["datgen"].__path__[0]
+        pkgdir = sys.modules["blackbox"].__path__[0]
         filepath = os.path.join(pkgdir, "runscripts/runscript_sellar.py")
         shutil.copy(filepath, ".")
 
