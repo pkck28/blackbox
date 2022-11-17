@@ -38,8 +38,6 @@ class Forrester(BaseClass):
 
     def __init__(self, type="multi", options=None):
 
-        # super.__init__(self)
-
         # Initializing based on the type
         if type == "multi":
             # If 'options' is None, notify the user
