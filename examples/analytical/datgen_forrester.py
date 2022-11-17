@@ -1,9 +1,7 @@
 from blackbox import Forrester
 
 options = {
-    "lowerBound" : 0,
-    "upperBound" : 1,
-    "numberOfSamples" : 50
+    "numberOfSamples" : 25,
 }
 
 # Example for generating samples

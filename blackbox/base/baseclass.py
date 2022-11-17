@@ -190,6 +190,56 @@ class BaseClass():
         savemat("data.mat", data)
         os.chdir("../")
 
+    def _checkOptionsForMultiAnalysis(self, options, requiredOptions):
+        """
+            This method validates user provided options for type = "multi".
+        """
+
+        defaultOptions = list(self.options.keys())
+        allowedUserOptions = defaultOptions
+        allowedUserOptions.extend(requiredOptions)
+
+        userProvidedOptions = list(options.keys())
+
+        # Checking if user provided option contains only allowed attributes
+        if not set(userProvidedOptions).issubset(allowedUserOptions):
+            self._error("Option dictionary contains unrecognized attribute(s).")
+
+        # Checking if user has mentioned all the requried attributes
+        if not set(requiredOptions).issubset(userProvidedOptions):
+            self._error("Option dictionary doesn't contain all the requried options. \
+                        {} attribute(s) is/are missing.".format(set(requiredOptions) - set(userProvidedOptions)))
+
+        # Validating number of samples attribute
+        if "numberOfSamples" in userProvidedOptions:
+            if type(options["numberOfSamples"]) is not int:
+                self._error("\"numberOfSamples\" attribute is not an integer.")
+            
+            # Setting minimum limit on number of samples
+            if options["numberOfSamples"] < 2:
+                self._error("Number of samples need to be at-least 2.")
+
+        # Validating bounds
+        if "lowerBound" in userProvidedOptions:
+            if type(options["lowerBound"]) is not int:
+                self._error("\"{}\" attribute is not an integer".format("lowerBound"))
+
+            if type(options["upperBound"]) is not int:
+                self._error("\"{}\" attribute is not an integer".format("upperBound"))
+
+            if options["lowerBound"] >= options["upperBound"]:
+                self._error("Lower bound is greater than upper bound.")
+
+        # Validating sampling method
+        if "samplingMethod" in userProvidedOptions:
+            if options["samplingMethod"] not in ["lhs", "fullfactorial"]:
+                self._error("\"samplingMethod\" attribute is not correct. \"lhs\" and \"fullfactorial\" are only allowed.")
+
+        # Validating directory attribute
+        if "directory" in userProvidedOptions:
+            if type(options["directory"]) is not str:
+                self._error("\"directory\" attribute is not string.")
+
     # ----------------------------------------------------------------------------
     #       All the abstract methods which child class needs to implement.
     # ----------------------------------------------------------------------------

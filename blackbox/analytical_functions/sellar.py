@@ -48,14 +48,17 @@ class Sellar(BaseClass):
 
         # Creating an empty options dictionary and assign value of type
         self.options = {}
-        self.options["type"] = "multi"
-
+        
         # Setting up default options
         self._getDefaultOptions()
 
-        # Validating user provided options
-        self._checkOptionsForMultiAnalysis(options)
+        # Creating list of required options
+        requiredOptions = ["numberOfSamples", "samplingMethod"]
 
+        # Validating user provided options
+        self._checkOptionsForMultiAnalysis(options, requiredOptions)
+
+        self.options["type"] = "multi"
         self.options["lowerBound"] = [-10, 0, 0]
         self.options["upperBound"] = [10, 10, 10]
         self.d1_counts = 0
@@ -66,45 +69,6 @@ class Sellar(BaseClass):
 
         # Setting up the folders for saving the results
         self._setDirectory()
-
-    def _checkOptionsForMultiAnalysis(self, options):
-        """
-            This method validates user provided options for type = "multi".
-        """
-
-        # Creating list of various different options
-        defaultOptions = list(self.options.keys())
-        requiredOptions = ["numberOfSamples", "samplingMethod"]
-        allowedUserOptions = defaultOptions
-        allowedUserOptions.extend(requiredOptions)
-
-        userProvidedOptions = list(options.keys())
-
-        # Checking if user provided option contains only allowed attributes
-        if not set(userProvidedOptions).issubset(allowedUserOptions):
-            self._error("Option dictionary contains unrecognized attribute(s).")
-
-        # Checking if user has mentioned all the requried attributes
-        if not set(requiredOptions).issubset(userProvidedOptions):
-            self._error("Option dictionary doesn't contain all the requried options. \
-                        {} attribute(s) is/are missing.".format(set(requiredOptions) - set(userProvidedOptions)))
-
-        # Validating number of samples attribute
-        if type(options["numberOfSamples"]) is not int:
-            self._error("\"numberOfSamples\" attribute is not an integer.")
-        
-        # Setting minimum limit on number of samples
-        if options["numberOfSamples"] < 2:
-            self._error("Number of samples need to be at-least 2.")
-
-        # Validating sampling method
-        if options["samplingMethod"] not in ["lhs", "fullfactorial"]:
-            self._error("\"samplingMethod\" attribute is not correct. \"lhs\" and \"fullfactorial\" are only allowed.")
-
-        # Validating directory attribute
-        if "directory" in userProvidedOptions:
-            if type(options["directory"]) is not str:
-                self._error("\"directory\" attribute is not string.")
 
     def generateSamples(self):
         """

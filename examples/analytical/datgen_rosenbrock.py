@@ -2,9 +2,7 @@ from blackbox import Rosenbrock
 import numpy as np
 
 options = {
-    "lowerBound" : [-2, -2],
-    "upperBound" : [2, 2],
-    "numberOfSamples" : 50,
+    "numberOfSamples" : 5,
     "samplingMethod" : "lhs"
 }
 
@@ -14,4 +12,4 @@ object_1.generateSamples()
 
 # Example for getting value of one sample
 object_2 = Rosenbrock(type="single")
-print(object_2.getObjectives(np.array([1, 1])))
+print(object_2.getObjectives(np.array([0.5, 0.5])))

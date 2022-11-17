@@ -19,8 +19,6 @@ class Forrester(BaseClass):
 
         "directory" : Folder name where the data.mat file will be saved (string, optional).
         "numberOfSamples" : number of samples to be generated (integer).
-        "lowerBound" : lower bound (integer).
-        "upperBound" : upper bound (integer).
 
         Note: There is no sampling method option for forrester function since
         there is only one dimension.
@@ -46,8 +44,14 @@ class Forrester(BaseClass):
         # Setting up default options
         self._getDefaultOptions()
 
+        # Creating list of required options
+        requiredOptions = ["numberOfSamples"]
+
         # Validating user provided options
-        self._checkOptionsForMultiAnalysis(options)
+        self._checkOptionsForMultiAnalysis(options, requiredOptions)
+
+        self.options["lowerBound"] = 0
+        self.options["upperBound"] = 1
 
         # Updating/Appending the default option list with user provided options
         self._setOptions(options)
@@ -55,45 +59,45 @@ class Forrester(BaseClass):
         # Setting up the folder for saving the results
         self._setDirectory()
 
-    def _checkOptionsForMultiAnalysis(self, options):
-        """
-            This method validates user provided options for type = "multi".
-        """
+    # def _checkOptionsForMultiAnalysis(self, options):
+    #     """
+    #         This method validates user provided options for type = "multi".
+    #     """
 
-        # Creating list of various different options
-        defaultOptions = list(self.options.keys())
-        requiredOptions = ["numberOfSamples", "lowerBound", "upperBound"]
-        allowedUserOptions = defaultOptions
-        allowedUserOptions.extend(requiredOptions)
+    #     # Creating list of various different options
+    #     defaultOptions = list(self.options.keys())
+    #     requiredOptions = ["numberOfSamples", "lowerBound", "upperBound"]
+    #     allowedUserOptions = defaultOptions
+    #     allowedUserOptions.extend(requiredOptions)
 
-        userProvidedOptions = list(options.keys())
+    #     userProvidedOptions = list(options.keys())
 
-        # Checking if the user provided option contains only allowed attributes
-        if not set(userProvidedOptions).issubset(allowedUserOptions):
-            self._error("Option dictionary contains unrecognized attribute(s).")
+    #     # Checking if the user provided option contains only allowed attributes
+    #     if not set(userProvidedOptions).issubset(allowedUserOptions):
+    #         self._error("Option dictionary contains unrecognized attribute(s).")
 
-        # Checking if user has mentioned all the requried attributes
-        if not set(requiredOptions).issubset(userProvidedOptions):
-            self._error("Option dictionary doesn't contain all the requried options. \
-                        {} attribute(s) is/are missing.".format(set(requiredOptions) - set(userProvidedOptions)))
+    #     # Checking if user has mentioned all the requried attributes
+    #     if not set(requiredOptions).issubset(userProvidedOptions):
+    #         self._error("Option dictionary doesn't contain all the requried options. \
+    #                     {} attribute(s) is/are missing.".format(set(requiredOptions) - set(userProvidedOptions)))
 
-        # Checking type of required options
-        for attribute in requiredOptions:
-            if type(options[attribute]) is not int:
-                self._error("\"{}\" attribute is not an integer".format(attribute))
+    #     # Checking type of required options
+    #     for attribute in requiredOptions:
+    #         if type(options[attribute]) is not int:
+    #             self._error("\"{}\" attribute is not an integer".format(attribute))
 
-        # Setting minimum limit on number of samples
-        if options["numberOfSamples"] < 2:
-            self._error("Number of samples need to least 2.")
+    #     # Setting minimum limit on number of samples
+    #     if options["numberOfSamples"] < 2:
+    #         self._error("Number of samples need to least 2.")
 
-        # Checking correctness of bound
-        if options["lowerBound"] >= options["upperBound"]:
-            self._error("Lower bound is greater than upper bound.")
+    #     # Checking correctness of bound
+    #     if options["lowerBound"] >= options["upperBound"]:
+    #         self._error("Lower bound is greater than upper bound.")
 
-        # Validating directory attribute
-        if "directory" in userProvidedOptions:
-            if type(options["directory"]) is not str:
-                self._error("\"directory\" attribute is not string.")
+    #     # Validating directory attribute
+    #     if "directory" in userProvidedOptions:
+    #         if type(options["directory"]) is not str:
+    #             self._error("\"directory\" attribute is not string.")
 
     def generateSamples(self):
         """
