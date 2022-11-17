@@ -4,16 +4,6 @@ import numpy as np
 from scipy.io import savemat
 from ..base import BaseClass
 
-class DefaultOptions():
-    """
-        Class creates a default option list which is later 
-        edited/appended with user provided options.
-    """
-
-    def __init__(self):
-        self.directory = "output"
-
-
 class Forrester(BaseClass):
     """
         Class contains essential methods for generating data
@@ -38,28 +28,7 @@ class Forrester(BaseClass):
 
     def __init__(self, type="multi", options=None):
 
-        # Initializing based on the type
-        if type == "multi":
-            # If 'options' is None, notify the user
-            if options is not None:
-                if not isinstance(options, dict):
-                    self._error("The 'options' argument provided is not a dictionary.")
-                elif options == {}:
-                    self._error("The 'options' argument provided is an empty dictionary.")
-            else:
-                self._error("Options argument not provided.")
-
-            self._setupMultiAnalysis(options)
-
-        elif type == "single":
-            # If 'options' is not None, then raise an error
-            if options is not None:
-                self._error("Options argument is not needed when type is \"single\".")
-
-            self._setupSingleAnalysis()
-
-        else:
-            self._error("Value of type argument is not recognized. Only \"multi\" and \"single\" are allowed.")
+        self._initialization(type, options)
 
     # ----------------------------------------------------------------------------
     #               All the methods for multi analysis
@@ -85,17 +54,6 @@ class Forrester(BaseClass):
 
         # Setting up the folder for saving the results
         self._setDirectory()
-
-    def _getDefaultOptions(self):
-        """
-            Setting up the initial values of options.
-        """
-
-        defaultOptions = DefaultOptions()
-
-        for key in vars(defaultOptions):
-            value = getattr(defaultOptions, key)
-            self.options[key] = value
 
     def _checkOptionsForMultiAnalysis(self, options):
         """
@@ -137,32 +95,6 @@ class Forrester(BaseClass):
             if type(options["directory"]) is not str:
                 self._error("\"directory\" attribute is not string.")
 
-    def _setOptions(self, options):
-        """
-            Method for assigning user provided options.
-        """
-
-        for key in options.keys():
-            # If the value is dictionary, update the default dictionary.
-            # Otherwise, assign values.
-            if isinstance(options[key], dict): 
-                self.options[key].update(options[key]) 
-            else:
-                self.options[key] = options[key]
-
-    def _setDirectory(self):
-        """
-            Method for setting up directory
-        """
-
-        directory = self.options["directory"]
-
-        if not os.path.isdir(directory):
-            os.system("mkdir {}".format(directory))
-        else:
-            os.system("rm -r {}".format(directory))
-            os.system("mkdir {}".format(directory))
-
     def generateSamples(self):
         """
             Method to generate samples and save the data for further use.
@@ -177,6 +109,8 @@ class Forrester(BaseClass):
         self.y = self._function(self.samples)
 
         data = {"x" : self.samples, "y" : self.y }
+
+        print("{} samples generated.".format(self.options["numberOfSamples"]))
 
         # Saving data file in the specified folder
         os.chdir(self.options["directory"])

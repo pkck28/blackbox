@@ -97,10 +97,9 @@ class SellarMDA(om.Group):
         cycle.nonlinear_solver = om.NonlinearBlockGS(iprint=0, maxiter=50, use_aitken=True)
 
         # Adding output components
-        self.add_subsystem('obj_comp', om.ExecComp('obj = x[0]**2 + x[2] + y1 + exp(-y2)', x=np.zeros(3)), promotes=['x', 'y1', 'y2', 'obj'])
-        # self.add_subsystem('obj_comp', om.ExecComp('obj = x[2]**2 + x[1] + y1 + exp(-y2)', x=np.zeros(3)), promotes=['x', 'y1', 'y2', 'obj'])
-        self.add_subsystem('con_comp1', om.ExecComp('con1 = 1 - y1/3.16'), promotes=['con1', 'y1'])
-        self.add_subsystem('con_comp2', om.ExecComp('con2 = y2/24.0 - 1'), promotes=['con2', 'y2'])
+        self.add_subsystem('obj_comp', om.ExecComp('obj = x[1]**2 + x[2] + y1 + exp(-y2)', x=np.zeros(3)), promotes=['x', 'y1', 'y2', 'obj'])
+        self.add_subsystem('con_comp1', om.ExecComp('con1 = 1 - y1/8.0'), promotes=['con1', 'y1'])
+        self.add_subsystem('con_comp2', om.ExecComp('con2 = y2/10.0 - 1'), promotes=['con2', 'y2'])
 
 prob = om.Problem()
 prob.model = SellarMDA()

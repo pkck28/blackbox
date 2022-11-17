@@ -8,8 +8,8 @@ class DefaultOptions():
         Class creates a default option list which is later 
         edited/appended with user provided options. This class
         can be used as a parent class for application specific
-        default class. No need to define instance variables
-        already defined here.
+        default class. No need to define instance variables in child which
+        are already defined here.
     """
 
     def __init__(self):
@@ -145,7 +145,7 @@ class BaseClass():
 
         samples = lhs(dim, samples=self.options["numberOfSamples"], criterion='cm', iterations=100)
 
-        self.samples = lowerBound + (upperBound - lowerBound) * samples
+        self.x = lowerBound + (upperBound - lowerBound) * samples
 
     def _fullfactorial(self):
         """
@@ -159,11 +159,9 @@ class BaseClass():
 
         samplesInEachDimension = round(math.exp( math.log(self.options["numberOfSamples"]) / dim ))
 
-        print("{} full-factorial samples are generated".format(samplesInEachDimension**dim))
-
         samples = fullfact([samplesInEachDimension]*dim)
 
-        self.samples = lowerBound + samples * (upperBound - lowerBound) / (samplesInEachDimension- 1)
+        self.x = lowerBound + samples * (upperBound - lowerBound) / (samplesInEachDimension- 1)
 
     def generateSamples(self):
         """
@@ -181,9 +179,11 @@ class BaseClass():
         else:
             self._error("Sampling method is not recognized.")
 
-        self.y = self._function(self.samples)
+        self.y = self._function(self.x)
 
-        data = {"x" : self.samples, "y" : self.y }
+        data = {"x" : self.x, "y" : self.y }
+
+        print("{} {} samples generated.".format(self.options["numberOfSamples"], self.options["samplingMethod"]))
 
         # Saving data file in the specified folder
         os.chdir(self.options["directory"])

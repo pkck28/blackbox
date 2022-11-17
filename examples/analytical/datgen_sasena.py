@@ -1,28 +1,13 @@
 from blackbox import Sasena
-from scipy.io import loadmat
+import numpy as np
 
 options = {
-    "numberOfSamples" : 34,
-    "samplingMethod" : "fullfactorial"
+    "numberOfSamples" : 100,
+    "samplingMethod" : "lhs"
 }
 
-test = Sasena(type="single")
+object_1 = Sasena(options=options)
+object_1.generateSamples()
 
-print(test.getObjectives([0, 0]))
-
-
-# test.generateSamples()
-
-# data = loadmat("output/data.mat")
-
-# x = data["x"]
-# y = data["y"]
-
-# print(x)
-# print(y)
-
-# print(x.shape)
-# print(y.shape)
-
-# print(type(x))
-# print(type(y))
+object_2 = Sasena(type="single")
+print(object_2.getObjectives(np.array([0.5, 0.5])))

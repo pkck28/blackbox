@@ -1,8 +1,5 @@
 # Importing python packages
-import os
 import numpy as np
-from scipy.io import savemat
-import math, pathlib
 from ..base import BaseClass
 
 class Branin(BaseClass):
