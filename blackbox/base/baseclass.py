@@ -109,27 +109,6 @@ class BaseClass():
             os.system("rm -r {}".format(directory))
             os.system("mkdir {}".format(directory))
 
-        # if self.options["type"] == "multi":
-        #     FFD = False
-        #     for key in self.options["varyingParameters"].keys():
-        #         if key == "twist" or key == "shape":
-        #             FFD = True
-        #             break
-
-        #     for sampleNo in range(self.options["numberOfSamples"]):
-        #         os.system("mkdir {}/{}".format(directory,sampleNo))
-        #         pkgdir = sys.modules["datgen"].__path__[0]
-        #         filepath = os.path.join(pkgdir, "runscripts/runscript_aerodynamics.py")
-        #         shutil.copy(filepath, "{}/{}".format(directory,sampleNo))
-        #         os.system("cp -r {} {}/{}/grid.cgns".format(self.options["aeroSolverOptions"]["gridFile"],directory,sampleNo))
-
-        #         # copying ffd file
-        #         if FFD:
-        #             pkgdir = sys.modules["datgen"].__path__[0]
-        #             filepath = os.path.join(pkgdir, "runscripts/deform_mesh.py")
-        #             shutil.copy(filepath, "{}/{}".format(directory,sampleNo))
-        #             os.system("cp -r {} {}/{}/ffd.xyz".format(self.options["ffdFile"],directory,sampleNo))
-
     def _lhs(self):
         """
             Method for creating a lhs sample.
