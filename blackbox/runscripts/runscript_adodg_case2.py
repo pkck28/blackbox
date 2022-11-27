@@ -166,7 +166,9 @@ SLSQP_Options = {
 
 PSQP_options = {
     "MET": 1,
-    "XMAX": 2.5,
+    "XMAX": 4.0,
+    "MFV": 15,
+    "MIT": 15
 }
 
 # Creating optimizer for optimization

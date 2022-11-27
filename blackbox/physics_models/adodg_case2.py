@@ -1,4 +1,4 @@
-import os, sys, shutil, math, pickle
+import os, sys, shutil, math, pickle, time
 import numpy as np
 from pyDOE2 import lhs, fullfact
 from scipy.io import savemat
@@ -92,6 +92,8 @@ class ADODGCase2():
         data = {}
         data['x'] = self.x
 
+        totalTime = 0
+
         # Running the analysis
         for sampleNo in range(self.options["numberOfSamples"]):
 
@@ -101,8 +103,18 @@ class ADODGCase2():
             # creating input file for analysis
             self._creatInputFile(sampleNo)
             
+            # Starting time
+            t1 = time.time()
+
             # run the analysis
             os.system("mpirun -n {} --use-hwthread-cpus python runscript_adodg_case2.py >> analysis_log.txt".format(self.options["noOfProcessors"]))
+
+            # Ending time
+            t2 = time.time()
+
+            totalTime += (t2-t1)/60
+
+            print("Time taken for analysis: {} min.".format((t2-t1)/60))
 
             # reading output from the analysis
             filehandler = open("output.pickle", 'rb')
@@ -121,6 +133,8 @@ class ADODGCase2():
                 if sampleNo == 0:
                     data[value] = np.array([])
                 data[value] = np.append(data[value], output[value])
+
+        print("Total time taken: {} minutes".format(totalTime))
 
         # saving the results
         os.chdir("{}".format(self.options["directory"]))
