@@ -110,7 +110,7 @@ class ADODGCase2():
             filehandler.close()
 
             # cleaning the directory
-            os.system("rm -r input.pickle runscript_adodg_case2.py grid.cgns ffd.xyz")
+            os.system("rm -r input.pickle runscript_adodg_case2.py grid.cgns deformed_grid.cgns ffd.xyz")
             os.system("rm -r output.pickle")
 
             # changing the directory

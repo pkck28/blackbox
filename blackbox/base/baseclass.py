@@ -14,6 +14,7 @@ class DefaultOptions():
 
     def __init__(self):
         self.directory = "output"
+        self.filename = "output.mat"
 
 class BaseClass():
     """

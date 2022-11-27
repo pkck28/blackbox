@@ -1,5 +1,6 @@
 # Importing python packages
 import numpy as np
+from scipy.io import savemat
 from ..base import BaseClass
 
 class Branin(BaseClass):
@@ -63,7 +64,36 @@ class Branin(BaseClass):
         self._setOptions(options)
 
         # Setting up the folders for saving the results
-        self._setDirectory()
+        # self._setDirectory()
+
+    def generateSamples(self):
+        """
+            Method to generate samples and save the data for further use.
+        """
+
+        if self.options["type"] != "multi":
+            self._error("You cannot call generateSamples() method when type is not \"multi\".")
+
+        # Generating x based on user provided method
+        if self.options["samplingMethod"] == "lhs":
+            self._lhs()
+        elif self.options["samplingMethod"] == "fullfactorial":
+            self._fullfactorial()
+        else:
+            self._error("Sampling method is not recognized.")
+
+        self.y = self._function(self.x)
+
+        data = {"x" : self.x, "y" : self.y }
+
+        print("{} {} samples generated.".format(self.options["numberOfSamples"], self.options["samplingMethod"]))
+
+        # Saving data file
+        savemat(self.options["filename"], data)
+
+    # ----------------------------------------------------------------------------
+    #               All the methods for single analysis
+    # ----------------------------------------------------------------------------
 
     def _setupSingleAnalysis(self):
         """

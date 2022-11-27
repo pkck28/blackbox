@@ -1,40 +1,50 @@
+############## Script file for generating ADODG case 2 samples.
+
+# General imports
 import pickle
+from collections import OrderedDict
 from mpi4py import MPI
+
+# MDO lab imports
 from baseclasses import AeroProblem
 from adflow import ADFLOW
-from idwarp import USMesh
 from pygeo import DVGeometry, DVConstraints, geo_utils
+from pyoptsparse import Optimization, SLSQP, PSQP
+from idwarp import USMesh
+
+# Importing warnings package and supressing the warnings
+import warnings
+warnings.filterwarnings("ignore")
 
 ############## Reading input file for the analysis
+
+# Reading input file
 filehandler = open("input.pickle", 'rb') 
 input = pickle.load(filehandler)
 filehandler.close()
 
-# defining the variables
+# Defining the variables
 aero_options = input["aeroSolverOptions"]
-aero_options["gridFile"] = "grid.cgns"
 evalFuncs = input["objectives"]
+CL_target = 0.824
+alpha = 2.79
 
-############## Settign up adflow
-CFDSolver = ADFLOW(options=aero_options, comm=MPI.COMM_WORLD)
+############## Mesh Deformation using PyGeo and IDWarp
 
-# Mesh warping
-meshOptions = {"gridFile": aero_options["gridFile"]}
-mesh = USMesh(options=meshOptions, comm=MPI.COMM_WORLD)
-CFDSolver.setMesh(mesh)
+idwarp_options = {
+    "gridFile": "grid.cgns",
+}
 
-# Adding pressure distribution output
-CFDSolver.addSlices("z", 0.5, sliceType="absolute")
+# Create the idwarp object
+mesh = USMesh(options=idwarp_options)
 
-# Creating aeroproblem for adflow
-ap = AeroProblem(
-    name="ap", alpha=2.79, mach=0.734, reynolds=6.5e6, reynoldsLength=1.0, T=288.15, 
-    areaRef=1.0, chordRef=1.0, evalFuncs=evalFuncs, xRef = 0.25, yRef = 0.0, zRef = 0.0
-)
+# Extract all undeformed surface mesh coordinates
+coords0 = mesh.getSurfaceCoordinates()
 
-############## Settign up geometry parametrization
-FFDFile = "ffd.xyz"
-DVGeo = DVGeometry(FFDFile)
+# Initializing the DVGeometry class with the FFD file
+DVGeo = DVGeometry("ffd.xyz")
+
+# Getting the ffd points
 pts = DVGeo.getLocalIndex(0) # location of all the ffd points
 
 # Adding ffd at root as local dv
@@ -47,13 +57,50 @@ indexList2 = pts[:, :, 1].flatten()
 PS2 = geo_utils.PointSelect("list", indexList2)
 DVGeo.addLocalDV("shape1", lower=-0.03, upper=0.03, axis="y", scale=1.0, pointSelect=PS2)
 
-# Getting the dv dictionary
-designVariables = DVGeo.getValues()
+# Adding surface mesh co-ordinates as a pointset
+DVGeo.addPointSet(coords0, "airfoil_surface_mesh")
 
-# Add DVGeo object to CFD solver
-CFDSolver.setDVGeo(DVGeo)
+# Get Design Variables
+dvDict = DVGeo.getValues()
+
+# Assigning DV
+dvDict["shape0"] = input["shape"]
+dvDict["shape1"] = input["shape"]
+
+# Set Design Variables
+DVGeo.setDesignVars(dvDict)
+
+# Updating suface mesh co-ordinates
+newCoords = DVGeo.update("airfoil_surface_mesh")
+DVGeo.writePlot3d("deformed_ffd.xyz")
+
+# Assign the newly computed surface coordinates
+mesh.setSurfaceCoordinates(newCoords)
+
+# Actually run the mesh warping
+mesh.warpMesh()
+
+# Write the new grid file.
+mesh.writeGrid("deformed_grid.cgns")
+
+############## Settign up adflow
+
+aero_options["gridFile"] = "deformed_grid.cgns"
+
+# Creating adflow object
+CFDSolver = ADFLOW(options=aero_options, comm=MPI.COMM_WORLD)
+
+# Creating aeroproblem for adflow
+ap = AeroProblem(
+    name="ap", alpha=alpha, mach=0.734, reynolds=6.5e6, reynoldsLength=1.0, T=288.15, 
+    areaRef=1.0, chordRef=1.0, evalFuncs=evalFuncs, xRef = 0.25, yRef = 0.0, zRef = 0.0
+)
+
+# Adding angle of attack as variable
+ap.addDV("alpha", value=alpha, lower=0, upper=15.0, scale=1.0)
 
 ############## Settign up constraints
+
 DVCon = DVConstraints()
 DVCon.setDVGeo(DVGeo)
 DVCon.setSurface(CFDSolver.getTriangulatedMeshSurface())
@@ -62,28 +109,89 @@ DVCon.setSurface(CFDSolver.getTriangulatedMeshSurface())
 le = 1e-4
 leList = [[le, 0, le], [le, 0, 1.0 - le]]
 teList = [[1.0 - le, 0, le], [1.0 - le, 0, 1.0 - le]]
-DVCon.addVolumeConstraint(leList, teList, 2, 100, lower=0.5, upper=3.0, scaled=True)
+DVCon.addVolumeConstraint(leList, teList, 2, 100, lower=0.5, upper=3.0, scaled=False)
 
-############## Settign up dv
-designVariables["shape0"] = input["shape"]
-designVariables["shape1"] = input["shape"]
+############## Methods for objective and sensitivity
 
-DVGeo.setDesignVars(designVariables)
-ap.setDesignVars(designVariables)
+def Funcs(x):
+    """
+        Objective Function.
+    """
 
-designVariables = DVGeo.getValues()
+    ap.setDesignVars(x)
 
-############## Solving for the CL
-CFDSolver.solveCL(ap, 0.824, tol=0.0001)
+    # Run CFD
+    CFDSolver(ap)
 
-# storing all the requried results
+    # Evaluate functions
+    funcs = {}
+    CFDSolver.evalFunctions(ap, funcs, ["cl"])
+    CFDSolver.checkSolutionFailure(ap, funcs)
+
+    # Calc objective
+    funcs["obj"] = (funcs[ap["cl"]] - CL_target)**2
+    
+    return funcs
+
+def FuncsSens(x, funcs):
+    """
+        Function sensitivity.
+    """
+
+    # Evaluate sensitivities
+    funcsSens = {}
+    CFDSolver.evalFunctionsSens(ap, funcsSens, ["cl"])
+    CFDSolver.checkAdjointFailure(ap, funcsSens)
+
+    # Calc gradient of objective
+    funcsSens["obj"] = OrderedDict()
+    funcsSens["obj"]["alpha_ap"] = 2*(funcs["ap_cl"] - CL_target)*funcsSens["ap_cl"]["alpha_ap"]
+
+    return funcsSens
+
+############# Optimization
+
+# Creating optimization problem
+optProb = Optimization("opt", objFun=Funcs, comm=MPI.COMM_WORLD, sens=FuncsSens)
+
+# Add objective
+optProb.addObj("obj", scale=1e6)
+
+# Add variables from the AeroProblem
+ap.addVariablesPyOpt(optProb)
+
+SLSQP_Options = {
+    "ACC": 1e-3
+}
+
+PSQP_options = {
+    "MET": 1,
+    "XMAX": 2.5,
+}
+
+# Creating optimizer for optimization
+opt = SLSQP(options=SLSQP_Options)
+opt = PSQP(options=PSQP_options)
+
+# Run Optimization
+sol = opt(optProb, sens=FuncsSens, storeHistory="opt.hst", sensMode="pgc", )
+
+if MPI.COMM_WORLD.rank == 0:
+    print(sol)
+
+############# Post-processing
+
+# Writing the surface results in a tecplot file
+CFDSolver.writeSurfaceSolutionFileTecplot("sample_{}_surf.plt".format(input["sampleNo"]))
+
+# Writing the slice file
+# CFDSolver.writeSlicesFile("sample_{}_slice.dat".format(input["sampleNo"]))
+
+# Evaluating QoI
+# Note: This doesn't run the simulation.
 funcs = {}
+CFDSolver.evalFunctions(ap, funcs, evalFuncs)
 DVCon.evalFunctions(funcs)
-CFDSolver.evalFunctions(ap, funcs)
-CFDSolver.checkSolutionFailure(ap, funcs)
-
-# Writing the simulation results
-CFDSolver.writeSolution(baseName="sample", number=input["sampleNo"])
 
 # printing the result
 if MPI.COMM_WORLD.rank == 0:
