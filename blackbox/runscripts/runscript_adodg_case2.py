@@ -27,7 +27,7 @@ filehandler.close()
 aero_options = input["aeroSolverOptions"]
 evalFuncs = input["objectives"]
 CL_target = 0.824
-alpha = 2.79
+alpha = 5.0
 
 ############## Mesh Deformation using PyGeo and IDWarp
 
@@ -166,17 +166,17 @@ SLSQP_Options = {
 
 PSQP_options = {
     "MET": 1,
-    "XMAX": 4.0,
-    "MFV": 15,
-    "MIT": 15
+    "XMAX": 1.5,
+    "MFV": 12,
+    "MIT": 12
 }
 
 # Creating optimizer for optimization
-opt = SLSQP(options=SLSQP_Options)
+# opt = SLSQP(options=SLSQP_Options)
 opt = PSQP(options=PSQP_options)
 
 # Run Optimization
-sol = opt(optProb, sens=FuncsSens, storeHistory="opt.hst", sensMode="pgc", )
+sol = opt(optProb, sens=FuncsSens, storeHistory="opt.hst", sensMode="pgc")
 
 if MPI.COMM_WORLD.rank == 0:
     print(sol)
