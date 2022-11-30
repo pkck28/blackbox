@@ -1,13 +1,15 @@
 ############## Script file for generating ADODG case 2 samples.
 
 # General imports
-import pickle, os
+import pickle
+from collections import OrderedDict
 from mpi4py import MPI
 
 # MDO lab imports
 from baseclasses import AeroProblem
 from adflow import ADFLOW
 from pygeo import DVGeometry, DVConstraints, geo_utils
+from pyoptsparse import Optimization, SLSQP, PSQP
 from idwarp import USMesh
 
 # Importing warnings package and supressing the warnings
@@ -23,8 +25,9 @@ filehandler.close()
 
 # Defining the variables
 aero_options = input["aeroSolverOptions"]
-evalFuncs = ["cl", "cd", "cmz"]
-alpha = input["alpha"]
+evalFuncs = input["objectives"]
+CL_target = 0.824
+alpha = 5.0
 
 ############## Mesh Deformation using PyGeo and IDWarp
 
@@ -93,6 +96,9 @@ ap = AeroProblem(
     areaRef=1.0, chordRef=1.0, evalFuncs=evalFuncs, xRef = 0.25, yRef = 0.0, zRef = 0.0
 )
 
+# Adding angle of attack as variable
+ap.addDV("alpha", value=alpha, lower=0, upper=15.0, scale=1.0)
+
 ############## Settign up constraints
 
 DVCon = DVConstraints()
@@ -105,25 +111,100 @@ leList = [[le, 0, le], [le, 0, 1.0 - le]]
 teList = [[1.0 - le, 0, le], [1.0 - le, 0, 1.0 - le]]
 DVCon.addVolumeConstraint(leList, teList, 2, 100, lower=0.5, upper=3.0, scaled=False)
 
-############## Evaluating objectives
+############## Methods for objective and sensitivity
 
-# Run CFD
-CFDSolver(ap)
+def Funcs(x):
+    """
+        Objective Function.
+    """
 
-# Evaluate functions
-funcs = {}
-DVCon.evalFunctions(funcs)
-CFDSolver.evalFunctions(ap, funcs, evalFuncs)
-CFDSolver.checkSolutionFailure(ap, funcs)
+    ap.setDesignVars(x)
+
+    # Run CFD
+    CFDSolver(ap)
+
+    # Evaluate functions
+    funcs = {}
+    CFDSolver.evalFunctions(ap, funcs, ["cl"])
+    CFDSolver.checkSolutionFailure(ap, funcs)
+
+    # Calc objective
+    funcs["obj"] = (funcs[ap["cl"]] - CL_target)**2
+    
+    return funcs
+
+def FuncsSens(x, funcs):
+    """
+        Function sensitivity.
+    """
+
+    # Evaluate sensitivities
+    funcsSens = {}
+    CFDSolver.evalFunctionsSens(ap, funcsSens, ["cl"])
+    CFDSolver.checkAdjointFailure(ap, funcsSens)
+
+    # Calc gradient of objective
+    funcsSens["obj"] = OrderedDict()
+    funcsSens["obj"]["alpha_ap"] = 2*(funcs["ap_cl"] - CL_target)*funcsSens["ap_cl"]["alpha_ap"]
+
+    return funcsSens
+
+############# Optimization
+
+# Creating optimization problem
+optProb = Optimization("opt", objFun=Funcs, comm=MPI.COMM_WORLD, sens=FuncsSens)
+
+# Add objective
+optProb.addObj("obj", scale=1e6)
+
+# Add variables from the AeroProblem
+ap.addVariablesPyOpt(optProb)
+
+SLSQP_Options = {
+    "ACC": 1e-3
+}
+
+PSQP_options = {
+    "MET": 1,
+    "XMAX": 1.5,
+    "MFV": 12,
+    "MIT": 12
+}
+
+# Creating optimizer for optimization
+# opt = SLSQP(options=SLSQP_Options)
+opt = PSQP(options=PSQP_options)
+
+# Run Optimization
+sol = opt(optProb, sens=FuncsSens, storeHistory="opt.hst", sensMode="pgc")
+
+if MPI.COMM_WORLD.rank == 0:
+    print(sol)
 
 ############# Post-processing
+
+# Writing the surface results in a tecplot file
+CFDSolver.writeSurfaceSolutionFileTecplot("sample_{}_surf.plt".format(input["sampleNo"]))
+
+# Writing the slice file
+# CFDSolver.writeSlicesFile("sample_{}_slice.dat".format(input["sampleNo"]))
+
+# Evaluating QoI
+# Note: This doesn't run the simulation.
+funcs = {}
+CFDSolver.evalFunctions(ap, funcs, evalFuncs)
+DVCon.evalFunctions(funcs)
 
 # printing the result
 if MPI.COMM_WORLD.rank == 0:
 
     output = {}
+    funcs["alpha"] = ap.alpha
 
     print("\n------------------- Result -------------------")
+    print("alpha = ", funcs["alpha"])
+    output["alpha"] = funcs["alpha"]
+
     print("cl = ", funcs["ap_cl"])
     output["cl"] = funcs["ap_cl"]
     
@@ -136,12 +217,6 @@ if MPI.COMM_WORLD.rank == 0:
     print("area = ", funcs["DVCon1_volume_constraint_0"])
     output["area"] = funcs["DVCon1_volume_constraint_0"]
 
-    print("fail = ", funcs["fail"])
-    output["fail"] = funcs["fail"]
-
     filehandler = open("output.pickle", "xb")
     pickle.dump(output, filehandler)
     filehandler.close()
-
-    # Cleaning the directory
-    os.system("rm -r input.pickle grid.cgns deformed_grid.cgns ffd.xyz")

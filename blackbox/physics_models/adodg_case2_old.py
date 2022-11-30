@@ -1,6 +1,6 @@
-import os, sys, shutil, pickle, time
+import os, sys, shutil, math, pickle, time
 import numpy as np
-from pyDOE2 import lhs
+from pyDOE2 import lhs, fullfact
 from scipy.io import savemat
 
 class DefaultOptions():
@@ -122,7 +122,8 @@ class ADODGCase2():
             filehandler.close()
 
             # cleaning the directory
-            os.system("rm -r output.pickle runscript_adodg_case2.py")
+            os.system("rm -r input.pickle runscript_adodg_case2.py grid.cgns deformed_grid.cgns ffd.xyz")
+            os.system("rm -r output.pickle")
 
             # changing the directory
             os.chdir("../..")
@@ -193,13 +194,9 @@ class ADODGCase2():
         # Pasting analysis file
         self._copyAnalysisFile(self.sampleNo)
 
-        # Getting variable value
-        alpha = user_sample[0]
-        shape = user_sample[1:]
-
         # Changing directory and running the analysis
         os.chdir("{}/{}".format(directory, self.sampleNo))
-        self._creatInputFile(shape=shape, alpha=alpha)
+        self._creatInputFile(self.sampleNo, shape=user_sample)
         print("Running analysis {}".format(self.sampleNo))
         os.system("mpirun -n {} --use-hwthread-cpus python runscript_adodg_case2.py >> analysis_log.txt".format(self.options["noOfProcessors"]))
 
@@ -208,7 +205,7 @@ class ADODGCase2():
         result = pickle.load(filehandler)
         filehandler.close()
 
-        os.system("rm -r output.pickle runscript_adodg_case2.py")
+        os.system("rm -r output.pickle input.pickle ffd.xyz grid.cgns runscript_adodg_case2.py")
         os.chdir("../..")
 
         self.sampleNo += 1
@@ -253,6 +250,17 @@ class ADODGCase2():
         ############ Checking objectives
         self._checkObjectives(options)
 
+        ############ Validating bounds
+        if "lb" in userProvidedOptions:
+            if type(options["lb"]) is not float:
+                self._error("\"{}\" attribute is not an float".format("lb"))
+
+            if type(options["ub"]) is not float:
+                self._error("\"{}\" attribute is not an float".format("ub"))
+
+            if options["lb"] >= options["ub"]:
+                self._error("Lower bound is greater than upper bound.")
+
         ############ Validating number of samples attribute
         if "numberOfSamples" in userProvidedOptions:
             if type(options["numberOfSamples"]) is not int:
@@ -264,8 +272,8 @@ class ADODGCase2():
 
         ############ Validating sampling method
         if "samplingMethod" in userProvidedOptions:
-            if options["samplingMethod"] != "lhs":
-                self._error("\"samplingMethod\" attribute is not correct. Only \"lhs\" is only allowed.")
+            if options["samplingMethod"] not in ["lhs", "fullfactorial"]:
+                self._error("\"samplingMethod\" attribute is not correct. \"lhs\" and \"fullfactorial\" are only allowed.")
 
         ############ Checking aeroSolverOptions
         if type(options["aeroSolverOptions"]) != dict:
@@ -350,22 +358,32 @@ class ADODGCase2():
 
         dim = self._numberOfDV()
 
-        lowerBound = np.zeros(dim)
-        upperBound = np.zeros(dim)
-
-        # Bounds
-        lowerBound[0] = self.options["lb"][0]
-        lowerBound[1:] = self.options["lb"][1]
-        upperBound[0] = self.options["ub"][0]
-        upperBound[1:] = self.options["ub"][1]
+        lowerBound = np.ones(dim) * self.options["lb"]
+        upperBound = np.ones(dim) * self.options["ub"]
 
         samples = lhs(dim, samples=self.options["numberOfSamples"], criterion='cm', iterations=100)
 
         self.x = lowerBound + (upperBound - lowerBound) * samples
 
+    def _fullfactorial(self):
+        """
+            Method to create fullfactorial samples
+        """
+
+        dim = self._numberOfDV()
+
+        lowerBound = np.ones(dim) * self.options["lb"]
+        upperBound = np.ones(dim) * self.options["ub"]
+
+        samplesInEachDimension = round(math.exp( math.log(self.options["numberOfSamples"]) / dim ))
+
+        samples = fullfact([samplesInEachDimension]*dim)
+
+        self.x = lowerBound + samples * (upperBound - lowerBound) / (samplesInEachDimension- 1)
+
     def _numberOfDV(self):
         """
-            Method to calculate the number of variables (shape + alpha).
+            Method to calculate the number of shape variables
         """
 
         # reading the ffd file
@@ -373,12 +391,12 @@ class ADODGCase2():
         lines = file.readlines()
         file.close()
 
-        # returning the total DV = ffd points at one section + 1 (alpha)
-        return int(lines[1].split()[0]) * int(lines[1].split()[1]) + 1
+        # returning the total ffd points at one section
+        return int(lines[1].split()[0]) * int(lines[1].split()[1])
 
     def _copyAnalysisFile(self, sampleNo):
         """
-            Method to copy analysis files.
+            Method to copy analysis files
         """
 
         directory = self.options["directory"]
@@ -399,7 +417,7 @@ class ADODGCase2():
         # copying the ffd file
         os.system("cp -r {} {}/{}/ffd.xyz".format(ffd,directory,sampleNo))
 
-    def _creatInputFile(self, sampleNo=None, shape=None, alpha=None):
+    def _creatInputFile(self, sampleNo, shape=None):
         """
             Method to create an input file for analysis.
         """
@@ -411,10 +429,8 @@ class ADODGCase2():
         }
 
         if self.options["type"] == "multi":
-            input["alpha"] = self.x[sampleNo,0]
-            input["shape"] = self.x[sampleNo,1:]
+            input["shape"] = self.x[sampleNo,:]
         elif self.options["type"] == "single":
-            input["alpha"] = alpha
             input["shape"] = shape
 
         filehandler = open("input.pickle", "xb")
