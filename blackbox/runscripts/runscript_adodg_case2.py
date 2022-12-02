@@ -93,6 +93,9 @@ ap = AeroProblem(
     areaRef=1.0, chordRef=1.0, evalFuncs=evalFuncs, xRef = 0.25, yRef = 0.0, zRef = 0.0
 )
 
+# Adding pressure distribution output
+CFDSolver.addSlices("z", 0.5, sliceType="absolute")
+
 ############## Settign up constraints
 
 DVCon = DVConstraints()

@@ -200,8 +200,17 @@ class ADODGCase2():
         # Changing directory and running the analysis
         os.chdir("{}/{}".format(directory, self.sampleNo))
         self._creatInputFile(shape=shape, alpha=alpha)
-        print("Running analysis {}".format(self.sampleNo))
+        print("Running analysis {}".format(self.sampleNo+1))
+        
+        # Starting time
+        t1 = time.time()
+            
         os.system("mpirun -n {} --use-hwthread-cpus python runscript_adodg_case2.py >> analysis_log.txt".format(self.options["noOfProcessors"]))
+        
+        # Ending time
+        t2 = time.time()
+
+        print("Time taken for analysis: {} min.".format((t2-t1)/60))
 
         # Reading the output file containing results
         filehandler = open("output.pickle", 'rb')
