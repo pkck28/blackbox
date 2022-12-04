@@ -204,25 +204,33 @@ class ADODGCase2():
         
         # Starting time
         t1 = time.time()
-            
-        os.system("mpirun -n {} --use-hwthread-cpus python runscript_adodg_case2.py >> analysis_log.txt".format(self.options["noOfProcessors"]))
+
+        try:
+            os.system("mpirun -n {} --use-hwthread-cpus python runscript_adodg_case2.py >> analysis_log.txt".format(self.options["noOfProcessors"]))
         
-        # Ending time
-        t2 = time.time()
+        except:
+            raise Exception
 
-        print("Time taken for analysis: {} min.".format((t2-t1)/60))
+        else:
+            # Ending time
+            t2 = time.time()
 
-        # Reading the output file containing results
-        filehandler = open("output.pickle", 'rb')
-        result = pickle.load(filehandler)
-        filehandler.close()
+            print("Time taken for analysis: {} min.".format((t2-t1)/60))
 
-        os.system("rm -r output.pickle runscript_adodg_case2.py")
-        os.chdir("../..")
+            # Reading the output file containing results
+            filehandler = open("output.pickle", 'rb')
+            result = pickle.load(filehandler)
+            filehandler.close()
 
-        self.sampleNo += 1
+            os.system("rm -r output.pickle ")
 
-        return result
+            return result
+
+        finally:
+            os.system("rm -r runscript_adodg_case2.py")
+            os.chdir("../..")
+
+            self.sampleNo += 1
 
     # ----------------------------------------------------------------------------
     #          Other required methods, irrespective of type of analysis.
