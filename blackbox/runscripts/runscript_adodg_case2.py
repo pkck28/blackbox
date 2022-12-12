@@ -1,4 +1,4 @@
-############## Script file for generating ADODG case 2 samples.
+############## Script file for running ADODG case 2.
 
 # General imports
 import pickle, os

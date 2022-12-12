@@ -106,32 +106,41 @@ class ADODGCase2():
             # Starting time
             t1 = time.time()
 
-            # run the analysis
-            os.system("mpirun -n {} --use-hwthread-cpus python runscript_adodg_case2.py >> analysis_log.txt".format(self.options["noOfProcessors"]))
+            try:
+                # run the analysis
+                os.system("mpirun -n {} --use-hwthread-cpus python runscript_adodg_case2.py >> analysis_log.txt".format(self.options["noOfProcessors"]))
 
-            # Ending time
-            t2 = time.time()
+                # Ending time
+                t2 = time.time()
 
-            totalTime += (t2-t1)/60
+                totalTime += (t2-t1)/60
 
-            print("Time taken for analysis: {} min.".format((t2-t1)/60))
+                print("Time taken for analysis: {} min.".format((t2-t1)/60))
 
-            # reading output from the analysis
-            filehandler = open("output.pickle", 'rb')
-            output = pickle.load(filehandler)
-            filehandler.close()
+                # reading output from the analysis
+                filehandler = open("output.pickle", 'rb')
+                output = pickle.load(filehandler)
+                filehandler.close()
 
-            # cleaning the directory
-            os.system("rm -r output.pickle runscript_adodg_case2.py")
+            except:
+                print("Error occured. Moving to next iteration.")
 
-            # changing the directory
-            os.chdir("../..")
+            else:
+                # storing the results
+                for value in output.keys():
+                    if sampleNo == 0:
+                        data[value] = np.array([])
+                    data[value] = np.append(data[value], output[value])
 
-            # storing the results
-            for value in output.keys():
-                if sampleNo == 0:
-                    data[value] = np.array([])
-                data[value] = np.append(data[value], output[value])
+                # cleaning the directory
+                os.system("rm -r output.pickle")
+
+            finally:
+                # cleaning the directory
+                os.system("rm -r runscript_adodg_case2.py")
+
+                # changing the directory
+                os.chdir("../..")
 
         print("Total time taken: {} minutes".format(totalTime))
 
@@ -207,11 +216,7 @@ class ADODGCase2():
 
         try:
             os.system("mpirun -n {} --use-hwthread-cpus python runscript_adodg_case2.py >> analysis_log.txt".format(self.options["noOfProcessors"]))
-        
-        except:
-            raise Exception
 
-        else:
             # Ending time
             t2 = time.time()
 
@@ -221,7 +226,11 @@ class ADODGCase2():
             filehandler = open("output.pickle", 'rb')
             result = pickle.load(filehandler)
             filehandler.close()
+        
+        except:
+            raise Exception
 
+        else:
             os.system("rm -r output.pickle ")
 
             return result
