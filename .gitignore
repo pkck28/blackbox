@@ -1,8 +1,10 @@
 blackbox.egg-info/
+__pycache__/
 blackbox/__pycache__/
 blackbox/analytical_functions/__pycache__
 blackbox/physics_models/__pycache__
 blackbox/base/__pycache__
+blackbox/doc/_build
 examples/training
 examples/training_single
 examples/output
@@ -20,3 +22,4 @@ examples/onera/single
 examples/output
 examples/sellar
 examples/forrester
+examples/airfoil_cst/multi
