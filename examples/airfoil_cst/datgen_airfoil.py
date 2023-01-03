@@ -16,11 +16,17 @@ solverOptions = {
     "nCycles": 10000,
     # ANK Solver Parameters
     "useANKSolver": True,
+    "ANKJacobianLag": 5,
+    "ANKPhysicalLSTol": 0.25,
+    "ANKOuterPreconIts": 2,
+    "ANKInnerPreconIts": 2,
+    "ANKASMOverlap": 2,
+    "ANKSecondOrdSwitchTol": 1e-3,
     # NK Solver Parameters
     "useNKSolver": True,
     "NKSwitchTol": 1e-6,
     "NKSubspaceSize": 400,
-    "NKASMOverlap": 4,
+    "NKASMOverlap": 3,
     "NKPCILUFill": 4,
     "NKJacobianLag": 5,
     "NKOuterPreconIts": 3,
@@ -72,12 +78,12 @@ ap = AeroProblem(
 options = {
     "solverOptions": solverOptions,
     "directory": "multi",
-    "noOfProcessors": 9,
+    "noOfProcessors": 11,
     "aeroProblem": ap,
     "airfoilFile": "rae2822.dat",
     "numCST": [6, 6],
     "meshingOptions": meshingOptions,
-    # "refine": 1
+    "refine": 2
 }
 
 # Example for generating samples
@@ -85,33 +91,32 @@ airfoil = AirfoilCST(options=options)
 
 ######### Multi Analysis
 
-# # Adding design variable
-# airfoil.addDV("alpha", 2.0, 3.0)
-# airfoil.addDV("mach", 0.6, 0.8)
-# airfoil.addDV("lower", -0.3, 0.3)
-# airfoil.addDV("upper", -0.3, 0.3)
+# Adding design variable
+airfoil.addDV("alpha", 2.0, 3.0)
+airfoil.addDV("lower", -0.3, 0.3)
+airfoil.addDV("upper", -0.3, 0.3)
 
-# # Generating the samples
-# airfoil.generateSamples(2)
+# Generating the samples
+airfoil.generateSamples(10)
 
 ######### Single Analysis
 
-upper = np.array([0.12344046, 0.14809657, 0.14858145, 0.2168004, 0.17607825, 0.21018404])
+# upper = np.array([0.12344046, 0.14809657, 0.14858145, 0.2168004, 0.17607825, 0.21018404])
 
-lower = np.array([-0.13198943, -0.11895939, -0.22056435, -0.12743513, -0.08232715, 0.05055414])
+# lower = np.array([-0.13198943, -0.11895939, -0.22056435, -0.12743513, -0.08232715, 0.05055414])
 
-# Adding design variable
+# # Adding design variable
 
-# airfoil.addDV("upper", -0.3, 0.3)
-# airfoil.addDV("lower", -0.3, 0.3)
-airfoil.addDV("alpha", 2.0, 3.0)
+# # airfoil.addDV("upper", -0.3, 0.3)
+# # airfoil.addDV("lower", -0.3, 0.3)
+# airfoil.addDV("alpha", 2.0, 3.0)
 
-# x = np.append(upper, lower)
+# # x = np.append(upper, lower)
 
-# x = np.append(x, 2.5)
+# # x = np.append(x, 2.5)
 
-x = np.array([2.5])
+# x = np.array([2.5])
 
-output = airfoil.getObjectives(x)
+# output = airfoil.getObjectives(x)
 
-print(output)
+# print(output)

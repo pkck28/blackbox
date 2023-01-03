@@ -185,13 +185,13 @@ class AirfoilCST():
                 else:
                     # Creating a dictionary of data
                     if self.genSamples - noFailed == 1:
-                        data["x"] = x
+                        data["x"] = np.array(x)
                         for value in output.keys():
-                            data[value] = output[value]
+                            data[value] = np.array([output[value]])
                     else:
-                        data["x"] = np.append(data["x"], x)
+                        data["x"] = np.vstack((data["x"], x))
                         for value in output.keys():
-                            data[value] = np.append(data[value], output[value])
+                            data[value] = np.vstack(( data[value], np.array([output[value]]) ))
 
                     # Saving the results
                     savemat("{}/data.mat".format(self.options["directory"]), data)

@@ -4,6 +4,7 @@ import pickle, os, time
 from mpi4py import MPI
 from adflow import ADFLOW
 from pyhyp import pyHyp
+from cgnsutilities.cgnsutilities import readGrid
 
 comm = MPI.COMM_WORLD
 
@@ -45,18 +46,22 @@ try:
     ############## Refining the mesh
 
     if comm.rank == 0:
+        # Read the grid
+        grid = readGrid("volMesh.cgns")
+
         # Only one processor has to do this
         if refine == 1:
-            os.system("cgns_utils refine volMesh.cgns volMesh.cgns --axes ['i', 'k']")
+            grid.refine(['i', 'k'])
         if refine == 2:
-            os.system("cgns_utils refine volMesh.cgns volMesh.cgns --axes ['i', 'k']")
-            os.system("cgns_utils refine volMesh.cgns volMesh.cgns --axes ['i', 'k']")
-
+            grid.refine(['i', 'k'])
+            grid.refine(['i', 'k'])
         if refine == -1:
-            os.system("cgns_utils coarsen volMesh.cgns volMesh.cgns")
+            grid.coarsen()
         if refine == -2:
-            os.system("cgns_utils coarsen volMesh.cgns volMesh.cgns")
-            os.system("cgns_utils coarsen volMesh.cgns volMesh.cgns")
+            grid.coarsen()
+            grid.coarsen()
+
+        grid.writeToCGNS("volMesh.cgns")
         
     else:
         # Other processors need to wait before starting analysis

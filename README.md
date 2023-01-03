@@ -1,13 +1,12 @@
 # Blackbox
-Blackbox package provides a way to generate data which can then be used for building/testing a surrogate model or for any other prupose. It is called blackbox package
-since the user doesn't need to worry about analysis and can focus on other aspects like what solver(s) to use.
+Blackbox provides a way to generate data which can then be used for building/testing a surrogate model or for any other prupose.
+Currently, only airfoil data generation with CST parameterization is ready to use, rest all modules are under developement.
 
-# How to use
-- Clone or download the repository.
-- Open the parent folder in terminal.
-- To install the package, run the following command: "pip install ." (using conda environments is recommended). 
-- You can delete the repository.
-- Now, the package should be available for importing in any script anywhere in your local system.
-- Have a look at the examples to see how to use the package.
+## Documentation
+Please see the [documentation](https://codelab-blackbox.readthedocs-hosted.com/en/latest/) for more details.
 
-#### Written with love at CODE Lab.
+To locally build the documentation, enter the `doc` folder and enter `make html` in terminal.
+In the `build` folder under `doc`, open the index.html in the browser to view the documentation.
+
+## License
+Copyright 2023 CODE Lab.
