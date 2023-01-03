@@ -8,5 +8,5 @@ Please see the [documentation](https://codelab-blackbox.readthedocs-hosted.com/e
 To locally build the documentation, enter the `doc` folder and enter `make html` in terminal.
 In the `build` folder under `doc`, open the index.html in the browser to view the documentation.
 
-## License
+##
 Copyright 2023 CODE Lab.
