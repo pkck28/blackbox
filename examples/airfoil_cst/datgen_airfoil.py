@@ -1,5 +1,6 @@
 from blackbox import AirfoilCST
 from baseclasses import AeroProblem
+import numpy as np
 
 solverOptions = {
     # Common Parameters
@@ -8,18 +9,13 @@ solverOptions = {
     "writeSurfaceSolution": False,
     "writeVolumeSolution": False,
     # Physics Parameters
-    "equationType": "RAN",
+    "equationType": "RANS",
     "smoother": "DADI",
     "MGCycle": "sg",
     "nsubiterturb": 10,
     "nCycles": 10000,
     # ANK Solver Parameters
     "useANKSolver": True,
-    "ANKOuterPreconIts": 3,
-    "ANKInnerPreconIts": 3,
-    "ANKJacobianLag": 4,
-    "ANKASMOverlap": 4,
-    "ANKPhysicalLSTol": 0.3, # Corr1
     # NK Solver Parameters
     "useNKSolver": True,
     "NKSwitchTol": 1e-6,
@@ -81,17 +77,41 @@ options = {
     "airfoilFile": "rae2822.dat",
     "numCST": [6, 6],
     "meshingOptions": meshingOptions,
-    "refine": 1
+    # "refine": 1
 }
 
 # Example for generating samples
 airfoil = AirfoilCST(options=options)
 
-# Adding design variable
-airfoil.addDV("alpha", 2.0, 3.0)
-airfoil.addDV("mach", 0.6, 0.8)
+######### Multi Analysis
+
+# # Adding design variable
+# airfoil.addDV("alpha", 2.0, 3.0)
+# airfoil.addDV("mach", 0.6, 0.8)
 # airfoil.addDV("lower", -0.3, 0.3)
 # airfoil.addDV("upper", -0.3, 0.3)
 
-# Generating the samples
-airfoil.generateSamples(3)
+# # Generating the samples
+# airfoil.generateSamples(2)
+
+######### Single Analysis
+
+upper = np.array([0.12344046, 0.14809657, 0.14858145, 0.2168004, 0.17607825, 0.21018404])
+
+lower = np.array([-0.13198943, -0.11895939, -0.22056435, -0.12743513, -0.08232715, 0.05055414])
+
+# Adding design variable
+
+# airfoil.addDV("upper", -0.3, 0.3)
+# airfoil.addDV("lower", -0.3, 0.3)
+airfoil.addDV("alpha", 2.0, 3.0)
+
+# x = np.append(upper, lower)
+
+# x = np.append(x, 2.5)
+
+x = np.array([2.5])
+
+output = airfoil.getObjectives(x)
+
+print(output)

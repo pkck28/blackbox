@@ -1,6 +1,7 @@
 # Imports
 import os, sys, shutil, pickle, time
 import numpy as np
+from contextlib import redirect_stdout
 from scipy.io import savemat
 from pyDOE2 import lhs
 from mpi4py import MPI
@@ -170,25 +171,30 @@ class AirfoilCST():
             # Current sample
             x = samples[sampleNo,:]
 
-            # Getting output for specific sample
-            output = self.getObjectives(x)
+            try:
+                # Getting output for specific sample
+                output = self.getObjectives(x)
 
-            # Check for analysis failure
-            if output["fail"] == True:
+            except:
+                print("Error occured during the analysis. Check analysis.log in the respective folder for more details.")
                 noFailed += 1
-            else:
-                # Creating a dictionary of data
-                if sampleNo == 0:
-                    data["x"] = x
-                    for value in output.keys():
-                        data[value] = output[value]
-                else:
-                    data["x"] = np.append(data["x"], x)
-                    for value in output.keys():
-                        data[value] = np.append(data[value], output[value])
 
-                # Saving the results
-                savemat("{}/data.mat".format(self.options["directory"]), data)
+            else:
+                if output["fail"] == True: # Check for analysis failure
+                    noFailed += 1
+                else:
+                    # Creating a dictionary of data
+                    if self.genSamples - noFailed == 1:
+                        data["x"] = x
+                        for value in output.keys():
+                            data[value] = output[value]
+                    else:
+                        data["x"] = np.append(data["x"], x)
+                        for value in output.keys():
+                            data[value] = np.append(data[value], output[value])
+
+                    # Saving the results
+                    savemat("{}/data.mat".format(self.options["directory"]), data)
 
     def getObjectives(self, x: np.ndarray) -> dict:
         """
@@ -229,7 +235,7 @@ class AirfoilCST():
             loc = loc.reshape(-1,)
             newDV[dv] = x[loc]
 
-        # Updating the airfoil coordinates based on new DV
+        # Updating the airfoil pointset based on new DV
         self.DVGeo.setDesignVars(newDV)
         points = self.DVGeo.update("airfoil")[:,0:2]
 
@@ -247,29 +253,44 @@ class AirfoilCST():
         # Writing the surface mesh
         self.DVGeo.foil.writeCoords("surfMesh", points)
 
-        # Run the runscript
-        child_comm = MPI.COMM_WORLD.Spawn(sys.executable, args=["runscript.py"], maxprocs=self.options["noOfProcessors"])
-        child_comm.Disconnect()
-        time.sleep(0.1) # Very important - do not remove this
+        try:
+            # Run the runscript
+            child_comm = MPI.COMM_WORLD.Spawn(sys.executable, args=["runscript.py"], maxprocs=self.options["noOfProcessors"])
+            child_comm.Disconnect()
+            time.sleep(0.25) # Very important - do not remove this
 
-        # Reading the output file containing results
-        filehandler = open("output.pickle", 'rb')
-        output = pickle.load(filehandler)
-        filehandler.close()
+        except:
+            child_comm.Disconnect()
+            time.sleep(0.25) # Very important - do not remove this
 
-        # Calculate the volume (here area)
-        output = self._calcVol(output)
+            raise Exception
 
-        # Clean the directory
-        os.system("rm surfMesh.xyz volMesh.cgns input.pickle runscript.py output.pickle")
+        else:
+            if not os.path.exists("output.pickle"):
+                raise Exception
 
-        # Changing the directory back to root
-        os.chdir("../..")
+            # Reading the output file containing results
+            filehandler = open("output.pickle", 'rb')
+            output = pickle.load(filehandler)
+            filehandler.close()
 
-        # Increase the generated samples number
-        self.genSamples += 1
+            # Calculate the volume (here area)
+            output = self._calcVol(output)
 
-        return output
+            return output
+
+        finally:
+            # Cleaning the directory
+            files = ["surfMesh.xyz", "volMesh.cgns", "input.pickle", "runscript.py", "output.pickle"]
+            for file in files:
+                if os.path.exists(file):
+                    os.system("rm {}".format(file))
+
+            # Changing the directory back to root
+            os.chdir("../..")
+
+            # Increase the number of generated samples
+            self.genSamples += 1
 
     # ----------------------------------------------------------------------------
     #                       Methods related to validation
@@ -393,7 +414,7 @@ class AirfoilCST():
             self._error("Lower bound is greater than or equal to upper bound.")
 
     # ----------------------------------------------------------------------------
-    #          Other required methods, irrespective of type of analysis.
+    #                               Other methods
     # ----------------------------------------------------------------------------
 
     def _getDefaultOptions(self) -> None:
@@ -434,7 +455,7 @@ class AirfoilCST():
         # Number of dimensions
         dim = len(self.lowerBound)
 
-        # Generating normalized lhs
+        # Generating normalized lhs samples
         samples = lhs(dim, samples=numSamples, criterion='cm', iterations=100)
 
         # Scaling the samples
