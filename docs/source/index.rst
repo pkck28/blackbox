@@ -14,4 +14,4 @@ Blackbox
 
    introduction
    install
-   tutorial
+   airfoil_cst
