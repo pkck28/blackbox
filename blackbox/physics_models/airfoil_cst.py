@@ -1,7 +1,6 @@
 # Imports
 import os, sys, shutil, pickle, time
 import numpy as np
-from contextlib import redirect_stdout
 from scipy.io import savemat
 from pyDOE2 import lhs
 from mpi4py import MPI
@@ -171,6 +170,9 @@ class AirfoilCST():
             # Current sample
             x = samples[sampleNo,:]
 
+            # Starting time
+            t1 = time.time()
+
             try:
                 # Getting output for specific sample
                 output = self.getObjectives(x)
@@ -195,6 +197,12 @@ class AirfoilCST():
 
                     # Saving the results
                     savemat("{}/data.mat".format(self.options["directory"]), data)
+
+            finally:
+                # Ending time
+                t2 = time.time()
+
+                print("Time taken for analysis: {} min.".format((t2-t1)/60))
 
     def getObjectives(self, x: np.ndarray) -> dict:
         """
@@ -502,6 +510,8 @@ class AirfoilCST():
             Method for calculating the area of the airfoil.
         """
 
+        #### To Do: Entire method can be refactored in a better manner.
+
         # Setting up constraints
         DVCon = DVConstraints()
         DVCon.setDVGeo(self.DVGeo)
@@ -512,8 +522,8 @@ class AirfoilCST():
         leList = [[le, 0, le], [le, 0, 1.0 - le]]
         teList = [[1.0 - le, 0, le], [1.0 - le, 0, 1.0 - le]]
         
-        # Add volumne constraints
-        DVCon.addVolumeConstraint(leList, teList, 2, 100, lower=0.5, upper=3.0, scaled=False, name="vol")
+        # Add volume (area in the case of airfoil) constraints
+        DVCon.addVolumeConstraint(leList, teList, 2, 100, lower=0.5, upper=3.0, scaled=False, name="area")
 
         # Calculate the volume
         DVCon.evalFunctions(output)

@@ -4,7 +4,7 @@ blackbox/__pycache__/
 blackbox/analytical_functions/__pycache__
 blackbox/physics_models/__pycache__
 blackbox/base/__pycache__
-blackbox/doc/build
+blackbox/docs/build
 examples/training
 examples/training_single
 examples/output
