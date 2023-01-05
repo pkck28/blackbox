@@ -5,12 +5,10 @@ Currently, only airfoil data generation with CST parameterization is ready to us
 ## Documentation
 Since the repository is not public, you will have to build the documentation locally only.
 
-- Download the `repository <https://github.com/ComputationalDesignLab/blackbox>`. 
-  If you are planning to install the package, then clone (not download) the repo in a folder 
+- Download the repository. If you are planning to install the package, then clone (not download) the repo in a folder 
   where you usually store packages (``packages`` folder is recommended) since you will be installing 
-  the package in editable mode.
-- Open the terminal and ``cd`` into the docs folder in the downloaded repository and run::
-    make clean html
+  in editable mode.
+- Open the terminal and ``cd`` into the docs folder in the downloaded (or cloned) repository and run ``make clean html``
   This will create a build folder in the docs folder.
 - Go to html folder in the build folder and open the index.html in the browser to view the documentation.
   More details about the project are provided there.
