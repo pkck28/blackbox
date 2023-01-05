@@ -143,10 +143,12 @@ Now, ``airfoil`` object will be used for adding design variables. The ``addDV`` 
 
 - ``name``: the design variable to add. The available design variables are: 
 
-    - ``upper``: CST coefficients of upper surface as DV.
-    - ``lower``: CST coefficients of lower surface as DV.
-    - ``N1``: First class shape variable for both upper and lower surface.
-    - ``N2``: Second class shape variable for both upper and lower surface.
+    - ``upper``: CST coefficients of upper surface. The number of variables will be equal to first entry 
+      in ``numCST`` list in options dictionary.
+    - ``lower``: CST coefficients of lower surface. The number of variables will be equal to second entry 
+      in ``numCST`` list in options dictionary.
+    - ``N1``: First class shape variable for both upper and lower surface. Adds only variable for both surfaces.
+    - ``N2``: Second class shape variable for both upper and lower surface. Adds only variable for both surfaces.
     - ``alpha``: Angle of attack for the analysis.
     - ``mach``: Mach number for the analysis.
     - ``altitude``: Altitude for the analysis.
@@ -208,12 +210,23 @@ Following snippet shows how to access the data.mat file::
 Running single analysis
 -----------------------
 
-Following snippet shows how to run a single analysis::
+Along with generating a bunch of samples, you can also just run a single analysis like you would do normally.
+You will have to use ``getObjectives`` method from the initialized object ``airfoil``. The methods needs one input
+which is the value of design variable as a 1D numpy array. Following snippet shows how to run a single analysis::
 
     import numpy as np
+
+    # Upper and lower surface CST coefficients
     upper = np.array([0.12344046, 0.14809657, 0.14858145, 0.2168004, 0.17607825, 0.21018404])
     lower = np.array([-0.13198943, -0.11895939, -0.22056435, -0.12743513, -0.08232715, 0.05055414])
+
+    # Creating input x
     x = np.append(np.array([2.5]), upper)
     x = np.append(x, lower)
 
+    # Run a single analysis
     output = airfoil.getObjectives(x)
+
+Note that here ``x`` is 1D numpy array with 13 entires. The values within the array follow the same order in which
+design variables are added. ``output`` from the method is a dictionary which contains the same objective as described in
+the previous section.
