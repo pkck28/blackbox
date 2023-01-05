@@ -1,1 +1,1 @@
-from .baseclass import BaseClass
+from .baseclass import *

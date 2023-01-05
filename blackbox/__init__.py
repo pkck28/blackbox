@@ -1,3 +1,3 @@
-from .physics_models import AeroStruct, Aerodynamics
+from .physics_models import AeroStruct, Aerodynamics, ADODGCase2, AirfoilCST
 
 from .analytical_functions import Rosenbrock, Forrester, Sasena, Branin, Sellar

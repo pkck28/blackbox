@@ -1,13 +1,28 @@
 # Blackbox
-Blackbox package provides a way to generate data which can then be used for building/testing a surrogate model or for any other prupose. It is called blackbox package
-since the user doesn't need to worry about analysis and can focus on other aspects like what solver(s) to use.
+Blackbox provides a way to generate data which can then be used for building/testing a surrogate model or for any other prupose.
+Currently, only airfoil data generation with CST parameterization is ready to use, rest all modules are under developement.
 
-# How to use
-- Clone or download the repository.
-- Open the parent folder in terminal.
-- To install the package, run the following command: "pip install ." (using conda environments is recommended). 
-- You can delete the repository.
-- Now, the package should be available for importing in any script anywhere in your local system.
-- Have a look at the examples to see how to use the package.
+## Documentation
+Since the repository is not public, you will have to build the documentation locally.
 
-#### Written with love at CODE Lab.
+- Clone (not download) the repo in a folder where you usually store packages (``packages`` folder is recommended)
+  since you will be installing in editable mode. Easiest way to clone is to use terminal.
+  - Open the terminal in folder where you want to clone the repository and run:
+  ```
+    git clone https://github.com/ComputationalDesignLab/blackbox
+  ```
+  It will ask for your username and password of github account.
+  - If you get an erorr saying that git is not installed, then run:
+  ```
+    sudo apt install git
+  ```
+  and try the clone command once again.
+- Open the terminal and ``cd`` into the docs folder in the cloned repository and run ``make clean html``.
+  This will create a build folder in the docs folder.
+- Open html folder in file explorer and open the index.html in the browser to view the documentation. More details about the project are provided there.
+
+## License
+Blackbox is licensed under Apache License, Version 2.0. See `LICENSE` file for more details. 
+
+## Copyright
+Copyright 2023 CODE Lab.

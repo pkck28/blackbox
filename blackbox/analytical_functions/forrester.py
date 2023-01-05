@@ -4,16 +4,6 @@ import numpy as np
 from scipy.io import savemat
 from ..base import BaseClass
 
-class DefaultOptions():
-    """
-        Class creates a default option list which is later 
-        edited/appended with user provided options.
-    """
-
-    def __init__(self):
-        self.directory = "output"
-
-
 class Forrester(BaseClass):
     """
         Class contains essential methods for generating data
@@ -29,8 +19,6 @@ class Forrester(BaseClass):
 
         "directory" : Folder name where the data.mat file will be saved (string, optional).
         "numberOfSamples" : number of samples to be generated (integer).
-        "lowerBound" : lower bound (integer).
-        "upperBound" : upper bound (integer).
 
         Note: There is no sampling method option for forrester function since
         there is only one dimension.
@@ -38,30 +26,7 @@ class Forrester(BaseClass):
 
     def __init__(self, type="multi", options=None):
 
-        # super.__init__(self)
-
-        # Initializing based on the type
-        if type == "multi":
-            # If 'options' is None, notify the user
-            if options is not None:
-                if not isinstance(options, dict):
-                    self._error("The 'options' argument provided is not a dictionary.")
-                elif options == {}:
-                    self._error("The 'options' argument provided is an empty dictionary.")
-            else:
-                self._error("Options argument not provided.")
-
-            self._setupMultiAnalysis(options)
-
-        elif type == "single":
-            # If 'options' is not None, then raise an error
-            if options is not None:
-                self._error("Options argument is not needed when type is \"single\".")
-
-            self._setupSingleAnalysis()
-
-        else:
-            self._error("Value of type argument is not recognized. Only \"multi\" and \"single\" are allowed.")
+        self._initialization(type, options)
 
     # ----------------------------------------------------------------------------
     #               All the methods for multi analysis
@@ -79,8 +44,14 @@ class Forrester(BaseClass):
         # Setting up default options
         self._getDefaultOptions()
 
+        # Creating list of required options
+        requiredOptions = ["numberOfSamples"]
+
         # Validating user provided options
-        self._checkOptionsForMultiAnalysis(options)
+        self._checkOptionsForMultiAnalysis(options, requiredOptions)
+
+        self.options["lowerBound"] = 0
+        self.options["upperBound"] = 1
 
         # Updating/Appending the default option list with user provided options
         self._setOptions(options)
@@ -88,82 +59,45 @@ class Forrester(BaseClass):
         # Setting up the folder for saving the results
         self._setDirectory()
 
-    def _getDefaultOptions(self):
-        """
-            Setting up the initial values of options.
-        """
+    # def _checkOptionsForMultiAnalysis(self, options):
+    #     """
+    #         This method validates user provided options for type = "multi".
+    #     """
 
-        defaultOptions = DefaultOptions()
+    #     # Creating list of various different options
+    #     defaultOptions = list(self.options.keys())
+    #     requiredOptions = ["numberOfSamples", "lowerBound", "upperBound"]
+    #     allowedUserOptions = defaultOptions
+    #     allowedUserOptions.extend(requiredOptions)
 
-        for key in vars(defaultOptions):
-            value = getattr(defaultOptions, key)
-            self.options[key] = value
+    #     userProvidedOptions = list(options.keys())
 
-    def _checkOptionsForMultiAnalysis(self, options):
-        """
-            This method validates user provided options for type = "multi".
-        """
+    #     # Checking if the user provided option contains only allowed attributes
+    #     if not set(userProvidedOptions).issubset(allowedUserOptions):
+    #         self._error("Option dictionary contains unrecognized attribute(s).")
 
-        # Creating list of various different options
-        defaultOptions = list(self.options.keys())
-        requiredOptions = ["numberOfSamples", "lowerBound", "upperBound"]
-        allowedUserOptions = defaultOptions
-        allowedUserOptions.extend(requiredOptions)
+    #     # Checking if user has mentioned all the requried attributes
+    #     if not set(requiredOptions).issubset(userProvidedOptions):
+    #         self._error("Option dictionary doesn't contain all the requried options. \
+    #                     {} attribute(s) is/are missing.".format(set(requiredOptions) - set(userProvidedOptions)))
 
-        userProvidedOptions = list(options.keys())
+    #     # Checking type of required options
+    #     for attribute in requiredOptions:
+    #         if type(options[attribute]) is not int:
+    #             self._error("\"{}\" attribute is not an integer".format(attribute))
 
-        # Checking if the user provided option contains only allowed attributes
-        if not set(userProvidedOptions).issubset(allowedUserOptions):
-            self._error("Option dictionary contains unrecognized attribute(s).")
+    #     # Setting minimum limit on number of samples
+    #     if options["numberOfSamples"] < 2:
+    #         self._error("Number of samples need to least 2.")
 
-        # Checking if user has mentioned all the requried attributes
-        if not set(requiredOptions).issubset(userProvidedOptions):
-            self._error("Option dictionary doesn't contain all the requried options. \
-                        {} attribute(s) is/are missing.".format(set(requiredOptions) - set(userProvidedOptions)))
+    #     # Checking correctness of bound
+    #     if options["lowerBound"] >= options["upperBound"]:
+    #         self._error("Lower bound is greater than upper bound.")
 
-        # Checking type of required options
-        for attribute in requiredOptions:
-            if type(options[attribute]) is not int:
-                self._error("\"{}\" attribute is not an integer".format(attribute))
-
-        # Setting minimum limit on number of samples
-        if options["numberOfSamples"] < 2:
-            self._error("Number of samples need to least 2.")
-
-        # Checking correctness of bound
-        if options["lowerBound"] >= options["upperBound"]:
-            self._error("Lower bound is greater than upper bound.")
-
-        # Validating directory attribute
-        if "directory" in userProvidedOptions:
-            if type(options["directory"]) is not str:
-                self._error("\"directory\" attribute is not string.")
-
-    def _setOptions(self, options):
-        """
-            Method for assigning user provided options.
-        """
-
-        for key in options.keys():
-            # If the value is dictionary, update the default dictionary.
-            # Otherwise, assign values.
-            if isinstance(options[key], dict): 
-                self.options[key].update(options[key]) 
-            else:
-                self.options[key] = options[key]
-
-    def _setDirectory(self):
-        """
-            Method for setting up directory
-        """
-
-        directory = self.options["directory"]
-
-        if not os.path.isdir(directory):
-            os.system("mkdir {}".format(directory))
-        else:
-            os.system("rm -r {}".format(directory))
-            os.system("mkdir {}".format(directory))
+    #     # Validating directory attribute
+    #     if "directory" in userProvidedOptions:
+    #         if type(options["directory"]) is not str:
+    #             self._error("\"directory\" attribute is not string.")
 
     def generateSamples(self):
         """
@@ -179,6 +113,8 @@ class Forrester(BaseClass):
         self.y = self._function(self.samples)
 
         data = {"x" : self.samples, "y" : self.y }
+
+        print("{} samples generated.".format(self.options["numberOfSamples"]))
 
         # Saving data file in the specified folder
         os.chdir(self.options["directory"])
