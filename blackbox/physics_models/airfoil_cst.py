@@ -7,6 +7,7 @@ from mpi4py import MPI
 from baseclasses import AeroProblem
 from pygeo import DVGeometryCST, DVConstraints
 from prefoil.utils import readCoordFile
+from pprint import pprint
 
 comm = MPI.COMM_WORLD
 
@@ -63,6 +64,7 @@ class AirfoilCST():
         self.options["solverOptions"]["printIntro"] = False
         self.options["solverOptions"]["outputDirectory"] = "."
         self.options["solverOptions"]["numberSolutions"] = False
+        self.options["solverOptions"]["printTiming"] = False
 
         # Getting abs path for the storage directory
         self.options["directory"] = os.path.abspath(self.options["directory"])
@@ -164,6 +166,7 @@ class AirfoilCST():
 
         # Number of analysis passed/failed
         noFailed = 0
+        totalTime = 0
 
         # Generating LHS samples
         samples = self._lhs(numSamples)
@@ -177,17 +180,17 @@ class AirfoilCST():
         description.write("\nDescription file for sample generation")
         description.write("\n--------------------------------------")
         description.write("\nDesign variables: {}".format(self.DV))
-        description.write("\nLower bound for design variables: {}".format(self.lowerBound))
-        description.write("\nUpper bound for design variables: {}".format(self.upperBound))
+        description.write("\nLower bound for design variables:\n{}".format(self.lowerBound))
+        description.write("\nUpper bound for design variables:\n{}".format(self.upperBound))
         description.write("\nTotal number of samples requested: {}".format(numSamples))
-        description.write("--------------------------------------")
+        description.write("\n--------------------------------------")
         description.write("\nAnalysis specific description")
         description.write("\n--------------------------------------")
 
         # Generate data
         for sampleNo in range(numSamples):
 
-            description.write("\nAnalysis 1: ")
+            description.write("\nAnalysis {}: ".format(sampleNo+1))
 
             # Current sample
             x = samples[sampleNo,:]
@@ -202,10 +205,12 @@ class AirfoilCST():
             except:
                 print("Error occured during the analysis. Check analysis.log in the respective folder for more details.")
                 noFailed += 1
+                description.write("\nAnalysis failed.")
 
             else:
                 if output["fail"] == True: # Check for analysis failure
                     noFailed += 1
+                    description.write("\nAnalysis failed.")
                 else:
                     # Creating a dictionary of data
                     if self.genSamples - noFailed == 1:
@@ -224,8 +229,13 @@ class AirfoilCST():
                 # Ending time
                 t2 = time.time()
 
+                totalTime += (t2-t1)/60
+
                 # Writing time taken to file
                 description.write("\nTime taken for analysis: {} min.".format((t2-t1)/60))
+
+        description.write("\n--------------------------------------")
+        description.write("\nTotal time taken for analysis: {} min.".format(totalTime))
 
         # Closing the description file
         description.close()

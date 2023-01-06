@@ -16,12 +16,13 @@ solverOptions = {
     "nCycles": 10000,
     # ANK Solver Parameters
     "useANKSolver": True,
-    # "ANKJacobianLag": 5,
-    "ANKPhysicalLSTol": 0.25,
-    # "ANKOuterPreconIts": 2,
-    # "ANKInnerPreconIts": 2,
-    # "ANKASMOverlap": 2,
-    # "ANKSecondOrdSwitchTol": 1e-3,
+    "ANKSubspaceSize": 400,
+    "ANKASMOverlap": 3,
+    "ANKPCILUFill": 4,
+    "ANKJacobianLag": 5,
+    "ANKOuterPreconIts": 3,
+    "ANKInnerPreconIts": 3,
+    "ANKSecondOrdSwitchTol": 1e-4,
     # NK Solver Parameters
     "useNKSolver": True,
     "NKSwitchTol": 1e-6,
@@ -83,7 +84,7 @@ options = {
     "airfoilFile": "rae2822.dat",
     "numCST": [6, 6],
     "meshingOptions": meshingOptions,
-    "refine": 0
+    "refine": 1
 }
 
 # Example for generating samples
@@ -97,4 +98,4 @@ airfoil.addDV("lower", -0.3, 0.3)
 airfoil.addDV("upper", -0.3, 0.3)
 
 # Generating the samples
-airfoil.generateSamples(2)
+airfoil.generateSamples(10)
