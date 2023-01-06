@@ -46,6 +46,9 @@ class AirfoilCST():
         # Setting up default options
         self._getDefaultOptions()
 
+        # Changing to absolute path for airfoil file
+        options["airfoilFile"] = os.path.abspath(options["airfoilFile"])
+
         # Setting up the required options list
         requiredOptions = ["solverOptions", "meshingOptions", "airfoilFile", "aeroProblem", "numCST"]
 
@@ -59,6 +62,10 @@ class AirfoilCST():
         self.options["solverOptions"]["printAllOptions"] = False
         self.options["solverOptions"]["printIntro"] = False
         self.options["solverOptions"]["outputDirectory"] = "."
+        self.options["solverOptions"]["numberSolutions"] = False
+
+        # Getting abs path for the storage directory
+        self.options["directory"] = os.path.abspath(self.options["directory"])
 
         # Setting up the folder for saving the results
         directory = self.options["directory"]
@@ -164,8 +171,23 @@ class AirfoilCST():
         # Creating empty dictionary for storing the data
         data = {}
 
+        description = open("{}/description.txt".format(self.options["directory"]), "a")
+
+        description.write("--------------------------------------")
+        description.write("\nDescription file for sample generation")
+        description.write("\n--------------------------------------")
+        description.write("\nDesign variables: {}".format(self.DV))
+        description.write("\nLower bound for design variables: {}".format(self.lowerBound))
+        description.write("\nUpper bound for design variables: {}".format(self.upperBound))
+        description.write("\nTotal number of samples requested: {}".format(numSamples))
+        description.write("--------------------------------------")
+        description.write("\nAnalysis specific description")
+        description.write("\n--------------------------------------")
+
         # Generate data
         for sampleNo in range(numSamples):
+
+            description.write("\nAnalysis 1: ")
 
             # Current sample
             x = samples[sampleNo,:]
@@ -202,7 +224,11 @@ class AirfoilCST():
                 # Ending time
                 t2 = time.time()
 
-                print("Time taken for analysis: {} min.".format((t2-t1)/60))
+                # Writing time taken to file
+                description.write("\nTime taken for analysis: {} min.".format((t2-t1)/60))
+
+        # Closing the description file
+        description.close()
 
     def getObjectives(self, x: np.ndarray) -> dict:
         """
