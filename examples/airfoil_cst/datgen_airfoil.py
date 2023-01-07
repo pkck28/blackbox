@@ -22,7 +22,6 @@ solverOptions = {
     "ANKJacobianLag": 5,
     "ANKOuterPreconIts": 3,
     "ANKInnerPreconIts": 3,
-    "ANKSecondOrdSwitchTol": 1e-4,
     # NK Solver Parameters
     "useNKSolver": True,
     "NKSwitchTol": 1e-6,
@@ -79,7 +78,7 @@ ap = AeroProblem(
 options = {
     "solverOptions": solverOptions,
     "directory": "multi",
-    "noOfProcessors": 9,
+    "noOfProcessors": 11,
     "aeroProblem": ap,
     "airfoilFile": "rae2822.dat",
     "numCST": [6, 6],

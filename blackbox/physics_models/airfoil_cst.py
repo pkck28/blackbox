@@ -174,7 +174,7 @@ class AirfoilCST():
         # Creating empty dictionary for storing the data
         data = {}
 
-        description = open("{}/description.txt".format(self.options["directory"]), "a")
+        description = open("{}/description.txt".format(self.options["directory"]), "a", buffering=1)
 
         description.write("--------------------------------------")
         description.write("\nDescription file for sample generation")
@@ -284,7 +284,7 @@ class AirfoilCST():
         points = self.DVGeo.update("airfoil")[:,0:2]
 
         # Changing the first and last point for meshing
-        # TO DO - This needs to change for more general scenario
+        # TO DO - Check if this generalizes well
         points[0,1] = 0.0
         points[-1,1] = 0.0
 
@@ -299,7 +299,7 @@ class AirfoilCST():
 
         try:
             # Run the runscript
-            child_comm = MPI.COMM_WORLD.Spawn(sys.executable, args=["runscript.py"], maxprocs=self.options["noOfProcessors"])
+            child_comm = MPI.COMM_SELF.Spawn(sys.executable, args=["runscript.py"], maxprocs=self.options["noOfProcessors"])
             child_comm.Disconnect()
             time.sleep(0.25) # Very important - do not remove this
 
