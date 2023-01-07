@@ -7,7 +7,6 @@ from mpi4py import MPI
 from baseclasses import AeroProblem
 from pygeo import DVGeometryCST, DVConstraints
 from prefoil.utils import readCoordFile
-from pprint import pprint
 
 comm = MPI.COMM_WORLD
 
