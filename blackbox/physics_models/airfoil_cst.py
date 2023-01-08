@@ -164,7 +164,7 @@ class AirfoilCST():
             self._error("Number of samples argument is not an integer.")
 
         # Number of analysis passed/failed
-        noFailed = 0
+        failed =[]
         totalTime = 0
 
         # Generating LHS samples
@@ -173,18 +173,20 @@ class AirfoilCST():
         # Creating empty dictionary for storing the data
         data = {}
 
+        # Creating and writing a description file
         description = open("{}/description.txt".format(self.options["directory"]), "a", buffering=1)
-
-        description.write("--------------------------------------")
-        description.write("\nDescription file for sample generation")
-        description.write("\n--------------------------------------")
+        description.write("---------------------------------------------------")
+        description.write("\nAirfoil sample generation with CST parametrization")
+        description.write("\n--------------------------------------------------")
+        description.write("\nUpper surface CST coefficient: {}".format(self.DVGeo.defaultDV["upper"]))
+        description.write("\nLower surface CST coefficient: {}".format(self.DVGeo.defaultDV["lower"]))
         description.write("\nDesign variables: {}".format(self.DV))
         description.write("\nLower bound for design variables:\n{}".format(self.lowerBound))
         description.write("\nUpper bound for design variables:\n{}".format(self.upperBound))
         description.write("\nTotal number of samples requested: {}".format(numSamples))
-        description.write("\n--------------------------------------")
+        description.write("\n-----------------------------")
         description.write("\nAnalysis specific description")
-        description.write("\n--------------------------------------")
+        description.write("\n-----------------------------")
 
         # Generate data
         for sampleNo in range(numSamples):
@@ -203,16 +205,16 @@ class AirfoilCST():
 
             except:
                 print("Error occured during the analysis. Check analysis.log in the respective folder for more details.")
-                noFailed += 1
+                failed.append(sampleNo + 1)
                 description.write("\nAnalysis failed.")
 
             else:
                 if output["fail"] == True: # Check for analysis failure
-                    noFailed += 1
+                    failed.append(sampleNo + 1)
                     description.write("\nAnalysis failed.")
                 else:
                     # Creating a dictionary of data
-                    if self.genSamples - noFailed == 1:
+                    if self.genSamples - len(failed) == 1:
                         data["x"] = np.array(x)
                         for value in output.keys():
                             data[value] = np.array([output[value]])
@@ -233,8 +235,16 @@ class AirfoilCST():
                 # Writing time taken to file
                 description.write("\nTime taken for analysis: {} min.".format((t2-t1)/60))
 
+        # Making generated samples 0
+        self.genSamples = 0
+
+        # Writing final results in the description file
         description.write("\n--------------------------------------")
         description.write("\nTotal time taken for analysis: {} min.".format(totalTime))
+        description.write("\nNumber of successful analysis: {}".format(numSamples - len(failed)))
+        description.write("\nNumber of failed analysis: {}".format(len(failed)))
+        if len(failed) != 0:
+            description.write("\nFailed analysis: {}".format(failed))
 
         # Closing the description file
         description.close()
@@ -300,15 +310,17 @@ class AirfoilCST():
             # Run the runscript
             child_comm = MPI.COMM_SELF.Spawn(sys.executable, args=["runscript.py"], maxprocs=self.options["noOfProcessors"])
             child_comm.Disconnect()
-            time.sleep(0.25) # Very important - do not remove this
+            time.sleep(1) # Very important - do not remove this
 
         except:
+            # Imp to have disconnect in two places and not in finally block
             child_comm.Disconnect()
-            time.sleep(0.25) # Very important - do not remove this
+            time.sleep(1) # Very important - do not remove this
 
             raise Exception
 
         else:
+            # Raise exception if the output file doesn't exist
             if not os.path.exists("output.pickle"):
                 raise Exception
 

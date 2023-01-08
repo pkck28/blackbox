@@ -13,7 +13,7 @@ solverOptions = {
     "smoother": "DADI",
     "MGCycle": "sg",
     "nsubiterturb": 10,
-    "nCycles": 10000,
+    "nCycles": 7000,
     # ANK Solver Parameters
     "useANKSolver": True,
     "ANKSubspaceSize": 400,
@@ -78,12 +78,12 @@ ap = AeroProblem(
 options = {
     "solverOptions": solverOptions,
     "directory": "multi",
-    "noOfProcessors": 11,
+    "noOfProcessors": 9,
     "aeroProblem": ap,
     "airfoilFile": "rae2822.dat",
     "numCST": [6, 6],
     "meshingOptions": meshingOptions,
-    "refine": 1
+    "refine": 0
 }
 
 # Example for generating samples
