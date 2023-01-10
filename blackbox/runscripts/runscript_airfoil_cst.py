@@ -29,6 +29,7 @@ try:
     # Getting aero problem from input file
     ap = input["aeroProblem"]
     refine = input["refine"]
+    slice = input["slice"]
 
     # Assigning non-shape DVs
     if "alpha" in input.keys():
@@ -97,7 +98,8 @@ try:
     CFDSolver = ADFLOW(options=solverOptions, comm=comm)
 
     # Adding pressure distribution output
-    CFDSolver.addSlices("z", 0.5, sliceType="absolute")
+    if slice:
+        CFDSolver.addSlices("z", 0.5, sliceType="absolute")
 
     # Getting triangulated surface mesh, later used in 
     # parent script to calculate volume

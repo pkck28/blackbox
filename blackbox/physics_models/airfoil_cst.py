@@ -25,6 +25,7 @@ class DefaultOptions():
         self.directory = "output"
         self.noOfProcessors = 4
         self.refine = 0
+        self.slice = True
 
 class AirfoilCST():
     """
@@ -424,13 +425,18 @@ class AirfoilCST():
             if not isinstance(options["noOfProcessors"], int):
                 self._error("\"noOfProcessors\" attribute is not an integer.")
 
-            if comm.Get_attr(MPI.UNIVERSE_SIZE) < options["noOfProcessors"] - 1:
+            if psutil.cpu_count(False) < options["noOfProcessors"] + 1:
                 self._error("\"noOfProcessors\" requested is more than available processors.")
 
         ############ Validating refine
         if "refine" in userProvidedOptions:
             if not isinstance(options["refine"], int):
                 self._error("\"refine\" attribute is not an integer.")
+
+        ############ Validating slice
+        if "slice" in userProvidedOptions:
+            if not isinstance(options["slice"], bool):
+                self._error("\"slice\" attribute is not a boolean value.")
 
         ############ Validating directory attribute
         if "directory" in userProvidedOptions:
@@ -540,7 +546,8 @@ class AirfoilCST():
             "solverOptions": self.options["solverOptions"],
             "aeroProblem": self.options["aeroProblem"],
             "meshingOptions": self.options["meshingOptions"],
-            "refine": self.options["refine"]
+            "refine": self.options["refine"],
+            "slice": self.options["slice"]
         }
 
         # Adding non-shape DV
@@ -603,14 +610,12 @@ class AirfoilCST():
         i = 16
 
         for word in message.split():
-            print(i)
             if len(word) + i + 1 > 76:  # Finish line and start new one
                 msg += " " * (76 - i) + " |\n| " + word + " " # Adding space and word in new line
                 i = len(word) + 1 # Setting i value for new line
             else:
                 msg += word + " " # Adding the word with a space
-                i += len(word) + 1 #
-            print(i)
+                i += len(word) + 1 # Increase the number of characters
         msg += " " * (76 - i) + " |\n" + "+" + "-" * 78 + "+" + "\n" # Adding last line
  
         print(msg, flush=True)
@@ -629,14 +634,12 @@ class AirfoilCST():
         i = 16
 
         for word in message.split():
-            print(i)
             if len(word) + i + 1 > 76:  # Finish line and start new one
                 msg += " " * (76 - i) + " |\n| " + word + " " # Adding space and word in new line
                 i = len(word) + 1 # Setting i value for new line
             else:
                 msg += word + " " # Adding the word with a space
-                i += len(word) + 1 #
-            print(i)
+                i += len(word) + 1 # Increase the number of characters
         msg += " " * (76 - i) + " |\n" + "+" + "-" * 78 + "+" + "\n" # Adding last line
  
         print(msg, flush=True)
