@@ -1,5 +1,5 @@
 # Imports
-import os, sys, shutil, pickle, time
+import os, sys, shutil, pickle, time, psutil
 import numpy as np
 from scipy.io import savemat
 from pyDOE2 import lhs
@@ -306,26 +306,35 @@ class AirfoilCST():
         # Writing the surface mesh
         self.DVGeo.foil.writeCoords("surfMesh", points)
 
+        # Run the runscript
+        child_comm = MPI.COMM_SELF.Spawn(sys.executable, args=["runscript.py"], maxprocs=self.options["noOfProcessors"])
+
+        # Creating empty pid_list
+        pid_list = []
+
+        # Getting each spawned processor
+        for processor in range(self.options["noOfProcessors"]):
+            pid = child_comm.recv(source=MPI.ANY_SOURCE, tag=processor)
+            pid_list.append(psutil.Process(pid))
+
+        # Disconnecting from intercommunicator
+        child_comm.Disconnect()
+
+        # Waiting till all the child processors are finished
+        while len(pid_list) != 0:
+            for pid in pid_list:
+                if not pid.is_running():
+                    pid_list.remove(pid)
+
         try:
-            # Run the runscript
-            child_comm = MPI.COMM_SELF.Spawn(sys.executable, args=["runscript.py"], maxprocs=self.options["noOfProcessors"])
-            child_comm.Disconnect()
-            time.sleep(1) # Very important - do not remove this
+            # Reading the output file containing results
+            filehandler = open("output.pickle", 'rb')
 
         except:
-            # Imp to have disconnect in two places and not in finally block
-            child_comm.Disconnect()
-            time.sleep(1) # Very important - do not remove this
-
             raise Exception
 
         else:
-            # Raise exception if the output file doesn't exist
-            if not os.path.exists("output.pickle"):
-                raise Exception
-
-            # Reading the output file containing results
-            filehandler = open("output.pickle", 'rb')
+            # Read the output
             output = pickle.load(filehandler)
             filehandler.close()
 
@@ -333,7 +342,7 @@ class AirfoilCST():
             output = self._calcVol(output)
 
             return output
-
+            
         finally:
             # Cleaning the directory
             files = ["surfMesh.xyz", "volMesh.cgns", "input.pickle", "runscript.py", "output.pickle"]
@@ -345,7 +354,7 @@ class AirfoilCST():
             os.chdir("../..")
 
             # Increase the number of generated samples
-            self.genSamples += 1
+            self.genSamples += 1            
 
     # ----------------------------------------------------------------------------
     #                       Methods related to validation
