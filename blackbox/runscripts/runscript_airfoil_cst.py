@@ -1,6 +1,6 @@
 ############## Script file for running airfoil analysis.
 # Imports
-import pickle, time, os, psutil
+import pickle, time, os
 from mpi4py import MPI
 from adflow import ADFLOW
 from pyhyp import pyHyp

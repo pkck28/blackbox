@@ -424,6 +424,9 @@ class AirfoilCST():
             if not isinstance(options["noOfProcessors"], int):
                 self._error("\"noOfProcessors\" attribute is not an integer.")
 
+            if comm.Get_attr(MPI.UNIVERSE_SIZE) < options["noOfProcessors"] - 1:
+                self._error("\"noOfProcessors\" requested is more than available processors.")
+
         ############ Validating refine
         if "refine" in userProvidedOptions:
             if not isinstance(options["refine"], int):
@@ -591,34 +594,50 @@ class AirfoilCST():
             Method for printing warnings in nice manner.
         """
 
+        ############ To Do: Redundant - error and warning mehtod can be combined.
+
+        # Initial message - total len is 80 characters
         msg = "\n+" + "-" * 78 + "+" + "\n" + "| Blackbox Warning: "
-        i = 19
+
+        # Initial number of characters
+        i = 16
+
         for word in message.split():
-            if len(word) + i + 1 > 78:  # Finish line and start new one
-                msg += " " * (82 - i) + "|\n| " + word + " "
-                i = 1 + len(word) + 1
+            print(i)
+            if len(word) + i + 1 > 76:  # Finish line and start new one
+                msg += " " * (76 - i) + " |\n| " + word + " " # Adding space and word in new line
+                i = len(word) + 1 # Setting i value for new line
             else:
-                msg += word + " "
-                i += len(word) + 1
-        msg += " " * (78 - i) + "|\n" + "+" + "-" * 78 + "+" + "\n"
+                msg += word + " " # Adding the word with a space
+                i += len(word) + 1 #
+            print(i)
+        msg += " " * (76 - i) + " |\n" + "+" + "-" * 78 + "+" + "\n" # Adding last line
  
         print(msg, flush=True)
+
+        exit()
 
     def _error(self, message: str) -> None:
         """
             Method for printing errors in nice manner.
         """
 
+        # Initial message - total len is 80 characters
         msg = "\n+" + "-" * 78 + "+" + "\n" + "| Blackbox Error: "
-        i = 19
+
+        # Initial number of characters
+        i = 16
+
         for word in message.split():
-            if len(word) + i + 1 > 78:  # Finish line and start new one
-                msg += " " * (78 - i) + "|\n| " + word + " "
-                i = 1 + len(word) + 1
+            print(i)
+            if len(word) + i + 1 > 76:  # Finish line and start new one
+                msg += " " * (76 - i) + " |\n| " + word + " " # Adding space and word in new line
+                i = len(word) + 1 # Setting i value for new line
             else:
-                msg += word + " "
-                i += len(word) + 1
-        msg += " " * (78 - i) + "|\n" + "+" + "-" * 78 + "+" + "\n"
+                msg += word + " " # Adding the word with a space
+                i += len(word) + 1 #
+            print(i)
+        msg += " " * (76 - i) + " |\n" + "+" + "-" * 78 + "+" + "\n" # Adding last line
  
         print(msg, flush=True)
 
