@@ -40,6 +40,7 @@ Optional options are:
 
 - ``directory (str, default="output")``: name of the directory where the results will saved.
 - ``noOfProcessors (int, default=4)``: desired number of processors to run the analysis on.
+- ``slice (bool, default=True)``: adds a slice which will be used to output slice file after the analysis.
 - ``refine (int, default=0)``: value of this options controls how much to refine or coarsen the generated volume mesh.
   When the value is zero, there is no change to the volume mesh. When the value is 1 or 2, the volume mesh is refined
   by one level or two levels respetively. When the value is -1 and -2, the mesh is coarsened by similar levels.
@@ -181,22 +182,29 @@ to be generated. Following snippet of the code will generate 10 samples::
 
     airfoil.generateSamples(10)
 
-All the analysis results will be stored in the specified folder which will also contain the ``data.mat`` file which contains:
+You can see the following output after completion of smaple generation process:
 
-- Input variable: a 2D numpy array in which each row represents a specific sample based on which analysis is performed. The number
-  of rows will be usually equal to the number of samples argument in the ``generateSamples`` method. But, many times few of the analysis
-  fail. It depends a lot on the solver and meshing options, so set those options after some tuning.
+- A folder is created for each analysis in the specified folder. Each of the folder will contain ``analyis_log.txt``.
+  There will be other files depending on the options provided to solver and blackbox.
 
-.. note::
-    The order of values in each row is based on how you add design variables. In this tutorial, first ``alpha`` is added as
-    design variable. Then, lower and upper surface CST coefficients are added. Thus, first value in each row will be alpha, next 6
-    values will be upper surface CST coefficients and last 6 will be lower surface CST coefficients.
+- ``data.mat`` file which contains:
 
-- Output variables: There are two kinds of output variables - mandatory and user specificed. The ``evalFuncs`` argument in the aero problem
-  decides the user desired variables. Along with these variables, `area` of the airfoil is the mandatory objective. In this tutorial, ``evalFuncs`` 
-  argument contains ``cl``, ``cd``, ``cmz``. So, data.mat will contain these variables, along with ``area``.
-  
-Following snippet shows how to access the data.mat file::
+    - **Input variable**: a 2D numpy array ``x`` in which each row represents a specific sample based on which analysis is performed. The number
+      of rows will be usually equal to the number of samples argument in the ``generateSamples`` method. But, many times few of the analysis
+      fail. It depends a lot on the solver and meshing options, so set those options after some tuning.
+
+      .. note::
+          The order of values in each row is based on how you add design variables. In this tutorial, first ``alpha`` is added as
+          design variable. Then, lower and upper surface CST coefficients are added. Thus, first value in each row will be alpha, next 6
+          values will be upper surface CST coefficients and last 6 will be lower surface CST coefficients.
+
+    - **Output variables**: There are two kinds of output variables - mandatory and user specificed. The ``evalFuncs`` argument in the aero problem
+      decides the user desired variables. Along with these variables, `area` of the airfoil is the mandatory objective.
+
+- ``description.txt``: contains various informations about the sample generation such as design variables, bounds, number of failed analysis, etc.
+
+Following snippet shows how to access the data.mat file. In this tutorial, ``evalFuncs`` argument contains 
+``cl``, ``cd``, ``cmz``. So, data.mat will contain these variables, along with ``area``::
 
     from scipy.io import loadmat
     data = loadmat("data.mat") # mention the location of mat file
@@ -229,4 +237,5 @@ which is the value of design variable as a 1D numpy array. Following snippet sho
 
 Note that here ``x`` is 1D numpy array with 13 entires. The values within the array follow the same order in which
 design variables are added. ``output`` from the method is a dictionary which contains the same objective as described in
-the previous section.
+the previous section. Also, a folder will be created in the specificed folder which contains similar output files as 
+described in the previous section.
