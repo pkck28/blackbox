@@ -1,6 +1,6 @@
 ############## Script file for running airfoil analysis.
 # Imports
-import pickle, time, os
+import pickle, time, os, psutil
 from mpi4py import MPI
 from adflow import ADFLOW
 from pyhyp import pyHyp
@@ -8,6 +8,10 @@ from cgnsutilities.cgnsutilities import readGrid
 
 # Getting MPI comm
 comm = MPI.COMM_WORLD
+parent_comm = comm.Get_parent()
+
+# Send the processor
+parent_comm.send(os.getpid(), dest=0, tag=comm.rank)
 
 # Redirecting the stdout
 stdout = os.dup(1)
@@ -135,8 +139,9 @@ try:
         pickle.dump(output, filehandler)
         filehandler.close()
 
-except:
-    pass
+except Exception as e:
+    if comm.rank == 0:
+        print(e)
 
 finally:
     # Redirecting to original stdout
@@ -148,5 +153,4 @@ finally:
 
     # Getting intercomm and disconnecting
     # Otherwise, program will enter deadlock
-    parent_comm = comm.Get_parent()
     parent_comm.Disconnect()
