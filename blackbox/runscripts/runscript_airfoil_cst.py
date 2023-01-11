@@ -134,6 +134,7 @@ try:
         print("fail = ", funcs["fail"])
         output["fail"] = funcs["fail"]
 
+        # Getting triangulated surface points
         output["pts"] = trigSurfMesh
 
         # Storing the results in output file

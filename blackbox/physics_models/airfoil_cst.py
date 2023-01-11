@@ -1,5 +1,5 @@
 # Imports
-import os, sys, shutil, pickle, time, psutil
+import os, sys, shutil, pickle, time, psutil, pyvista
 import numpy as np
 from scipy.io import savemat
 from pyDOE2 import lhs
@@ -26,6 +26,11 @@ class DefaultOptions():
         self.noOfProcessors = 4
         self.refine = 0
         self.slice = True
+
+        # Flow-field related options
+        # if getFlowFieldData is false, then all other options are useless
+        self.getFlowFieldData = False
+        self.region = "surface"
 
 class AirfoilCST():
     """
@@ -65,6 +70,9 @@ class AirfoilCST():
         self.options["solverOptions"]["outputDirectory"] = "."
         self.options["solverOptions"]["numberSolutions"] = False
         self.options["solverOptions"]["printTiming"] = False
+
+        if self.options["getFlowFieldData"]:
+            self.options["solverOptions"]["writeSurfaceSolution"] = True
 
         # Getting abs path for the storage directory
         self.options["directory"] = os.path.abspath(self.options["directory"])
@@ -342,6 +350,36 @@ class AirfoilCST():
             # Calculate the volume (here area)
             output = self._calcVol(output)
 
+            if self.options["getFlowFieldData"]:
+                # Reading the cgns file
+                filename = self.options["aeroProblem"].name + "_surf.cgns"
+                reader = pyvista.CGNSReader(filename)
+                reader.load_boundary_patch = False
+
+                # Reading the mesh
+                mesh = reader.read()
+
+                # Setting region for extraction
+                if self.options["region"] == "surface":
+                    mesh = mesh[0][0]
+                else:
+                    mesh = mesh[0][2]
+
+                # Get the values
+                data = {}
+
+                for var in mesh.array_names:
+                    # set_active_scalars returns a tuple, and second
+                    # entry contains the pyvista numpy array.
+                    data[var] = np.asarray(mesh.set_active_scalars(var, "cell")[1])
+
+                    # Reshaping if necessary
+                    if data[var].ndim == 1:
+                        data[var] = data[var].reshape(-1,1)
+
+                # Saving the field data
+                savemat("fieldData.mat", data)
+
             return output
             
         finally:
@@ -442,6 +480,19 @@ class AirfoilCST():
         if "directory" in userProvidedOptions:
             if not isinstance(options["directory"], str):
                 self._error("\"directory\" attribute is not string.")
+
+        ############ Validating getFlowFieldData attribute
+        if "getFlowFieldData" in userProvidedOptions:
+            if not isinstance(options["getFlowFieldData"], bool):
+                self._error("\"getFlowFieldData\" attribute is not a boolean value.")
+
+            # Checking the other related options
+            if "region" in userProvidedOptions:
+                if not isinstance(options["region"], str):
+                    self._error("\"region\" attribute is not a string.")
+
+                if options["region"] not in ["surface", "field"]:
+                    self._error("\"region\" attribute is not recognized. It can be either \"surface\" or \"field\".")
 
     def _checkObjectives(self, options: dict) -> None:
         """

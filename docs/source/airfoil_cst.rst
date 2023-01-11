@@ -4,7 +4,7 @@ Airfoil with CST Parametrization
 ================================
 
 The ``AirfoilCST`` module within Blackbox provides various methods for running analysis and 
-generating data. Before starting to use this module, you will need the .dat file which 
+generating data with CST Parametrization. Before starting to use this module, you will need the .dat file which 
 contains the airfoil coordinates. There few important points to note regarding .dat file:
 
 - The .dat file should follow the **selig** format i.e. the points should start from trailing edge and
@@ -44,6 +44,10 @@ Optional options are:
 - ``refine (int, default=0)``: value of this options controls how much to refine or coarsen the generated volume mesh.
   When the value is zero, there is no change to the volume mesh. When the value is 1 or 2, the volume mesh is refined
   by one level or two levels respetively. When the value is -1 and -2, the mesh is coarsened by similar levels.
+- ``getFlowFieldData (bool, default=False)``: flag to specify whether to get the field data or not.
+- ``region``: this option only applies when ``getFlowFieldData`` is set to ``True``. This option decides from what
+  region to extract the data. There are only two possible values: ``surface`` (will extract the field data at surface) and ``field`` 
+  (will extract the entire field).
 
 Following snippet of the code shows setting up of options dictionary::
 
@@ -184,7 +188,7 @@ to be generated. Following snippet of the code will generate 10 samples::
 
 You can see the following output after completion of smaple generation process:
 
-- A folder is created for each analysis in the specified folder. Each of the folder will contain ``analyis_log.txt``.
+- A folder is created for each analysis in the specified folder. Each of the folder will contain ``log.txt``.
   There will be other files depending on the options provided to solver and blackbox.
 
 - ``data.mat`` file which contains:
@@ -237,5 +241,40 @@ which is the value of design variable as a 1D numpy array. Following snippet sho
 
 Note that here ``x`` is 1D numpy array with 13 entires. The values within the array follow the same order in which
 design variables are added. ``output`` from the method is a dictionary which contains the same objective as described in
-the previous section. Also, a folder will be created in the specificed folder which contains similar output files as 
+the previous section. Also, anlaysis specific folder will be created in the specificed direcrtory which contains similar output files as 
 described in the previous section.
+
+Getting Field data
+------------------
+
+You can also get the field data for each gnereated sample. You have to set ``getFlowFieldData`` option as ``True`` in the blackbox options dictionary -
+please refer to setting up options section for more details. Following snippet shows how to set blackbox options for extracting field data::
+
+  options = {
+        "solverOptions": solverOptions,
+        "directory": "multi",
+        "noOfProcessors": 8,
+        "aeroProblem": ap,
+        "airfoilFile": "rae2822.dat",
+        "numCST": [6, 6],
+        "meshingOptions": meshingOptions,
+        "getFlowFieldData": True,
+        "region": "field"
+  }
+
+There is one more important option associated with extracting the field data - ``region``. This essentially describes what region to extract the data from. 
+Refer setting up options section for more details. If the options are set properly, then folder for each analysis will have a file named ``fieldData.mat``.
+Once the mat file is load, you will get a dict which contains all the ``surfaceVariables`` you mentioned (or set by default) for the solver. In this tutorial,
+``surfaceVariables`` is not set in ``solverOptions``, so by default it contains coeeficient of pressure, mach number, and velocity. Following snippet shows how to 
+read from the ``fieldData.mat`` file::
+
+  from scipy.io import loadmat
+  data = loadmat("fieldData.mat") # mention the location of mat file
+
+  cp = data["CoefPressure"]
+  mach = data["Mach"]
+  cmz = data["velocity"]
+
+Here, all the outputs will be 2D numpy array. For scalars values, the first dimension will be number of cells in the grid for field data and
+second dimension will be 1. For vector values, first dimension will be same as scalar values, but second dimension will be three which represents x, y, and z
+direction.
