@@ -1,12 +1,22 @@
 ############## Script file for running airfoil analysis.
 # Imports
-import pickle, time
+import pickle, time, os
 from mpi4py import MPI
 from adflow import ADFLOW
 from pyhyp import pyHyp
 from cgnsutilities.cgnsutilities import readGrid
 
+# Getting MPI comm
 comm = MPI.COMM_WORLD
+parent_comm = comm.Get_parent()
+
+# Send the processor
+parent_comm.send(os.getpid(), dest=0, tag=comm.rank)
+
+# Redirecting the stdout
+stdout = os.dup(1)
+log = open("log.txt", "a")
+os.dup2(log.fileno(), 1)
 
 try:
     ############## Reading input file for the analysis
@@ -19,6 +29,7 @@ try:
     # Getting aero problem from input file
     ap = input["aeroProblem"]
     refine = input["refine"]
+    slice = input["slice"]
 
     # Assigning non-shape DVs
     if "alpha" in input.keys():
@@ -39,6 +50,13 @@ try:
     meshingOptions["inputFile"] = "surfMesh.xyz"
 
     ############## Generating mesh
+
+    if comm.rank == 0:
+        print("#" + "-"*129 + "#")
+        print(" "*59 + "Meshing Log" + ""*59)
+        print("#" + "-"*129 + "#")
+        print("")
+
     hyp = pyHyp(options=meshingOptions, comm=comm)
     hyp.run()
     hyp.writeCGNS("volMesh.cgns")
@@ -69,11 +87,19 @@ try:
 
     ############## Settign up adflow
 
+    if comm.rank == 0:
+        print("")
+        print("#" + "-"*129 + "#")
+        print(" "*59 + "Analysis Log" + ""*59)
+        print("#" + "-"*129 + "#")
+        print("")
+
     # Creating adflow object
     CFDSolver = ADFLOW(options=solverOptions, comm=comm)
 
     # Adding pressure distribution output
-    CFDSolver.addSlices("z", 0.5, sliceType="absolute")
+    if slice:
+        CFDSolver.addSlices("z", 0.5, sliceType="absolute")
 
     # Getting triangulated surface mesh, later used in 
     # parent script to calculate volume
@@ -91,10 +117,13 @@ try:
 
     # printing the result
     if MPI.COMM_WORLD.rank == 0:
+        print("")
+        print("#" + "-"*129 + "#")
+        print(" "*59 + "Result" + ""*59)
+        print("#" + "-"*129 + "#")
+        print("")
 
         output = {}
-
-        print("\n------------------- Result -------------------")
 
         # Printing and storing results based on evalFuncs in aero problem
         for obj in ap.evalFuncs:
@@ -105,6 +134,7 @@ try:
         print("fail = ", funcs["fail"])
         output["fail"] = funcs["fail"]
 
+        # Getting triangulated surface points
         output["pts"] = trigSurfMesh
 
         # Storing the results in output file
@@ -112,11 +142,18 @@ try:
         pickle.dump(output, filehandler)
         filehandler.close()
 
-except:
-    pass
+except Exception as e:
+    if comm.rank == 0:
+        print(e)
 
 finally:
+    # Redirecting to original stdout
+    os.dup2(stdout, 1)
+
+    # close the file and stdout
+    log.close()
+    os.close(stdout)
+
     # Getting intercomm and disconnecting
     # Otherwise, program will enter deadlock
-    parent_comm = comm.Get_parent()
     parent_comm.Disconnect()

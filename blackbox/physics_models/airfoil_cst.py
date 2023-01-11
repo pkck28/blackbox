@@ -1,5 +1,5 @@
 # Imports
-import os, sys, shutil, pickle, time
+import os, sys, shutil, pickle, time, psutil, pyvista
 import numpy as np
 from scipy.io import savemat
 from pyDOE2 import lhs
@@ -25,6 +25,12 @@ class DefaultOptions():
         self.directory = "output"
         self.noOfProcessors = 4
         self.refine = 0
+        self.slice = True
+
+        # Flow-field related options
+        # if getFlowFieldData is false, then all other options are useless
+        self.getFlowFieldData = False
+        self.region = "surface"
 
 class AirfoilCST():
     """
@@ -46,6 +52,9 @@ class AirfoilCST():
         # Setting up default options
         self._getDefaultOptions()
 
+        # Changing to absolute path for airfoil file
+        options["airfoilFile"] = os.path.abspath(options["airfoilFile"])
+
         # Setting up the required options list
         requiredOptions = ["solverOptions", "meshingOptions", "airfoilFile", "aeroProblem", "numCST"]
 
@@ -59,6 +68,14 @@ class AirfoilCST():
         self.options["solverOptions"]["printAllOptions"] = False
         self.options["solverOptions"]["printIntro"] = False
         self.options["solverOptions"]["outputDirectory"] = "."
+        self.options["solverOptions"]["numberSolutions"] = False
+        self.options["solverOptions"]["printTiming"] = False
+
+        if self.options["getFlowFieldData"]:
+            self.options["solverOptions"]["writeSurfaceSolution"] = True
+
+        # Getting abs path for the storage directory
+        self.options["directory"] = os.path.abspath(self.options["directory"])
 
         # Setting up the folder for saving the results
         directory = self.options["directory"]
@@ -156,7 +173,8 @@ class AirfoilCST():
             self._error("Number of samples argument is not an integer.")
 
         # Number of analysis passed/failed
-        noFailed = 0
+        failed =[]
+        totalTime = 0
 
         # Generating LHS samples
         samples = self._lhs(numSamples)
@@ -164,8 +182,25 @@ class AirfoilCST():
         # Creating empty dictionary for storing the data
         data = {}
 
+        # Creating and writing a description file
+        description = open("{}/description.txt".format(self.options["directory"]), "a", buffering=1)
+        description.write("---------------------------------------------------")
+        description.write("\nAirfoil sample generation with CST parametrization")
+        description.write("\n--------------------------------------------------")
+        description.write("\nUpper surface CST coefficient: {}".format(self.DVGeo.defaultDV["upper"]))
+        description.write("\nLower surface CST coefficient: {}".format(self.DVGeo.defaultDV["lower"]))
+        description.write("\nDesign variables: {}".format(self.DV))
+        description.write("\nLower bound for design variables:\n{}".format(self.lowerBound))
+        description.write("\nUpper bound for design variables:\n{}".format(self.upperBound))
+        description.write("\nTotal number of samples requested: {}".format(numSamples))
+        description.write("\n-----------------------------")
+        description.write("\nAnalysis specific description")
+        description.write("\n-----------------------------")
+
         # Generate data
         for sampleNo in range(numSamples):
+
+            description.write("\nAnalysis {}: ".format(sampleNo+1))
 
             # Current sample
             x = samples[sampleNo,:]
@@ -179,14 +214,16 @@ class AirfoilCST():
 
             except:
                 print("Error occured during the analysis. Check analysis.log in the respective folder for more details.")
-                noFailed += 1
+                failed.append(sampleNo + 1)
+                description.write("\nAnalysis failed.")
 
             else:
                 if output["fail"] == True: # Check for analysis failure
-                    noFailed += 1
+                    failed.append(sampleNo + 1)
+                    description.write("\nAnalysis failed.")
                 else:
                     # Creating a dictionary of data
-                    if self.genSamples - noFailed == 1:
+                    if self.genSamples - len(failed) == 1:
                         data["x"] = np.array(x)
                         for value in output.keys():
                             data[value] = np.array([output[value]])
@@ -202,7 +239,24 @@ class AirfoilCST():
                 # Ending time
                 t2 = time.time()
 
-                print("Time taken for analysis: {} min.".format((t2-t1)/60))
+                totalTime += (t2-t1)/60
+
+                # Writing time taken to file
+                description.write("\nTime taken for analysis: {} min.".format((t2-t1)/60))
+
+        # Making generated samples 0
+        self.genSamples = 0
+
+        # Writing final results in the description file
+        description.write("\n--------------------------------------")
+        description.write("\nTotal time taken for analysis: {} min.".format(totalTime))
+        description.write("\nNumber of successful analysis: {}".format(numSamples - len(failed)))
+        description.write("\nNumber of failed analysis: {}".format(len(failed)))
+        if len(failed) != 0:
+            description.write("\nFailed analysis: {}".format(failed))
+
+        # Closing the description file
+        description.close()
 
     def getObjectives(self, x: np.ndarray) -> dict:
         """
@@ -248,7 +302,7 @@ class AirfoilCST():
         points = self.DVGeo.update("airfoil")[:,0:2]
 
         # Changing the first and last point for meshing
-        # TO DO - This needs to change for more general scenario
+        # TO DO - Check if this generalizes well
         points[0,1] = 0.0
         points[-1,1] = 0.0
 
@@ -261,32 +315,73 @@ class AirfoilCST():
         # Writing the surface mesh
         self.DVGeo.foil.writeCoords("surfMesh", points)
 
+        # Run the runscript
+        child_comm = MPI.COMM_SELF.Spawn(sys.executable, args=["runscript.py"], maxprocs=self.options["noOfProcessors"])
+
+        # Creating empty pid_list
+        pid_list = []
+
+        # Getting each spawned processor
+        for processor in range(self.options["noOfProcessors"]):
+            pid = child_comm.recv(source=MPI.ANY_SOURCE, tag=processor)
+            pid_list.append(psutil.Process(pid))
+
+        # Disconnecting from intercommunicator
+        child_comm.Disconnect()
+
+        # Waiting till all the child processors are finished
+        while len(pid_list) != 0:
+            for pid in pid_list:
+                if not pid.is_running():
+                    pid_list.remove(pid)
+
         try:
-            # Run the runscript
-            child_comm = MPI.COMM_WORLD.Spawn(sys.executable, args=["runscript.py"], maxprocs=self.options["noOfProcessors"])
-            child_comm.Disconnect()
-            time.sleep(0.25) # Very important - do not remove this
+            # Reading the output file containing results
+            filehandler = open("output.pickle", 'rb')
 
         except:
-            child_comm.Disconnect()
-            time.sleep(0.25) # Very important - do not remove this
-
             raise Exception
 
         else:
-            if not os.path.exists("output.pickle"):
-                raise Exception
-
-            # Reading the output file containing results
-            filehandler = open("output.pickle", 'rb')
+            # Read the output
             output = pickle.load(filehandler)
             filehandler.close()
 
             # Calculate the volume (here area)
             output = self._calcVol(output)
 
-            return output
+            if self.options["getFlowFieldData"]:
+                # Reading the cgns file
+                filename = self.options["aeroProblem"].name + "_surf.cgns"
+                reader = pyvista.CGNSReader(filename)
+                reader.load_boundary_patch = False
 
+                # Reading the mesh
+                mesh = reader.read()
+
+                # Setting region for extraction
+                if self.options["region"] == "surface":
+                    mesh = mesh[0][0]
+                else:
+                    mesh = mesh[0][2]
+
+                # Get the values
+                data = {}
+
+                for var in mesh.array_names:
+                    # set_active_scalars returns a tuple, and second
+                    # entry contains the pyvista numpy array.
+                    data[var] = np.asarray(mesh.set_active_scalars(var, "cell")[1])
+
+                    # Reshaping if necessary
+                    if data[var].ndim == 1:
+                        data[var] = data[var].reshape(-1,1)
+
+                # Saving the field data
+                savemat("fieldData.mat", data)
+
+            return output
+            
         finally:
             # Cleaning the directory
             files = ["surfMesh.xyz", "volMesh.cgns", "input.pickle", "runscript.py", "output.pickle"]
@@ -298,7 +393,7 @@ class AirfoilCST():
             os.chdir("../..")
 
             # Increase the number of generated samples
-            self.genSamples += 1
+            self.genSamples += 1            
 
     # ----------------------------------------------------------------------------
     #                       Methods related to validation
@@ -368,15 +463,36 @@ class AirfoilCST():
             if not isinstance(options["noOfProcessors"], int):
                 self._error("\"noOfProcessors\" attribute is not an integer.")
 
+            if psutil.cpu_count(False) < options["noOfProcessors"] + 1:
+                self._error("\"noOfProcessors\" requested is more than available processors.")
+
         ############ Validating refine
         if "refine" in userProvidedOptions:
             if not isinstance(options["refine"], int):
                 self._error("\"refine\" attribute is not an integer.")
 
+        ############ Validating slice
+        if "slice" in userProvidedOptions:
+            if not isinstance(options["slice"], bool):
+                self._error("\"slice\" attribute is not a boolean value.")
+
         ############ Validating directory attribute
         if "directory" in userProvidedOptions:
             if not isinstance(options["directory"], str):
                 self._error("\"directory\" attribute is not string.")
+
+        ############ Validating getFlowFieldData attribute
+        if "getFlowFieldData" in userProvidedOptions:
+            if not isinstance(options["getFlowFieldData"], bool):
+                self._error("\"getFlowFieldData\" attribute is not a boolean value.")
+
+            # Checking the other related options
+            if "region" in userProvidedOptions:
+                if not isinstance(options["region"], str):
+                    self._error("\"region\" attribute is not a string.")
+
+                if options["region"] not in ["surface", "field"]:
+                    self._error("\"region\" attribute is not recognized. It can be either \"surface\" or \"field\".")
 
     def _checkObjectives(self, options: dict) -> None:
         """
@@ -481,7 +597,8 @@ class AirfoilCST():
             "solverOptions": self.options["solverOptions"],
             "aeroProblem": self.options["aeroProblem"],
             "meshingOptions": self.options["meshingOptions"],
-            "refine": self.options["refine"]
+            "refine": self.options["refine"],
+            "slice": self.options["slice"]
         }
 
         # Adding non-shape DV
@@ -535,34 +652,46 @@ class AirfoilCST():
             Method for printing warnings in nice manner.
         """
 
+        ############ To Do: Redundant - error and warning mehtod can be combined.
+
+        # Initial message - total len is 80 characters
         msg = "\n+" + "-" * 78 + "+" + "\n" + "| Blackbox Warning: "
-        i = 19
+
+        # Initial number of characters
+        i = 16
+
         for word in message.split():
-            if len(word) + i + 1 > 78:  # Finish line and start new one
-                msg += " " * (82 - i) + "|\n| " + word + " "
-                i = 1 + len(word) + 1
+            if len(word) + i + 1 > 76:  # Finish line and start new one
+                msg += " " * (76 - i) + " |\n| " + word + " " # Adding space and word in new line
+                i = len(word) + 1 # Setting i value for new line
             else:
-                msg += word + " "
-                i += len(word) + 1
-        msg += " " * (78 - i) + "|\n" + "+" + "-" * 78 + "+" + "\n"
+                msg += word + " " # Adding the word with a space
+                i += len(word) + 1 # Increase the number of characters
+        msg += " " * (76 - i) + " |\n" + "+" + "-" * 78 + "+" + "\n" # Adding last line
  
         print(msg, flush=True)
+
+        exit()
 
     def _error(self, message: str) -> None:
         """
             Method for printing errors in nice manner.
         """
 
+        # Initial message - total len is 80 characters
         msg = "\n+" + "-" * 78 + "+" + "\n" + "| Blackbox Error: "
-        i = 19
+
+        # Initial number of characters
+        i = 16
+
         for word in message.split():
-            if len(word) + i + 1 > 78:  # Finish line and start new one
-                msg += " " * (78 - i) + "|\n| " + word + " "
-                i = 1 + len(word) + 1
+            if len(word) + i + 1 > 76:  # Finish line and start new one
+                msg += " " * (76 - i) + " |\n| " + word + " " # Adding space and word in new line
+                i = len(word) + 1 # Setting i value for new line
             else:
-                msg += word + " "
-                i += len(word) + 1
-        msg += " " * (78 - i) + "|\n" + "+" + "-" * 78 + "+" + "\n"
+                msg += word + " " # Adding the word with a space
+                i += len(word) + 1 # Increase the number of characters
+        msg += " " * (76 - i) + " |\n" + "+" + "-" * 78 + "+" + "\n" # Adding last line
  
         print(msg, flush=True)
 
