@@ -1,5 +1,5 @@
 # Imports
-import os, sys, shutil, pickle, time, psutil, pyvista
+import os, sys, shutil, pickle, time, psutil
 import numpy as np
 from scipy.io import savemat
 from pyDOE2 import lhs
@@ -7,6 +7,22 @@ from mpi4py import MPI
 from baseclasses import AeroProblem
 from pygeo import DVGeometryCST, DVConstraints
 from prefoil.utils import readCoordFile
+
+# Trying to import pyvista
+try:
+    import pyvista
+except ImportError:
+    msg_pyvista = "pyVista is not installed"
+else:
+    msg_pyvista = None
+
+# Trying to import matplotlib
+try:
+    import matplotlib.pyplot as plt
+except ImportError:
+    msg_matplotlib = "Matplotlib is not installed"
+else:
+    msg_matplotlib = None
 
 comm = MPI.COMM_WORLD
 
@@ -25,7 +41,9 @@ class DefaultOptions():
         self.directory = "output"
         self.noOfProcessors = 4
         self.refine = 0
-        self.slice = True
+        self.writeSliceFile = False
+        self.writeAirfoilCoordinates = False
+        self.plotAirfoil = False
 
         # Flow-field related options
         # if getFlowFieldData is false, then all other options are useless
@@ -72,7 +90,13 @@ class AirfoilCST():
         self.options["solverOptions"]["printTiming"] = False
 
         if self.options["getFlowFieldData"]:
+            if msg_pyvista != None:
+                self._error(msg_pyvista)
             self.options["solverOptions"]["writeSurfaceSolution"] = True
+
+        if self.options["plotAirfoil"]:
+            if msg_matplotlib != None:
+                self._error(msg_matplotlib)
 
         # Getting abs path for the storage directory
         self.options["directory"] = os.path.abspath(self.options["directory"])
@@ -91,9 +115,9 @@ class AirfoilCST():
         self.DVGeo = DVGeometryCST(self.options["airfoilFile"], numCST=self.options["numCST"], comm=comm)
 
         # Adding pointset to the parametrization
-        coords = readCoordFile(self.options["airfoilFile"])
-        coords = np.hstack(( coords, np.zeros((coords.shape[0], 1)) ))
-        self.DVGeo.addPointSet(coords, "airfoil")
+        self.coords = readCoordFile(self.options["airfoilFile"])
+        self.coords = np.hstack(( self.coords, np.zeros((self.coords.shape[0], 1)) ))
+        self.DVGeo.addPointSet(self.coords, "airfoil")
 
         # Some initializations which will be used later
         self.DV = []
@@ -309,16 +333,22 @@ class AirfoilCST():
         # Changing the directory to analysis folder
         os.chdir("{}/{}".format(directory, self.genSamples+1))
 
+        if self.options["writeAirfoilCoordinates"]:
+            self.DVGeo.foil.writeCoords("deformedAirfoil", coords=points, file_format="dat")
+
+        if self.options["plotAirfoil"]:
+            self._plotAirfoil(points)
+
         # Create input file
         self._creatInputFile(x)
 
         # Writing the surface mesh
         self.DVGeo.foil.writeCoords("surfMesh", points)
 
-        # Run the runscript
+        # Spawning the runscript on desired number of processors
         child_comm = MPI.COMM_SELF.Spawn(sys.executable, args=["runscript.py"], maxprocs=self.options["noOfProcessors"])
 
-        # Creating empty pid_list
+        # Creating empty process id list
         pid_list = []
 
         # Getting each spawned processor
@@ -393,7 +423,7 @@ class AirfoilCST():
             os.chdir("../..")
 
             # Increase the number of generated samples
-            self.genSamples += 1            
+            self.genSamples += 1
 
     # ----------------------------------------------------------------------------
     #                       Methods related to validation
@@ -472,9 +502,9 @@ class AirfoilCST():
                 self._error("\"refine\" attribute is not an integer.")
 
         ############ Validating slice
-        if "slice" in userProvidedOptions:
-            if not isinstance(options["slice"], bool):
-                self._error("\"slice\" attribute is not a boolean value.")
+        if "writeSliceFile" in userProvidedOptions:
+            if not isinstance(options["writeSliceFile"], bool):
+                self._error("\"writeSliceFile\" attribute is not a boolean value.")
 
         ############ Validating directory attribute
         if "directory" in userProvidedOptions:
@@ -493,20 +523,6 @@ class AirfoilCST():
 
                 if options["region"] not in ["surface", "field"]:
                     self._error("\"region\" attribute is not recognized. It can be either \"surface\" or \"field\".")
-
-    def _checkObjectives(self, options: dict) -> None:
-        """
-            Validating the objectives provided by the user
-        """
-
-        allowedObjectives = ["cl", "cd", "cmz", "lift", "drag"]
-
-        if type(options["objectives"]) == list:
-            if not set(options["objectives"]).issubset(allowedObjectives):
-                self._error("One or more objective(s) are not valid. Only these \
-                    objectives are supported: {}".format(allowedObjectives))
-        else:
-            self._error("\"objectives\" option is not a list.")
 
     def _checkDV(self, name, lb, ub) -> None:
         """
@@ -598,7 +614,7 @@ class AirfoilCST():
             "aeroProblem": self.options["aeroProblem"],
             "meshingOptions": self.options["meshingOptions"],
             "refine": self.options["refine"],
-            "slice": self.options["slice"]
+            "writeSliceFile": self.options["writeSliceFile"]
         }
 
         # Adding non-shape DV
@@ -646,6 +662,19 @@ class AirfoilCST():
         DVCon.evalFunctions(output)
 
         return output
+
+    def _plotAirfoil(self, points) -> None:
+        """
+            Method for plotting the base airfoil
+            and the deformed airfoil.
+        """
+
+        fig, ax = plt.subplots()
+
+        ax.plot(self.coords[:,0], self.coords[:,1])
+        ax.plot(points[:,0], points[:,1])
+
+        plt.savefig("airfoil.png", dpi=400)
 
     def _warning(self, message: str) -> None:
         """
