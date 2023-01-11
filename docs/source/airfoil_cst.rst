@@ -45,7 +45,7 @@ Optional options are:
   When the value is zero, there is no change to the volume mesh. When the value is 1 or 2, the volume mesh is refined
   by one level or two levels respetively. When the value is -1 and -2, the mesh is coarsened by similar levels.
 - ``getFlowFieldData (bool, default=False)``: flag to specify whether to get the field data or not.
-- ``region``: this option only applies when ``getFlowFieldData`` is set to ``True``. This option decides from what
+- ``region (str, default="surface")``: this option only applies when ``getFlowFieldData`` is set to ``True``. This option decides from what
   region to extract the data. There are only two possible values: ``surface`` (will extract the field data at surface) and ``field`` 
   (will extract the entire field).
 
@@ -233,8 +233,8 @@ which is the value of design variable as a 1D numpy array. Following snippet sho
     lower = np.array([-0.13198943, -0.11895939, -0.22056435, -0.12743513, -0.08232715, 0.05055414])
 
     # Creating input x
-    x = np.append(np.array([2.5]), upper)
-    x = np.append(x, lower)
+    x = np.append(np.array([2.5]), lower)
+    x = np.append(x, upper)
 
     # Run a single analysis
     output = airfoil.getObjectives(x)
@@ -271,9 +271,12 @@ read from the ``fieldData.mat`` file::
   from scipy.io import loadmat
   data = loadmat("fieldData.mat") # mention the location of mat file
 
-  cp = data["CoefPressure"]
-  mach = data["Mach"]
-  cmz = data["velocity"]
+  # Print available field variables
+  print(list(data.keys()))
+
+  # Print individual variables
+  for var in data.keys():
+    print(data[var])
 
 Here, all the outputs will be 2D numpy array. For scalars values, the first dimension will be number of cells in the grid for field data and
 second dimension will be 1. For vector values, first dimension will be same as scalar values, but second dimension will be three which represents x, y, and z
