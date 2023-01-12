@@ -29,7 +29,7 @@ try:
     # Getting aero problem from input file
     ap = input["aeroProblem"]
     refine = input["refine"]
-    slice = input["slice"]
+    slice = input["writeSliceFile"]
 
     # Assigning non-shape DVs
     if "alpha" in input.keys():
