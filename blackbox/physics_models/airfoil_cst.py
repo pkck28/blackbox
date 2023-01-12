@@ -89,11 +89,13 @@ class AirfoilCST():
         self.options["solverOptions"]["numberSolutions"] = False
         self.options["solverOptions"]["printTiming"] = False
 
+        # Raise an error if pyvista is not installed
         if self.options["getFlowFieldData"]:
             if msg_pyvista != None:
                 self._error(msg_pyvista)
             self.options["solverOptions"]["writeSurfaceSolution"] = True
 
+        # Raise an error if matplotlib is not installed
         if self.options["plotAirfoil"]:
             if msg_matplotlib != None:
                 self._error(msg_matplotlib)
@@ -205,6 +207,7 @@ class AirfoilCST():
 
         # Creating empty dictionary for storing the data
         data = {}
+        fieldData = {}
 
         # Creating and writing a description file
         description = open("{}/description.txt".format(self.options["directory"]), "a", buffering=1)
@@ -234,7 +237,7 @@ class AirfoilCST():
 
             try:
                 # Getting output for specific sample
-                output = self.getObjectives(x)
+                output, field = self.getObjectives(x)
 
             except:
                 print("Error occured during the analysis. Check analysis.log in the respective folder for more details.")
@@ -251,13 +254,37 @@ class AirfoilCST():
                         data["x"] = np.array(x)
                         for value in output.keys():
                             data[value] = np.array([output[value]])
+
+                        # Creating a dictionary of field data
+                        if self.options["getFlowFieldData"]:
+                            fieldData["x"] = np.array(x)
+                            for value in field.keys():
+                                if field[value].ndim == 2:
+                                    fieldData[value] = field[value].reshape(1,-1,3)
+                                else:
+                                    fieldData[value] = field[value].reshape(1,-1)
+
                     else:
+                        # Appending data dictionary created earlier
                         data["x"] = np.vstack((data["x"], x))
                         for value in output.keys():
                             data[value] = np.vstack(( data[value], np.array([output[value]]) ))
 
+                        # Appending field data dictionary created earlier
+                        if self.options["getFlowFieldData"]:
+                            fieldData["x"] = np.vstack((fieldData["x"], x))
+                            for value in field.keys():
+                                if field[value].ndim == 2:
+                                    fieldData[value] = np.vstack(( fieldData[value], field[value].reshape(1,-1,3) ))
+                                else:
+                                    fieldData[value] = np.vstack(( fieldData[value], field[value].reshape(1,-1) ))
+
                     # Saving the results
                     savemat("{}/data.mat".format(self.options["directory"]), data)
+
+                    # Saving the field data
+                    if self.options["getFlowFieldData"]:
+                        savemat("{}/fieldData.mat".format(self.options["directory"]), fieldData)
 
             finally:
                 # Ending time
@@ -351,7 +378,7 @@ class AirfoilCST():
         # Creating empty process id list
         pid_list = []
 
-        # Getting each spawned processor
+        # Getting each spawned process
         for processor in range(self.options["noOfProcessors"]):
             pid = child_comm.recv(source=MPI.ANY_SOURCE, tag=processor)
             pid_list.append(psutil.Process(pid))
@@ -396,21 +423,17 @@ class AirfoilCST():
                     mesh = mesh[0][2]
 
                 # Get the values
-                data = {}
+                fieldData = {}
 
                 for var in mesh.array_names:
                     # set_active_scalars returns a tuple, and second
                     # entry contains the pyvista numpy array.
-                    data[var] = np.asarray(mesh.set_active_scalars(var, "cell")[1])
+                    fieldData[var] = np.asarray(mesh.set_active_scalars(var, "cell")[1])
 
-                    # Reshaping if necessary
-                    if data[var].ndim == 1:
-                        data[var] = data[var].reshape(-1,1)
+            else:
+                fieldData = None
 
-                # Saving the field data
-                savemat("fieldData.mat", data)
-
-            return output
+            return output, fieldData
             
         finally:
             # Cleaning the directory
@@ -671,8 +694,11 @@ class AirfoilCST():
 
         fig, ax = plt.subplots()
 
-        ax.plot(self.coords[:,0], self.coords[:,1])
-        ax.plot(points[:,0], points[:,1])
+        ax.plot(self.coords[:,0], self.coords[:,1], label="Original airfoil")
+        ax.plot(points[:,0], points[:,1], label="Deformed airfoil")
+        ax.set_xlabel("x/c", fontsize=14)
+        ax.set_ylabel("y/c", fontsize=14)
+        ax.legend(fontsize=12)
 
         plt.savefig("airfoil.png", dpi=400)
 

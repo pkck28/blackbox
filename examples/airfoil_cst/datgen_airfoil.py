@@ -83,7 +83,9 @@ options = {
     "airfoilFile": "rae2822.dat",
     "numCST": [6, 6],
     "meshingOptions": meshingOptions,
-    "refine": 0
+    "refine": 0,
+    "getFlowFieldData": True,
+    "plotAirfoil": True,
 }
 
 # Example for generating samples
