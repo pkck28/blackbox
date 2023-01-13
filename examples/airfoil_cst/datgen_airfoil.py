@@ -1,6 +1,5 @@
 from blackbox import AirfoilCST
 from baseclasses import AeroProblem
-import numpy as np
 
 solverOptions = {
     # Common Parameters
@@ -77,15 +76,11 @@ ap = AeroProblem(
 # Options for blackbox
 options = {
     "solverOptions": solverOptions,
-    "directory": "multi",
-    "noOfProcessors": 6,
+    "noOfProcessors": 9,
     "aeroProblem": ap,
     "airfoilFile": "rae2822.dat",
     "numCST": [6, 6],
-    "meshingOptions": meshingOptions,
-    "refine": 0,
-    "getFlowFieldData": True,
-    "plotAirfoil": True,
+    "meshingOptions": meshingOptions
 }
 
 # Example for generating samples
