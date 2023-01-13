@@ -309,7 +309,7 @@ class AirfoilCST():
         # Closing the description file
         description.close()
 
-    def getObjectives(self, x: np.ndarray) -> dict:
+    def getObjectives(self, x: np.ndarray) -> tuple:
         """
             Method for running a single analysis.
         """
