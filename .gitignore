@@ -23,6 +23,7 @@ examples/output
 examples/sellar
 examples/forrester
 examples/airfoil_cst/multi
+examples/airfoil_cst/output
 examples/airfoil
 examples/analytical
 examples/onera

@@ -38,6 +38,7 @@ class DefaultOptions():
         self.aeroSolver = "adflow"
 
         # Other options
+        self.alpha = "explicit"
         self.directory = "output"
         self.noOfProcessors = 4
         self.refine = 0
@@ -334,9 +335,16 @@ class AirfoilCST():
         # Create the folder for saving the results
         os.system("mkdir {}/{}".format(directory, self.genSamples+1))
 
-        # Copying the runscript
+        # Getting the directory where package is saved
         pkgdir = sys.modules["blackbox"].__path__[0]
-        filepath = os.path.join(pkgdir, "runscripts/runscript_airfoil_cst.py")
+
+        # Setting filepath based on the how alpha is treated alpha
+        if self.options["alpha"] == "explicit":
+            filepath = os.path.join(pkgdir, "runscripts/runscript_airfoil_cst.py")
+        else:
+            filepath = os.path.join(pkgdir, "runscripts/runscript_airfoil_cst_opt.py")
+
+        # Copy the runscript to analysis directory
         shutil.copy(filepath, "{}/{}/runscript.py".format(directory, self.genSamples+1))
 
         # Creating the new design variable dict
@@ -437,7 +445,8 @@ class AirfoilCST():
             
         finally:
             # Cleaning the directory
-            files = ["surfMesh.xyz", "volMesh.cgns", "input.pickle", "runscript.py", "output.pickle"]
+            files = ["surfMesh.xyz", "volMesh.cgns", "input.pickle", "runscript.py",
+                    "output.pickle", "fort.6", "opt.hst"]
             for file in files:
                 if os.path.exists(file):
                     os.system("rm {}".format(file))
@@ -524,7 +533,15 @@ class AirfoilCST():
             if not isinstance(options["refine"], int):
                 self._error("\"refine\" attribute is not an integer.")
 
-        ############ Validating slice
+        ############ Validating alpha
+        if "alpha" in userProvidedOptions:
+            if not isinstance(options["alpha"], str):
+                self._error("\"alpha\" attribute is not string.")
+
+            if options["alpha"] not in ["explicit", "implicit"]:
+                self._error("\"alpha\" attribute is not recognized. It can be either \"explicit\" or \"implicit\".")
+
+        ############ Validating writeSliceFile
         if "writeSliceFile" in userProvidedOptions:
             if not isinstance(options["writeSliceFile"], bool):
                 self._error("\"writeSliceFile\" attribute is not a boolean value.")
@@ -562,6 +579,10 @@ class AirfoilCST():
 
         if name not in possibleDVs:
             self._error("{} argument is not a valid DV.".format(name))
+
+        if name == "alpha":
+            if self.options["alpha"] != "explicit":
+                self._error("Alpha cannot be a design variable when \"alpha\" attribute in option is \"implicit\".")
 
         if name in self.DV:
             self._error("{} already exists.".format(name))

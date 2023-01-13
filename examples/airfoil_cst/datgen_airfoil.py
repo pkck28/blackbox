@@ -30,6 +30,15 @@ solverOptions = {
     "NKJacobianLag": 5,
     "NKOuterPreconIts": 3,
     "NKInnerPreconIts": 3,
+    # Adjoint Parameters
+    "AdjointSolver": "GMRES",
+    "AdjointL2Convergence": 1e-12,
+    "ADPC": True,
+    "AdjointMaxIter": 5000,
+    "AdjointSubspaceSize": 400,
+    "ILUFill": 3,
+    "ASMOverlap": 3,
+    "OuterPreconIts": 3,
     # Termination Criteria
     "L2Convergence": 1e-14,
     "L2ConvergenceCoarse": 1e-4
@@ -80,7 +89,10 @@ options = {
     "aeroProblem": ap,
     "airfoilFile": "rae2822.dat",
     "numCST": [6, 6],
-    "meshingOptions": meshingOptions
+    "meshingOptions": meshingOptions,
+    "alpha": "implicit",
+    "refine": 1,
+    "plotAirfoil": True
 }
 
 # Example for generating samples
@@ -89,9 +101,8 @@ airfoil = AirfoilCST(options=options)
 ######### Multi Analysis
 
 # Adding design variable
-airfoil.addDV("alpha", 2.0, 3.0)
 airfoil.addDV("lower", -0.3, 0.3)
 airfoil.addDV("upper", -0.3, 0.3)
 
 # Generating the samples
-airfoil.generateSamples(10)
+airfoil.generateSamples(5)

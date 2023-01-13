@@ -8,7 +8,7 @@ There are various options which can be set for Blackbox. Please read the entire 
 
 **Required options**:
 
-- ``solveroptions (dict)``: options for the flow solver (only adflow for now) .
+- ``solverOptions (dict)``: options for the flow solver (only adflow for now) .
 - ``meshingOptions (dict)``: options for the volume mesh generator (only pyHyp for now).
 - ``airfoilFile (str)``: name of the .dat file with extension.
 - ``aeroProblem``: aero-problem from baseclasses package defining information related aerodynamic analysis.
