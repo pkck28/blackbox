@@ -1,5 +1,6 @@
 from blackbox import AirfoilCST
 from baseclasses import AeroProblem
+import numpy as np
 
 solverOptions = {
     # Common Parameters
@@ -21,6 +22,11 @@ solverOptions = {
     "ANKJacobianLag": 5,
     "ANKOuterPreconIts": 3,
     "ANKInnerPreconIts": 3,
+    # "ANKCFLFactor": 15.0,
+    # "ANKCFLCutback": 0.1,
+    # "ANKStepMin": 0.1,
+    # "ANKCFLLimit": 1e6,
+    # "ANKCFL0": 1.0,
     # NK Solver Parameters
     "useNKSolver": True,
     "NKSwitchTol": 0.5e-6,
@@ -31,14 +37,13 @@ solverOptions = {
     "NKOuterPreconIts": 3,
     "NKInnerPreconIts": 3,
     # Adjoint Parameters
-    "AdjointSolver": "GMRES",
-    "AdjointL2Convergence": 1e-12,
-    "ADPC": True,
-    "AdjointMaxIter": 5000,
-    "AdjointSubspaceSize": 400,
-    "ILUFill": 3,
-    "ASMOverlap": 3,
-    "OuterPreconIts": 3,
+    # "AdjointSolver": "GMRES",
+    # "ADPC": True,
+    # "AdjointMaxIter": 5000,
+    # "AdjointSubspaceSize": 400,
+    # "ILUFill": 3,
+    # "ASMOverlap": 3,
+    # "OuterPreconIts": 3,
     # Termination Criteria
     "L2Convergence": 1e-14,
     "L2ConvergenceCoarse": 1e-4
@@ -90,9 +95,8 @@ options = {
     "airfoilFile": "rae2822.dat",
     "numCST": [6, 6],
     "meshingOptions": meshingOptions,
-    "alpha": "implicit",
+    # "alpha": "implicit",
     "refine": 1,
-    "plotAirfoil": True
 }
 
 # Example for generating samples
@@ -101,8 +105,19 @@ airfoil = AirfoilCST(options=options)
 ######### Multi Analysis
 
 # Adding design variable
-airfoil.addDV("lower", -0.3, 0.3)
-airfoil.addDV("upper", -0.3, 0.3)
+airfoil.addDV("alpha", 2.0, 3.0)
+
+# Adding lower surface CST coeffs as DV
+coeff = airfoil.DVGeo.defaultDV["lower"] # get the fitted CST coeff
+lb = coeff - np.sign(coeff)*0.3*coeff
+ub = coeff + np.sign(coeff)*0.3*coeff
+airfoil.addDV("lower", lowerBound=lb, upperBound=ub)
+
+# Adding upper surface CST coeffs as DV
+coeff = airfoil.DVGeo.defaultDV["upper"] # get the fitted CST coeff
+lb = coeff - np.sign(coeff)*0.3*coeff
+ub = coeff + np.sign(coeff)*0.3*coeff
+airfoil.addDV("upper", lowerBound=lb, upperBound=ub)
 
 # Generating the samples
 airfoil.generateSamples(5)

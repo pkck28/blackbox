@@ -238,6 +238,8 @@ class AirfoilCST():
             # Current sample
             x = samples[sampleNo,:]
 
+            description.write("\nDesign Variable: {}".format(x))
+
             # Starting time
             t1 = time.time()
 
