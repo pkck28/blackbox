@@ -139,26 +139,31 @@ class AirfoilCST():
         self._checkDV(name, lowerBound, upperBound)
 
         if name == "upper" or name == "lower":
-            coeff = self.DVGeo.defaultDV[name]
-            lowerBound = coeff + np.sign(coeff)*coeff*lowerBound
-            upperBound = coeff + np.sign(coeff)*coeff*upperBound
             locator = np.array(["{}".format(name)]*len(lowerBound))
+
+            if len(self.DV) == 0:
+                self.upperBound = upperBound
+                self.lowerBound = lowerBound
+                self.locator = locator
+            else:
+                self.upperBound = np.append(self.upperBound, upperBound)
+                self.lowerBound = np.append(self.lowerBound, lowerBound)
+                self.locator = np.append(self.locator, locator)
         else:
             locator = np.array(["{}".format(name)])
+
+            if len(self.DV) == 0:
+                self.upperBound = np.array([upperBound])
+                self.lowerBound = np.array([lowerBound])
+                self.locator = np.array([locator])
+            else:
+                self.upperBound = np.append(self.upperBound, upperBound)
+                self.lowerBound = np.append(self.lowerBound, lowerBound)
+                self.locator = np.append(self.locator, locator)    
 
         # Adding DV into DVGeo
         if name not in ["alpha", "mach", "altitude"]:
             self.DVGeo.addDV("{}".format(name), "{}".format(name))
-
-        # Creating/Appending lower bound, upper bound, and locator
-        if len(self.DV) == 0:
-            self.upperBound = np.array([upperBound])
-            self.lowerBound = np.array([lowerBound])
-            self.locator = np.array([locator])
-        else:
-            self.upperBound = np.append(self.upperBound, upperBound)
-            self.lowerBound = np.append(self.lowerBound, lowerBound)
-            self.locator = np.append(self.locator, locator)
 
         # Adding the DV to the list
         self.DV.append(name)
@@ -564,7 +569,7 @@ class AirfoilCST():
                 if options["region"] not in ["surface", "field"]:
                     self._error("\"region\" attribute is not recognized. It can be either \"surface\" or \"field\".")
 
-    def _checkDV(self, name, lb, ub) -> None:
+    def _checkDV(self, name: str, lb: float or np.ndarray, ub: float or np.ndarray) -> None:
         """
             Method for validating DV.
         """
@@ -577,25 +582,57 @@ class AirfoilCST():
         if not isinstance(name, str):
             self._error("Name argument is not a string.")
 
+        # Checking if the DV is allowed
         if name not in possibleDVs:
             self._error("{} argument is not a valid DV.".format(name))
+        
+        # Checking if the DV is already added
+        if name in self.DV:
+            self._error("{} already exists.".format(name))
 
+        # Checking if alpha can be added as a DV
         if name == "alpha":
             if self.options["alpha"] != "explicit":
                 self._error("Alpha cannot be a design variable when \"alpha\" attribute in option is \"implicit\".")
 
-        if name in self.DV:
-            self._error("{} already exists.".format(name))
+        # Validating the bounds for "upper" variable
+        if name == "upper":
+            if not isinstance(lb, np.ndarray) or lb.ndim != 1:
+                self._error("Lower bound for \"upper\" variable should be a 1D numpy array.")
 
-        # Validating lb and ub of the DV
-        if not isinstance(lb, float):
-            self._error("Lower Bound argument is not a float.")
+            if not isinstance(ub, np.ndarray) or ub.ndim != 1:
+                self._error("Upper bound for \"upper\" variable should be a 1D numpy array.")
 
-        if not isinstance(ub, float):
-            self._error("Upper Bound argument is not a float.")
+            if len(lb) != self.options["numCST"][0]:
+                self._error("Length of lower bound for \"upper\" variable is not equal to number of CST coeff for upper surface.")
 
-        if lb >= ub:
-            self._error("Lower bound is greater than or equal to upper bound.")
+            if len(ub) != self.options["numCST"][0]:
+                self._error("Length of upper bound for \"upper\" variable is not equal to number of CST coeff for upper surface.")
+
+        # Validating the bounds for "lower" variable
+        elif name == "lower":
+            if not isinstance(lb, np.ndarray) or lb.ndim != 1:
+                self._error("Lower bound for \"lower\" variable should be a 1D numpy array.")
+
+            if not isinstance(ub, np.ndarray) or ub.ndim != 1:
+                self._error("Upper bound for \"lower\" variable should be a 1D numpy array.")
+
+            if len(lb) != self.options["numCST"][1]:
+                self._error("Length of lower bound for \"lower\" variable is not equal to number of CST coeff for lower surface.")
+
+            if len(ub) != self.options["numCST"][1]:
+                self._error("Length of upper bound for \"lower\" variable is not equal to number of CST coeff for lower surface.")
+
+        # Validating lb and ub of the scalar DVs
+        else:
+            if not isinstance(lb, float):
+                self._error("Lower Bound argument is not a float.")
+
+            if not isinstance(ub, float):
+                self._error("Upper Bound argument is not a float.")
+
+            if lb >= ub:
+                self._error("Lower bound is greater than or equal to upper bound.")
 
     # ----------------------------------------------------------------------------
     #                               Other methods
@@ -728,7 +765,7 @@ class AirfoilCST():
             Method for printing warnings in nice manner.
         """
 
-        ############ To Do: Redundant - error and warning mehtod can be combined.
+        ############ To Do: Redundant - error and warning method can be combined.
 
         # Initial message - total len is 80 characters
         msg = "\n+" + "-" * 78 + "+" + "\n" + "| Blackbox Warning: "
