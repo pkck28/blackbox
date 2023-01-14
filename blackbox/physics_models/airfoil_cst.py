@@ -762,6 +762,8 @@ class AirfoilCST():
 
         plt.savefig("airfoil.png", dpi=400)
 
+        plt.close()
+
     def _warning(self, message: str) -> None:
         """
             Method for printing warnings in nice manner.
