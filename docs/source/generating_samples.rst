@@ -88,7 +88,6 @@ of the code shows an example::
         "airfoilFile": "rae2822.dat",
         "numCST": [6, 6],
         "meshingOptions": meshingOptions,
-        "refine": 0
     }
 
 Next step is to import the ``AirfoilCST`` module from Blackbox and initialize it using the options dictionary::
@@ -101,7 +100,7 @@ Adding design variables
 
 The ``addDV`` method is used for adding design variables. This methods needs three arguments:
 
-- ``name``: the design variable to add. The available design variables are: 
+- ``name (str)``: the design variable to add. The available design variables are: 
 
     - ``upper``: CST coefficients of upper surface. The number of variables will be equal to first entry 
       in ``numCST`` list in options dictionary.
@@ -113,22 +112,33 @@ The ``addDV`` method is used for adding design variables. This methods needs thr
     - ``mach``: Mach number for the analysis.
     - ``altitude``: Altitude for the analysis.
 
-- ``lowerBound``: lower bound for the variable. 
-- ``upperBound``: upper bound for the variable.
+- ``lowerBound (numpy array or float)``: lower bound for the variable.
+- ``upperBound (numpy array or float)``: upper bound for the variable.
 
-.. note::
-    Only for ``upper`` and ``lower`` variable, the lower and upper bound represent fraction change. For example, 
-    if the lower bound for ``lower`` variable is -0.3, then the actual lower bound will be lower surface CST 
-    coefficients decreased by 30%. Similarly, if the upper bound for ``upper`` variable is 0.2, then the actual 
-    upper bound will be upper surface CST increased by 20%.
+    .. note::
+        When ``upper`` or ``lower`` variable are to be added, the lower and upper bound should be a 1D numpy array of the same size 
+        as the number of CST coefficients for that particular surface mentioned in the ``options`` dictionary. For other cases, lower
+        and upper bound should be float.
 
 In this tutorial, ``alpha``, ``upper`` and ``lower`` are added as the bounds::
 
     airfoil.addDV("alpha", 2.0, 3.0)
-    airfoil.addDV("lower", -0.3, 0.3)
-    airfoil.addDV("upper", -0.3, 0.3)
 
-Here, the upper and lower bound for ``lower`` variable is +30% and -30% of the lower surface CST coefficients respectively.
+    # Adding upper surface CST coeffs as DV
+    coeff = airfoil.DVGeo.defaultDV["upper"] # get the fitted CST coeff
+    lb = coeff - 0.3*coeff
+    ub = coeff + 0.3*coeff
+
+    airfoil.addDV("upper", lowerBound=lb, upperBound=ub)
+
+    # Adding lower surface CST coeffs as DV
+    coeff = airfoil.DVGeo.defaultDV["lower"] # get the fitted CST coeff
+    lb = coeff - 0.3*coeff
+    ub = coeff + 0.3*coeff
+
+    airfoil.addDV("lower", lowerBound=lb, upperBound=ub)
+
+Here, the upper and lower bound for ``lower`` and ``upper`` variable are +30% and -30% of the fitted CST coefficients.
 You can also remove a design varialbe using ``removeDV`` method. It takes only one input which is the name of the variable.
 
 Generating samples and accessing output
