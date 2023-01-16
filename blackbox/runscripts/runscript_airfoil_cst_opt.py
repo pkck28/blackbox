@@ -105,7 +105,7 @@ try:
     CFDSolver = ADFLOW(options=solverOptions, comm=comm)
 
     # Adding angle of attack as variable
-    ap.addDV("alpha", value=alpha, lower=0, upper=4.0, scale=1.0)
+    ap.addDV("alpha", value=alpha, lower=0, upper=5.0, scale=1.0)
 
     # Adding pressure distribution output
     if slice:

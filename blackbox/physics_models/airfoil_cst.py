@@ -551,9 +551,10 @@ class AirfoilCST():
             if options["alpha"] not in ["explicit", "implicit"]:
                 self._error("\"alpha\" attribute is not recognized. It can be either \"explicit\" or \"implicit\".")
 
-            if "targetCL" in userProvidedOptions:
-                if not isinstance(options["targetCL"], float):
-                    self._error("\targetCL\" option is not float.")
+            if options["alpha"] == "implicit":
+                if "targetCL" in userProvidedOptions:
+                    if not isinstance(options["targetCL"], float):
+                        self._error("\"targetCL\" option is not float.")
 
         ############ Validating writeSliceFile
         if "writeSliceFile" in userProvidedOptions:
