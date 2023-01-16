@@ -28,7 +28,7 @@ comm = MPI.COMM_WORLD
 
 class DefaultOptions():
     """
-        Class creates a default option for physics problems which are later 
+        Class creates a default option which are later 
         edited/appended with user provided options.
     """
 
@@ -38,7 +38,6 @@ class DefaultOptions():
         self.aeroSolver = "adflow"
 
         # Other options
-        self.alpha = "explicit"
         self.directory = "output"
         self.noOfProcessors = 4
         self.refine = 0
@@ -50,6 +49,10 @@ class DefaultOptions():
         # if getFlowFieldData is false, then all other options are useless
         self.getFlowFieldData = False
         self.region = "surface"
+
+        # Alpha implicit related options
+        self.alpha = "explicit"
+        self.targetCL = 0.824
 
 class AirfoilCST():
     """
@@ -548,6 +551,10 @@ class AirfoilCST():
             if options["alpha"] not in ["explicit", "implicit"]:
                 self._error("\"alpha\" attribute is not recognized. It can be either \"explicit\" or \"implicit\".")
 
+            if "targetCL" in userProvidedOptions:
+                if not isinstance(options["targetCL"], float):
+                    self._error("\targetCL\" option is not float.")
+
         ############ Validating writeSliceFile
         if "writeSliceFile" in userProvidedOptions:
             if not isinstance(options["writeSliceFile"], bool):
@@ -715,6 +722,10 @@ class AirfoilCST():
             loc = self.locator == "altitude"
             loc = loc.reshape(-1,)
             input["altitude"] = x[loc]
+
+        # Adding target Cl if alpha is implicit
+        if self.options["alpha"] == "implicit":
+            input["targetCL"] = self.options["targetCL"]
 
         # Saving the input file
         filehandler = open("input.pickle", "xb")

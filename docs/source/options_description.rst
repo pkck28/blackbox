@@ -30,3 +30,8 @@ There are various options which can be set for Blackbox. Please read the entire 
 - ``region (str, default="surface")``: this option only applies when ``getFlowFieldData`` is set to ``True``. This option decides from what
   region to extract the data. There are only two possible values: ``surface`` (will extract the field data at surface) and ``field`` 
   (will extract the entire field).
+- ``alpha (str, default="explicit")``: option to specify whether to consider alpha as an explicit or implicit variable. There are only two possbile values:
+  ``explicit`` (normal analysis) and ``implicit`` (internal optimization to find target CL). When this option is set to implicit, then for each sample a
+  simple one variable optimization is performed to find alpha such that target CL is achived. **Note**: When this option is set to implicit, then ``alpha`` 
+  cannot be added as a DV.
+- ``targetCL (float, default=0.824)``: this option only applies when ``alpha`` is set to ``implicit``. This option specifies optimizer the value of target CL.
