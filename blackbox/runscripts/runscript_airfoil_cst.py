@@ -1,6 +1,6 @@
 ############## Script file for running airfoil analysis.
 # Imports
-import pickle, time, os
+import pickle, os
 from mpi4py import MPI
 from adflow import ADFLOW
 from pyhyp import pyHyp
@@ -63,11 +63,12 @@ try:
 
     ############## Refining the mesh
 
+    # Only one processor has to do this
     if comm.rank == 0:
+
         # Read the grid
         grid = readGrid("volMesh.cgns")
 
-        # Only one processor has to do this
         if refine == 1:
             grid.refine(['i', 'k'])
         if refine == 2:
@@ -80,11 +81,10 @@ try:
             grid.coarsen()
 
         grid.writeToCGNS("volMesh.cgns")
-        
-    else:
-        # Other processors need to wait before starting analysis
-        time.sleep(0.5)
 
+    # Wait till root is done with refining/coarse of mesh
+    comm.barrier()
+    
     ############## Settign up adflow
 
     if comm.rank == 0:
@@ -116,7 +116,7 @@ try:
     ############# Post-processing
 
     # printing the result
-    if MPI.COMM_WORLD.rank == 0:
+    if comm.rank == 0:
         print("")
         print("#" + "-"*129 + "#")
         print(" "*59 + "Result" + ""*59)
