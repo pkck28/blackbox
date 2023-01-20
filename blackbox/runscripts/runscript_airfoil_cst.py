@@ -10,13 +10,14 @@ from cgnsutilities.cgnsutilities import readGrid
 comm = MPI.COMM_WORLD
 parent_comm = comm.Get_parent()
 
+# Redirecting the stdout - only root processor does printing
+if comm.rank == 0:
+    stdout = os.dup(1)
+    log = open("log.txt", "a")
+    os.dup2(log.fileno(), 1)
+
 # Send the processor
 parent_comm.send(os.getpid(), dest=0, tag=comm.rank)
-
-# Redirecting the stdout
-stdout = os.dup(1)
-log = open("log.txt", "a")
-os.dup2(log.fileno(), 1)
 
 try:
     ############## Reading input file for the analysis
@@ -148,11 +149,12 @@ except Exception as e:
 
 finally:
     # Redirecting to original stdout
-    os.dup2(stdout, 1)
+    if comm.rank == 0:
+        os.dup2(stdout, 1)
 
-    # close the file and stdout
-    log.close()
-    os.close(stdout)
+        # close the file and stdout
+        log.close()
+        os.close(stdout)
 
     # Getting intercomm and disconnecting
     # Otherwise, program will enter deadlock
