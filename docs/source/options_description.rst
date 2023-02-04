@@ -18,7 +18,6 @@ There are various options which can be set for Blackbox. Please read the entire 
 
 - ``directory (str, default="output")``: name of the directory where the results will saved.
 - ``noOfProcessors (int, default=4)``: desired number of processors to run the analysis on.
-- ``slice (bool, default=True)``: adds a slice which will be used to output slice file after the analysis.
 - ``refine (int, default=0)``: value of this options controls how much to refine or coarsen the generated volume mesh.
   When the value is zero, there is no change to the volume mesh. When the value is 1 or 2, the volume mesh is refined
   by one level or two levels respetively. When the value is -1 and -2, the mesh is coarsened by similar levels.
@@ -30,3 +29,8 @@ There are various options which can be set for Blackbox. Please read the entire 
 - ``region (str, default="surface")``: this option only applies when ``getFlowFieldData`` is set to ``True``. This option decides from what
   region to extract the data. There are only two possible values: ``surface`` (will extract the field data at surface) and ``field`` 
   (will extract the entire field).
+- ``alpha (str, default="explicit")``: option to specify whether to consider alpha as an explicit or implicit variable. There are only two possbile values:
+  ``explicit`` (normal analysis) and ``implicit`` (internal optimization to find target CL). When this option is set to implicit, then for each sample a
+  simple one variable optimization is performed to find alpha such that target CL is achived. **Note**: When this option is set to implicit, then ``alpha`` 
+  cannot be added as a DV.
+- ``targetCL (float, default=0.824)``: this option only applies when ``alpha`` is set to ``implicit``. This option specifies optimizer the value of target CL.

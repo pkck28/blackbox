@@ -28,7 +28,7 @@ comm = MPI.COMM_WORLD
 
 class DefaultOptions():
     """
-        Class creates a default option for physics problems which are later 
+        Class creates a default option which are later 
         edited/appended with user provided options.
     """
 
@@ -38,7 +38,6 @@ class DefaultOptions():
         self.aeroSolver = "adflow"
 
         # Other options
-        self.alpha = "explicit"
         self.directory = "output"
         self.noOfProcessors = 4
         self.refine = 0
@@ -50,6 +49,10 @@ class DefaultOptions():
         # if getFlowFieldData is false, then all other options are useless
         self.getFlowFieldData = False
         self.region = "surface"
+
+        # Alpha implicit related options
+        self.alpha = "explicit"
+        self.targetCL = 0.824
 
 class AirfoilCST():
     """
@@ -114,13 +117,27 @@ class AirfoilCST():
             os.system("rm -r {}".format(directory))
             os.system("mkdir {}".format(directory))
 
+        # Read the coordinate file
+        self.coords = readCoordFile(self.options["airfoilFile"])
+
+        # Some validation for coordinate file
+        if self.coords[0,0] != self.coords[-1,0]:
+            self._error("The X coordinate of airfoil doesn't start and end at same point.")
+        elif self.coords[0,1] != self.coords[-1,1]:
+            self._error("The Y coordinate of airfoil doesn't start and end at same point.")
+
         # Initializing the parametrization object
         self.DVGeo = DVGeometryCST(self.options["airfoilFile"], numCST=self.options["numCST"], comm=comm)
 
         # Adding pointset to the parametrization
-        self.coords = readCoordFile(self.options["airfoilFile"])
         self.coords = np.hstack(( self.coords, np.zeros((self.coords.shape[0], 1)) ))
         self.DVGeo.addPointSet(self.coords, "airfoil")
+
+        # Checking the number of points at trailing edge for blunt TE
+        # Only two are allowed for CST. Otherwise, meshing will have problem.
+        if not self.DVGeo.sharp:
+            if len(np.where(self.coords[1:-1,0] == self.coords[0,0])[0]) > 1:
+                self._error("There are more than two points in the trailing edge.")
 
         # Some initializations which will be used later
         self.DV = []
@@ -369,8 +386,11 @@ class AirfoilCST():
 
         # Changing the first and last point for meshing
         # TO DO - Check if this generalizes well
-        points[0,1] = 0.0
-        points[-1,1] = 0.0
+        # if points[0,1] != points[-1,1]:
+        #     points[-1,1] = points[0,1]
+
+        # points[0,1] = 0.0
+        # points[-1,1] = 0.0
 
         # Changing the directory to analysis folder
         os.chdir("{}/{}".format(directory, self.genSamples+1))
@@ -440,10 +460,12 @@ class AirfoilCST():
                 # Get the values
                 fieldData = {}
 
-                for var in mesh.array_names:
-                    # set_active_scalars returns a tuple, and second
-                    # entry contains the pyvista numpy array.
-                    fieldData[var] = np.asarray(mesh.set_active_scalars(var, "cell")[1])
+                for index, var in enumerate(mesh.array_names):
+                    # Skipping the first entry in the array
+                    if index != 0:
+                        # set_active_scalars returns a tuple, and second
+                        # entry contains the pyvista numpy array.
+                        fieldData[var] = np.asarray(mesh.set_active_scalars(var, "cell")[1])
 
             else:
                 fieldData = None
@@ -547,6 +569,11 @@ class AirfoilCST():
 
             if options["alpha"] not in ["explicit", "implicit"]:
                 self._error("\"alpha\" attribute is not recognized. It can be either \"explicit\" or \"implicit\".")
+
+            if options["alpha"] == "implicit":
+                if "targetCL" in userProvidedOptions:
+                    if not isinstance(options["targetCL"], float):
+                        self._error("\"targetCL\" option is not float.")
 
         ############ Validating writeSliceFile
         if "writeSliceFile" in userProvidedOptions:
@@ -716,6 +743,10 @@ class AirfoilCST():
             loc = loc.reshape(-1,)
             input["altitude"] = x[loc]
 
+        # Adding target Cl if alpha is implicit
+        if self.options["alpha"] == "implicit":
+            input["targetCL"] = self.options["targetCL"]
+
         # Saving the input file
         filehandler = open("input.pickle", "xb")
         pickle.dump(input, filehandler)
@@ -761,6 +792,8 @@ class AirfoilCST():
         ax.legend(fontsize=12)
 
         plt.savefig("airfoil.png", dpi=400)
+
+        plt.close()
 
     def _warning(self, message: str) -> None:
         """

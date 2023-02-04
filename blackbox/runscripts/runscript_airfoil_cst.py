@@ -1,6 +1,6 @@
 ############## Script file for running airfoil analysis.
 # Imports
-import pickle, time, os
+import pickle, os
 from mpi4py import MPI
 from adflow import ADFLOW
 from pyhyp import pyHyp
@@ -10,13 +10,14 @@ from cgnsutilities.cgnsutilities import readGrid
 comm = MPI.COMM_WORLD
 parent_comm = comm.Get_parent()
 
+# Redirecting the stdout - only root processor does printing
+if comm.rank == 0:
+    stdout = os.dup(1)
+    log = open("log.txt", "a")
+    os.dup2(log.fileno(), 1)
+
 # Send the processor
 parent_comm.send(os.getpid(), dest=0, tag=comm.rank)
-
-# Redirecting the stdout
-stdout = os.dup(1)
-log = open("log.txt", "a")
-os.dup2(log.fileno(), 1)
 
 try:
     ############## Reading input file for the analysis
@@ -63,11 +64,12 @@ try:
 
     ############## Refining the mesh
 
+    # Only one processor has to do this
     if comm.rank == 0:
+
         # Read the grid
         grid = readGrid("volMesh.cgns")
 
-        # Only one processor has to do this
         if refine == 1:
             grid.refine(['i', 'k'])
         if refine == 2:
@@ -80,11 +82,10 @@ try:
             grid.coarsen()
 
         grid.writeToCGNS("volMesh.cgns")
-        
-    else:
-        # Other processors need to wait before starting analysis
-        time.sleep(0.5)
 
+    # Wait till root is done with refining/coarse of mesh
+    comm.barrier()
+    
     ############## Settign up adflow
 
     if comm.rank == 0:
@@ -116,7 +117,7 @@ try:
     ############# Post-processing
 
     # printing the result
-    if MPI.COMM_WORLD.rank == 0:
+    if comm.rank == 0:
         print("")
         print("#" + "-"*129 + "#")
         print(" "*59 + "Result" + ""*59)
@@ -148,11 +149,12 @@ except Exception as e:
 
 finally:
     # Redirecting to original stdout
-    os.dup2(stdout, 1)
+    if comm.rank == 0:
+        os.dup2(stdout, 1)
 
-    # close the file and stdout
-    log.close()
-    os.close(stdout)
+        # close the file and stdout
+        log.close()
+        os.close(stdout)
 
     # Getting intercomm and disconnecting
     # Otherwise, program will enter deadlock
