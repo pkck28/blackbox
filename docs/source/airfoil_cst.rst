@@ -17,6 +17,9 @@ contains the airfoil coordinates. There few important points to note regarding .
 - The leading and trailing edge of the airfoil coordinates should lie on the x-axis (best case scenario)
   or should be very close to it.
 
+  .. note::
+    Whenever the trailing edge is blunt, only two points should be there. More than two points in trailing edge will give an error.
+
 **Adflow** is the only supported solver. The volume mesh need by the solver is created internally using **pyHyp**. You will need following packages:
 
 - **MDO Lab packages**: `ADflow <https://github.com/mdolab/adflow>`_, `pyHyp <https://github.com/mdolab/pyhyp>`_, `prefoil <https://github.com/mdolab/prefoil>`_, 
@@ -33,25 +36,3 @@ and then proceed to other sub-sections. The `rae2822.dat` file used in the tutor
    options_description
    generating_samples
    generating_field_data
-
-.. Along with generating a bunch of samples, you can also just run a single analysis like you would do normally.
-.. You will have to use ``getObjectives`` method from the initialized object ``airfoil``. The methods needs one input
-.. which is the value of design variable as a 1D numpy array. Following snippet shows how to run a single analysis::
-
-..     import numpy as np
-
-..     # Upper and lower surface CST coefficients
-..     upper = np.array([0.12344046, 0.14809657, 0.14858145, 0.2168004, 0.17607825, 0.21018404])
-..     lower = np.array([-0.13198943, -0.11895939, -0.22056435, -0.12743513, -0.08232715, 0.05055414])
-
-..     # Creating input x
-..     x = np.append(np.array([2.5]), lower)
-..     x = np.append(x, upper)
-
-..     # Run a single analysis
-..     output = airfoil.getObjectives(x)
-
-.. Note that here ``x`` is 1D numpy array with 13 entires. The values within the array follow the same order in which
-.. design variables are added. ``output`` from the method is a dictionary which contains the same objective as described in
-.. the previous section. Also, anlaysis specific folder will be created in the specificed direcrtory which contains similar output files as 
-.. described in the previous section.

@@ -22,11 +22,6 @@ solverOptions = {
     "ANKJacobianLag": 5,
     "ANKOuterPreconIts": 3,
     "ANKInnerPreconIts": 3,
-    # "ANKCFLFactor": 15.0,
-    # "ANKCFLCutback": 0.1,
-    # "ANKStepMin": 0.1,
-    # "ANKCFLLimit": 1e6,
-    # "ANKCFL0": 1.0,
     # NK Solver Parameters
     "useNKSolver": True,
     "NKSwitchTol": 0.5e-6,
@@ -36,14 +31,6 @@ solverOptions = {
     "NKJacobianLag": 5,
     "NKOuterPreconIts": 3,
     "NKInnerPreconIts": 3,
-    # Adjoint Parameters
-    # "AdjointSolver": "GMRES",
-    # "ADPC": True,
-    # "AdjointMaxIter": 5000,
-    # "AdjointSubspaceSize": 400,
-    # "ILUFill": 3,
-    # "ASMOverlap": 3,
-    # "OuterPreconIts": 3,
     # Termination Criteria
     "L2Convergence": 1e-14,
     "L2ConvergenceCoarse": 1e-4
@@ -64,21 +51,6 @@ meshingOptions = {
     "N": 129,
     "s0": 1e-6,
     "marchDist": 100.0,
-    # ---------------------------
-    #   Pseudo Grid Parameters
-    # ---------------------------
-    "ps0": -1.0,
-    "pGridRatio": -1.0,
-    "cMax": 3.0,
-    # ---------------------------
-    #   Smoothing parameters
-    # ---------------------------
-    "epsE": 1.0,
-    "epsI": 2.0,
-    "theta": 3.0,
-    "volCoef": 0.25,
-    "volBlend": 0.0001,
-    "volSmoothIter": 100,
 }
 
 # Creating aeroproblem for adflow
@@ -90,13 +62,13 @@ ap = AeroProblem(
 # Options for blackbox
 options = {
     "solverOptions": solverOptions,
-    "noOfProcessors": 9,
+    "noOfProcessors": 8,
     "aeroProblem": ap,
-    "airfoilFile": "rae2822.dat",
+    "airfoilFile": "rae2822_L2.dat",
     "numCST": [6, 6],
     "meshingOptions": meshingOptions,
-    # "alpha": "implicit",
-    "refine": 1,
+    "writeAirfoilCoordinates": True,
+    "plotAirfoil": True
 }
 
 # Example for generating samples
