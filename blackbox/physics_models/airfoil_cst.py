@@ -372,8 +372,11 @@ class AirfoilCST():
 
         # Changing the first and last point for meshing
         # TO DO - Check if this generalizes well
-        points[0,1] = 0.0
-        points[-1,1] = 0.0
+        if points[0,1] != points[-1,1]:
+            points[-1,1] = points[0,1]
+
+        # points[0,1] = 0.0
+        # points[-1,1] = 0.0
 
         # Changing the directory to analysis folder
         os.chdir("{}/{}".format(directory, self.genSamples+1))
@@ -443,10 +446,12 @@ class AirfoilCST():
                 # Get the values
                 fieldData = {}
 
-                for var in mesh.array_names:
-                    # set_active_scalars returns a tuple, and second
-                    # entry contains the pyvista numpy array.
-                    fieldData[var] = np.asarray(mesh.set_active_scalars(var, "cell")[1])
+                for index, var in enumerate(mesh.array_names):
+                    # Skipping the first entry in the array
+                    if index != 0:
+                        # set_active_scalars returns a tuple, and second
+                        # entry contains the pyvista numpy array.
+                        fieldData[var] = np.asarray(mesh.set_active_scalars(var, "cell")[1])
 
             else:
                 fieldData = None
