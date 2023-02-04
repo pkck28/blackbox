@@ -18,7 +18,6 @@ There are various options which can be set for Blackbox. Please read the entire 
 
 - ``directory (str, default="output")``: name of the directory where the results will saved.
 - ``noOfProcessors (int, default=4)``: desired number of processors to run the analysis on.
-- ``slice (bool, default=True)``: adds a slice which will be used to output slice file after the analysis.
 - ``refine (int, default=0)``: value of this options controls how much to refine or coarsen the generated volume mesh.
   When the value is zero, there is no change to the volume mesh. When the value is 1 or 2, the volume mesh is refined
   by one level or two levels respetively. When the value is -1 and -2, the mesh is coarsened by similar levels.
