@@ -1,11 +1,13 @@
 # Imports
 import os, sys, shutil, pickle, time, psutil
+from copy import deepcopy
 import numpy as np
 from scipy.io import savemat
+from scipy import integrate
 from pyDOE2 import lhs
 from mpi4py import MPI
 from baseclasses import AeroProblem
-from pygeo import DVGeometryCST, DVConstraints
+from pygeo import DVGeometryCST
 from prefoil.utils import readCoordFile
 
 # Trying to import pyvista
@@ -384,14 +386,6 @@ class AirfoilCST():
         self.DVGeo.setDesignVars(newDV)
         points = self.DVGeo.update("airfoil")[:,0:2]
 
-        # Changing the first and last point for meshing
-        # TO DO - Check if this generalizes well
-        # if points[0,1] != points[-1,1]:
-        #     points[-1,1] = points[0,1]
-
-        # points[0,1] = 0.0
-        # points[-1,1] = 0.0
-
         # Changing the directory to analysis folder
         os.chdir("{}/{}".format(directory, self.genSamples+1))
 
@@ -439,8 +433,8 @@ class AirfoilCST():
             output = pickle.load(filehandler)
             filehandler.close()
 
-            # Calculate the volume (here area)
-            output = self._calcVol(output)
+            # Calculate the area
+            output["area"] = integrate.simpson(points[:,0], points[:,1], even="avg")
 
             if self.options["getFlowFieldData"]:
                 # Reading the cgns file
@@ -485,6 +479,63 @@ class AirfoilCST():
 
             # Increase the number of generated samples
             self.genSamples += 1
+
+    def calculateArea(self, x: np.ndarray) -> float:
+        """
+            Note: This function should not be called in the middle of analysis
+            It should ONLY be used from outside. Do not use this method within 
+            getObjectives. That method has its own implementation
+            of area calculation.
+
+            Function to calculate the area of the airfoil
+            based on the value of design variable.
+
+            Input:
+            x - 1D numpy array (value of dv).
+
+            Ouput:
+            area: area of the airfoil.
+
+            Note: To use this method, atleast lower or upper surface CST
+            coefficient should be added as a DV.
+        """
+
+        # Performing checks
+        if len(self.DV) == 0:
+            self._error("Add design variables before running the analysis.")
+
+        if not isinstance(x, np.ndarray):
+            self._error("Input sample is not a numpy array.")
+
+        if x.ndim != 1:
+            self._error("Input sample is a single dimensional array.")
+
+        if len(x) != len(self.lowerBound):
+            self._error("Input sample is not of correct size.")
+
+        if "upper" not in self.DV and "lower" not in self.DV:
+            self._error("\"upper\" or \"lower\" surface is not added as design variable.")
+
+        # Creating dictionary from x
+        newDV = {}
+        for dv in self.DV:
+            loc = self.locator == dv
+            loc = loc.reshape(-1,)
+            newDV[dv] = x[loc]
+
+        # Updating the airfoil pointset based on new DV
+        self.DVGeo.setDesignVars(newDV)
+
+        # Getting the updated airfoil points
+        points = self.DVGeo.update("airfoil")[:,0:2]
+        x = points[:,0]
+        y = points[:,1]
+
+        # Calculate the area using simpson's rule
+        # Note: x and y are both flipped here
+        area = integrate.simpson(x, y, even='avg')
+
+        return area
 
     # ----------------------------------------------------------------------------
     #                       Methods related to validation
@@ -751,31 +802,6 @@ class AirfoilCST():
         filehandler = open("input.pickle", "xb")
         pickle.dump(input, filehandler)
         filehandler.close()
-
-    def _calcVol(self, output) -> dict:
-        """
-            Method for calculating the area of the airfoil.
-        """
-
-        #### To Do: Entire method can be refactored in a better manner.
-
-        # Setting up constraints
-        DVCon = DVConstraints()
-        DVCon.setDVGeo(self.DVGeo)
-        DVCon.setSurface(output.pop("pts"))
-
-        # Defining the four corners of the 2D plane for volume constraint
-        le = 1e-4
-        leList = [[le, 0, le], [le, 0, 1.0 - le]]
-        teList = [[1.0 - le, 0, le], [1.0 - le, 0, 1.0 - le]]
-        
-        # Add volume (area in the case of airfoil) constraints
-        DVCon.addVolumeConstraint(leList, teList, 2, 100, lower=0.5, upper=3.0, scaled=False, name="area")
-
-        # Calculate the volume
-        DVCon.evalFunctions(output)
-
-        return output
 
     def _plotAirfoil(self, points) -> None:
         """
