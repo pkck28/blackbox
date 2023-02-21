@@ -1,6 +1,5 @@
 # Imports
 import os, sys, shutil, pickle, time, psutil
-from copy import deepcopy
 import numpy as np
 from scipy.io import savemat
 from scipy import integrate
@@ -674,6 +673,11 @@ class AirfoilCST():
         if name == "alpha":
             if self.options["alpha"] != "explicit":
                 self._error("Alpha cannot be a design variable when \"alpha\" attribute in option is \"implicit\".")
+
+        # Checking if these variables are initialized through aero problem or not
+        if name in ["mach", "altitude"]:
+            if name not in self.options["aeroProblem"].inputs.keys():
+                self._error("You need to initialize \"{}\" in the aero problem to set it as design variable.".format(name))
 
         # Validating the bounds for "upper" variable
         if name == "upper":
