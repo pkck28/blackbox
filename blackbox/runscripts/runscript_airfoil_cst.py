@@ -102,10 +102,6 @@ try:
     if slice:
         CFDSolver.addSlices("z", 0.5, sliceType="absolute")
 
-    # Getting triangulated surface mesh, later used in 
-    # parent script to calculate volume
-    trigSurfMesh = CFDSolver.getTriangulatedMeshSurface()
-
     ############## Run CFD
     CFDSolver(ap)
 
@@ -134,9 +130,6 @@ try:
         # Other mandatory outputs
         print("fail = ", funcs["fail"])
         output["fail"] = funcs["fail"]
-
-        # Getting triangulated surface points
-        output["pts"] = trigSurfMesh
 
         # Storing the results in output file
         filehandler = open("output.pickle", "xb")

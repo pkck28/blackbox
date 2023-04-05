@@ -126,15 +126,15 @@ In this tutorial, ``alpha``, ``upper`` and ``lower`` are added as the bounds::
 
     # Adding upper surface CST coeffs as DV
     coeff = airfoil.DVGeo.defaultDV["upper"] # get the fitted CST coeff
-    lb = coeff - 0.3*coeff
-    ub = coeff + 0.3*coeff
+    lb = coeff - np.sign(coeff)*0.3*coeff
+    ub = coeff + np.sign(coeff)*0.3*coeff
 
     airfoil.addDV("upper", lowerBound=lb, upperBound=ub)
 
     # Adding lower surface CST coeffs as DV
     coeff = airfoil.DVGeo.defaultDV["lower"] # get the fitted CST coeff
-    lb = coeff - 0.3*coeff
-    ub = coeff + 0.3*coeff
+    lb = coeff - np.sign(coeff)*0.3*coeff
+    ub = coeff + np.sign(coeff)*0.3*coeff
 
     airfoil.addDV("lower", lowerBound=lb, upperBound=ub)
 
