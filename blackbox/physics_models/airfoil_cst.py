@@ -367,7 +367,8 @@ class AirfoilCST():
         if self.options["alpha"] == "explicit":
             filepath = os.path.join(pkgdir, "runscripts/runscript_airfoil_cst.py")
         else:
-            filepath = os.path.join(pkgdir, "runscripts/runscript_airfoil_cst_opt.py")
+            # filepath = os.path.join(pkgdir, "runscripts/runscript_airfoil_cst_opt.py")
+            filepath = os.path.join(pkgdir, "runscripts/runscript_airfoil_cst_rf.py")
 
         # Copy the runscript to analysis directory
         shutil.copy(filepath, "{}/{}/runscript.py".format(directory, self.genSamples+1))

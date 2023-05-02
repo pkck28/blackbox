@@ -1,12 +1,10 @@
-############## Script file for running airfoil analysis.
-# Imports
-import pickle, time, os
-from collections import OrderedDict
+import pickle, os, time
 from mpi4py import MPI
+from baseclasses import AeroProblem
 from adflow import ADFLOW
+from idwarp import USMesh
 from pyhyp import pyHyp
 from cgnsutilities.cgnsutilities import readGrid
-from pyoptsparse import Optimization, PSQP, SLSQP
 
 # Getting MPI comm
 comm = MPI.COMM_WORLD
@@ -19,9 +17,6 @@ parent_comm.send(os.getpid(), dest=0, tag=comm.rank)
 stdout = os.dup(1)
 log = open("log.txt", "a")
 os.dup2(log.fileno(), 1)
-
-# Starting point for opt
-alpha = 2.8
 
 try:
     ############## Reading input file for the analysis
@@ -87,9 +82,8 @@ try:
 
         grid.writeToCGNS("volMesh.cgns")
         
-    else:
-        # Other processors need to wait before starting analysis
-        time.sleep(0.5)
+    # Wait till root is done with refining/coarse of mesh
+    comm.barrier()
 
     ############## Settign up adflow
 
@@ -103,87 +97,12 @@ try:
     # Creating adflow object
     CFDSolver = ADFLOW(options=solverOptions, comm=comm)
 
-    # Adding angle of attack as variable
-    ap.addDV("alpha", value=alpha, lower=0, upper=5.0, scale=1.0)
-
     # Adding pressure distribution output
     if slice:
         CFDSolver.addSlices("z", 0.5, sliceType="absolute")
 
-    # Getting triangulated surface mesh, later used in 
-    # parent script to calculate volume
-    trigSurfMesh = CFDSolver.getTriangulatedMeshSurface()
-
-    ############## Methods for objective and sensitivity
-
-    def Funcs(x):
-        """
-            Objective Function.
-        """
-
-        ap.setDesignVars(x)
-
-        # Run CFD
-        CFDSolver(ap)
-
-        # Evaluate functions
-        funcs = {}
-        CFDSolver.evalFunctions(ap, funcs, ["cl"])
-        CFDSolver.checkSolutionFailure(ap, funcs)
-
-        # Calc objective
-        funcs["obj"] = (funcs[ap["cl"]] - CL_target)**2
-        
-        return funcs
-
-    def FuncsSens(x, funcs):
-        """
-            Function sensitivity.
-        """
-
-        # Evaluate sensitivities
-        funcsSens = {}
-        CFDSolver.evalFunctionsSens(ap, funcsSens, ["cl"])
-        CFDSolver.checkAdjointFailure(ap, funcsSens)
-
-        # Calc gradient of objective
-        funcsSens["obj"] = OrderedDict()
-        funcsSens["obj"]["alpha_ap"] = 2*(funcs["ap_cl"] - CL_target)*funcsSens["ap_cl"]["alpha_ap"]
-
-        return funcsSens
-
-    ############# Optimization
-
-    # Creating optimization problem
-    optProb = Optimization("opt", objFun=Funcs, comm=MPI.COMM_WORLD, sens=FuncsSens)
-
-    # Add objective
-    optProb.addObj("obj", scale=1e6)
-
-    # Add variables from the AeroProblem
-    ap.addVariablesPyOpt(optProb)
-
-    SLSQP_options = {
-        "ACC": 1e-4
-    }
-
-    PSQP_options = {
-        "MET": 2,
-        "XMAX": 0.25,
-        "MFV": 12,
-        "MIT": 12,
-        "TOLX": 1e-5
-    }
-
-    # Creating optimizer for optimization
-    # opt = SLSQP(options=SLSQP_options)
-    opt = PSQP(options=PSQP_options)
-
-    # Run Optimization
-    sol = opt(optProb, sens=FuncsSens, storeHistory="opt.hst", sensMode="pgc")
-
-    if MPI.COMM_WORLD.rank == 0:
-        print(sol)
+    ############## Solving for the CL
+    CFDSolver.solveCL(ap, CL_target, 2.8, tol=0.0001)
 
     ############# Post-processing
 
@@ -194,8 +113,6 @@ try:
     funcs = {}
     CFDSolver.evalFunctions(ap, funcs)
     CFDSolver.checkSolutionFailure(ap, funcs)
-
-    # Get the output
 
     # printing the result
     if MPI.COMM_WORLD.rank == 0:
@@ -215,9 +132,6 @@ try:
         # Other mandatory outputs
         print("fail = ", funcs["fail"])
         output["fail"] = funcs["fail"]
-
-        # Getting triangulated surface points
-        output["pts"] = trigSurfMesh
 
         # Storing the results in output file
         filehandler = open("output.pickle", "xb")
