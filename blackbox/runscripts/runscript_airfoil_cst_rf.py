@@ -102,7 +102,7 @@ try:
         CFDSolver.addSlices("z", 0.5, sliceType="absolute")
 
     ############## Solving for the CL
-    CFDSolver.solveCL(ap, CL_target, 2.8, tol=0.0001)
+    CFDSolver.solveCL(ap, CLStar=CL_target, alpha0=2.8, delta=0.2, tol=0.0001, autoReset=False, maxIter=8)
 
     ############# Post-processing
 
