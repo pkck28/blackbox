@@ -312,12 +312,12 @@ class AirfoilCST():
                                 else:
                                     fieldData[value] = np.vstack(( fieldData[value], field[value].reshape(1,-1) ))
 
-                    # Saving the results
-                    savemat("{}/data.mat".format(self.options["directory"]), data)
+                # Saving the results
+                savemat("{}/data.mat".format(self.options["directory"]), data)
 
-                    # Saving the field data
-                    if self.options["getFlowFieldData"]:
-                        savemat("{}/fieldData.mat".format(self.options["directory"]), fieldData)
+                # Saving the field data
+                if self.options["getFlowFieldData"]:
+                    savemat("{}/fieldData.mat".format(self.options["directory"]), fieldData)
 
             finally:
                 # Ending time
