@@ -54,6 +54,7 @@ class DefaultOptions():
         # Alpha implicit related options
         self.alpha = "explicit"
         self.targetCL = 0.824
+        self.targetCLTol = 1e-4
 
 class AirfoilCST():
     """
@@ -274,6 +275,12 @@ class AirfoilCST():
                 if output["fail"] == True: # Check for analysis failure
                     failed.append(sampleNo + 1)
                     description.write("\nAnalysis failed.")
+                    
+                elif self.options["alpha"] == "implicit": # Check for implicit alpha
+                    if abs(output["cl"] - self.options["targetCL"]) > self.options["targetCLTol"]:
+                        failed.append(sampleNo + 1)
+                        description.write("\nAnalysis failed.")
+
                 else:
                     # Creating a dictionary of data
                     if self.genSamples - len(failed) == 1:
@@ -367,7 +374,8 @@ class AirfoilCST():
         if self.options["alpha"] == "explicit":
             filepath = os.path.join(pkgdir, "runscripts/runscript_airfoil_cst.py")
         else:
-            filepath = os.path.join(pkgdir, "runscripts/runscript_airfoil_cst_opt.py")
+            # filepath = os.path.join(pkgdir, "runscripts/runscript_airfoil_cst_opt.py")
+            filepath = os.path.join(pkgdir, "runscripts/runscript_airfoil_cst_rf.py")
 
         # Copy the runscript to analysis directory
         shutil.copy(filepath, "{}/{}/runscript.py".format(directory, self.genSamples+1))

@@ -1,3 +1,7 @@
+### This examples shows how to generate samples for CST parameterization
+### with alpha as implicit variable. A simple secant method is used to
+### to find the correct alpha value for the given CL value.
+
 from blackbox import AirfoilCST
 from baseclasses import AeroProblem
 import numpy as np
@@ -69,15 +73,13 @@ options = {
     "meshingOptions": meshingOptions,
     "writeAirfoilCoordinates": True,
     "plotAirfoil": True,
+    "alpha": "implicit"
 }
 
 # Example for generating samples
 airfoil = AirfoilCST(options=options)
 
 ######### Multi Analysis
-
-# Adding design variable
-airfoil.addDV("alpha", 2.0, 3.0)
 
 # Adding lower surface CST coeffs as DV
 coeff = airfoil.DVGeo.defaultDV["lower"] # get the fitted CST coeff
@@ -92,4 +94,4 @@ ub = coeff + np.sign(coeff)*0.3*coeff
 airfoil.addDV("upper", lowerBound=lb, upperBound=ub)
 
 # Generating the samples
-airfoil.generateSamples(5)
+airfoil.generateSamples(10)
