@@ -272,17 +272,18 @@ class AirfoilCST():
                 description.write("\nAnalysis failed.")
 
             else:
+                # Check for analysis failure
                 if output["fail"] == True: # Check for analysis failure
                     failed.append(sampleNo + 1)
                     description.write("\nAnalysis failed.")
                     
-                elif self.options["alpha"] == "implicit": # Check for implicit alpha
-                    if abs(output["cl"] - self.options["targetCL"]) > self.options["targetCLTol"]:
-                        failed.append(sampleNo + 1)
-                        description.write("\nAnalysis failed.")
+                # Check for implicit alpha
+                elif self.options["alpha"] == "implicit" and abs(output["cl"] - self.options["targetCL"]) > self.options["targetCLTol"]: 
+                    failed.append(sampleNo + 1)
+                    description.write("\nAnalysis failed.")
 
+                # Creating a dictionary of data
                 else:
-                    # Creating a dictionary of data
                     if self.genSamples - len(failed) == 1:
                         data["x"] = np.array(x)
                         for value in output.keys():
