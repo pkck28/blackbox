@@ -9,14 +9,6 @@ from baseclasses import AeroProblem
 from pygeo import DVGeometryCST
 from prefoil.utils import readCoordFile
 
-# Trying to import pyvista
-try:
-    import pyvista
-except ImportError:
-    msg_pyvista = "pyVista is not installed"
-else:
-    msg_pyvista = None
-
 # Trying to import matplotlib
 try:
     import matplotlib.pyplot as plt
@@ -46,17 +38,7 @@ class DefaultOptions():
         self.writeAirfoilCoordinates = False
         self.plotAirfoil = False
 
-        # Flow-field related options
-        # if getFlowFieldData is false, then all other options are useless
-        self.getFlowFieldData = False
-        self.region = "surface"
-
-        # Alpha implicit related options
-        self.alpha = "explicit"
-        self.targetCL = 0.824
-        self.targetCLTol = 1e-4
-
-class AirfoilCST():
+class AirfoilCSTMultipoint():
     """
         This class provides methods for generating samples for a general airfoil
         using CST parameterization.
@@ -94,12 +76,6 @@ class AirfoilCST():
         self.options["solverOptions"]["outputDirectory"] = "."
         self.options["solverOptions"]["numberSolutions"] = False
         self.options["solverOptions"]["printTiming"] = False
-
-        # Raise an error if pyvista is not installed
-        if self.options["getFlowFieldData"]:
-            if msg_pyvista != None:
-                self._error(msg_pyvista)
-            self.options["solverOptions"]["writeSurfaceSolution"] = True
 
         # Raise an error if matplotlib is not installed
         if self.options["plotAirfoil"]:
@@ -145,13 +121,38 @@ class AirfoilCST():
         self.DV = []
         self.genSamples = 0
 
+        # Adding aeroproblem DVs
+        for ap in self.options["aeroProblem"]:
+
+            # Adding DVs
+            for dv in ap.DVs.keys():
+
+                # Extracting the lower and upper bound
+                lowerBound = ap.DVs[dv].lower
+                upperBound = ap.DVs[dv].upper
+
+                # Setting up the locator
+                locator = np.array(["{}".format(dv)])
+
+                # Appending the DV details
+                if len(self.DV) == 0:
+                    self.upperBound = np.array([upperBound])
+                    self.lowerBound = np.array([lowerBound])
+                    self.locator = np.array([locator])
+                else:
+                    self.upperBound = np.append(self.upperBound, upperBound)
+                    self.lowerBound = np.append(self.lowerBound, lowerBound)
+                    self.locator = np.append(self.locator, locator)
+
+                self.DV.append(dv)
+
     # ----------------------------------------------------------------------------
     #                       Design Variable related methods
     # ----------------------------------------------------------------------------
 
     def addDV(self, name: str, lowerBound: list, upperBound: list) -> None:
         """
-            Method for adding a DV for CST parameterization.
+            Method for adding ONLY CST related DV.
         """
 
         # Checking
@@ -232,7 +233,6 @@ class AirfoilCST():
 
         # Creating empty dictionary for storing the data
         data = {}
-        fieldData = {}
 
         # Creating and writing a description file
         description = open("{}/description.txt".format(self.options["directory"]), "a", buffering=1)
@@ -264,7 +264,7 @@ class AirfoilCST():
 
             try:
                 # Getting output for specific sample
-                output, field = self.getObjectives(x)
+                output = self.getObjectives(x)
 
             except:
                 print("Error occured during the analysis. Check analysis.log in the respective folder for more details.")
@@ -273,12 +273,7 @@ class AirfoilCST():
 
             else:
                 # Check for analysis failure
-                if output["fail"] == True: # Check for analysis failure
-                    failed.append(sampleNo + 1)
-                    description.write("\nAnalysis failed.")
-                    
-                # Check for implicit alpha
-                elif self.options["alpha"] == "implicit" and abs(output["cl"] - self.options["targetCL"]) > self.options["targetCLTol"]: 
+                if True in output["fail"]: # Check for analysis failure
                     failed.append(sampleNo + 1)
                     description.write("\nAnalysis failed.")
 
@@ -287,38 +282,22 @@ class AirfoilCST():
                     if self.genSamples - len(failed) == 1:
                         data["x"] = np.array(x)
                         for value in output.keys():
-                            data[value] = np.array([output[value]])
-
-                        # Creating a dictionary of field data
-                        if self.options["getFlowFieldData"]:
-                            fieldData["x"] = np.array(x)
-                            for value in field.keys():
-                                if field[value].ndim == 2:
-                                    fieldData[value] = field[value].reshape(1,-1,3)
-                                else:
-                                    fieldData[value] = field[value].reshape(1,-1)
+                            if isinstance(output[value], list):
+                                data[value] = np.array(output[value])
+                            else:
+                                data[value] = np.array([output[value]])
 
                     else:
                         # Appending data dictionary created earlier
                         data["x"] = np.vstack((data["x"], x))
                         for value in output.keys():
-                            data[value] = np.vstack(( data[value], np.array([output[value]]) ))
-
-                        # Appending field data dictionary created earlier
-                        if self.options["getFlowFieldData"]:
-                            fieldData["x"] = np.vstack((fieldData["x"], x))
-                            for value in field.keys():
-                                if field[value].ndim == 2:
-                                    fieldData[value] = np.vstack(( fieldData[value], field[value].reshape(1,-1,3) ))
-                                else:
-                                    fieldData[value] = np.vstack(( fieldData[value], field[value].reshape(1,-1) ))
+                            if isinstance(output[value], list):
+                                data[value] = np.vstack(( data[value], np.array(output[value]) ))
+                            else:
+                                data[value] = np.vstack(( data[value], np.array([output[value]]) ))
 
                     # Saving the results
                     savemat("{}/data.mat".format(self.options["directory"]), data)
-
-                    # Saving the field data
-                    if self.options["getFlowFieldData"]:
-                        savemat("{}/fieldData.mat".format(self.options["directory"]), fieldData)
 
             finally:
                 # Ending time
@@ -372,11 +351,7 @@ class AirfoilCST():
         pkgdir = sys.modules["blackbox"].__path__[0]
 
         # Setting filepath based on the how alpha is treated alpha
-        if self.options["alpha"] == "explicit":
-            filepath = os.path.join(pkgdir, "runscripts/runscript_airfoil_cst.py")
-        else:
-            # filepath = os.path.join(pkgdir, "runscripts/runscript_airfoil_cst_opt.py")
-            filepath = os.path.join(pkgdir, "runscripts/runscript_airfoil_cst_rf.py")
+        filepath = os.path.join(pkgdir, "runscripts/runscript_airfoil_cst_mp.py")
 
         # Copy the runscript to analysis directory
         shutil.copy(filepath, "{}/{}/runscript.py".format(directory, self.genSamples+1))
@@ -390,6 +365,10 @@ class AirfoilCST():
             loc = loc.reshape(-1,)
             newDV[dv] = x[loc]
 
+        # Updating the DV in aeroproblem, if any
+        for ap in self.options["aeroProblem"]:
+            ap.setDesignVars(newDV)
+
         # Updating the airfoil pointset based on new DV
         self.DVGeo.setDesignVars(newDV)
         points = self.DVGeo.update("airfoil")[:,0:2]
@@ -397,16 +376,18 @@ class AirfoilCST():
         # Changing the directory to analysis folder
         os.chdir("{}/{}".format(directory, self.genSamples+1))
 
+        # Writing the deformed airfoil coordinates
         if self.options["writeAirfoilCoordinates"]:
             self.DVGeo.foil.writeCoords("deformedAirfoil", coords=points, file_format="dat")
 
+        # Plotting the deformed airfoil
         if self.options["plotAirfoil"]:
             self._plotAirfoil(points)
 
-        # Create input file
+        # Create input file in the analysis directory
         self._creatInputFile(x)
 
-        # Writing the surface mesh
+        # Writing the surface mesh for new airfoil
         self.DVGeo.foil.writeCoords("surfMesh", points)
 
         # Spawning the runscript on desired number of processors
@@ -444,35 +425,7 @@ class AirfoilCST():
             # Calculate the area
             output["area"] = integrate.simpson(points[:,0], points[:,1], even="avg")
 
-            if self.options["getFlowFieldData"]:
-                # Reading the cgns file
-                filename = self.options["aeroProblem"].name + "_surf.cgns"
-                reader = pyvista.CGNSReader(filename)
-                reader.load_boundary_patch = False
-
-                # Reading the mesh
-                mesh = reader.read()
-
-                # Setting region for extraction
-                if self.options["region"] == "surface":
-                    mesh = mesh[0][0]
-                else:
-                    mesh = mesh[0][2]
-
-                # Get the values
-                fieldData = {}
-
-                for index, var in enumerate(mesh.array_names):
-                    # Skipping the first entry in the array
-                    if index != 0:
-                        # set_active_scalars returns a tuple, and second
-                        # entry contains the pyvista numpy array.
-                        fieldData[var] = np.asarray(mesh.set_active_scalars(var, "cell")[1])
-
-            else:
-                fieldData = None
-
-            return output, fieldData
+            return output
             
         finally:
             # Cleaning the directory
@@ -591,8 +544,12 @@ class AirfoilCST():
                 self._error("Second entry in \"numCST\" is less than 1.")
 
         ############ Validating aeroProblem
-        if not isinstance(options["aeroProblem"], AeroProblem):
-            self._error("\"aeroProblem\" attribute is not an aeroproblem.")
+        if not isinstance(options["aeroProblem"], list):
+            self._error("\"aeroProblem\" attribute is not a list.")
+
+        for ap in options["aeroProblem"]:
+            if not isinstance(ap, AeroProblem):
+                self._error("\"aeroProblem\" attribute doesn't contain AeroProblem object.")
 
         ############ Validating solverOptions
         if not isinstance(options["solverOptions"], dict):
@@ -664,7 +621,7 @@ class AirfoilCST():
 
         # List of possible DVs
         possibleDVs = ["upper", "lower", "N1", "N2", "N1_upper", "N2_upper", 
-                        "N1_lower", "N2_lower", "alpha", "mach", "altitude"]
+                        "N1_lower", "N2_lower"]
 
         # Validating name of the DV
         if not isinstance(name, str):
@@ -677,16 +634,6 @@ class AirfoilCST():
         # Checking if the DV is already added
         if name in self.DV:
             self._error("{} already exists.".format(name))
-
-        # Checking if alpha can be added as a DV
-        if name == "alpha":
-            if self.options["alpha"] != "explicit":
-                self._error("Alpha cannot be a design variable when \"alpha\" attribute in option is \"implicit\".")
-
-        # Checking if these variables are initialized through aero problem or not
-        if name in ["mach", "altitude"]:
-            if name not in self.options["aeroProblem"].inputs.keys():
-                self._error("You need to initialize \"{}\" in the aero problem to set it as design variable.".format(name))
 
         # Validating the bounds for "upper" variable
         if name == "upper":
@@ -790,26 +737,6 @@ class AirfoilCST():
             "refine": self.options["refine"],
             "writeSliceFile": self.options["writeSliceFile"]
         }
-
-        # Adding non-shape DV
-        if "alpha" in self.DV:
-            loc = self.locator == "alpha"
-            loc = loc.reshape(-1,)
-            input["alpha"] = x[loc]
-
-        if "mach" in self.DV:
-            loc = self.locator == "mach"
-            loc = loc.reshape(-1,)
-            input["mach"] = x[loc]
-
-        if "altitude" in self.DV:
-            loc = self.locator == "altitude"
-            loc = loc.reshape(-1,)
-            input["altitude"] = x[loc]
-
-        # Adding target Cl if alpha is implicit
-        if self.options["alpha"] == "implicit":
-            input["targetCL"] = self.options["targetCL"]
 
         # Saving the input file
         filehandler = open("input.pickle", "xb")

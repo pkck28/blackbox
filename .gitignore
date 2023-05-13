@@ -7,7 +7,6 @@ blackbox/base/__pycache__
 blackbox/docs/build
 examples/training
 examples/training_single
-examples/output
 examples/__pycache__
 examples/training_data
 examples/testing_data
@@ -24,6 +23,7 @@ examples/sellar
 examples/forrester
 examples/airfoil_cst/multi
 examples/airfoil_cst/output
+examples/airfoil_cst_multipoint/output
 examples/airfoil
 examples/analytical
 examples/onera
