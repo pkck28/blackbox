@@ -58,9 +58,6 @@ class AirfoilCSTMultipoint():
         # Setting up default options
         self._getDefaultOptions()
 
-        # Changing to absolute path for airfoil file
-        options["airfoilFile"] = os.path.abspath(options["airfoilFile"])
-
         # Setting up the required options list
         requiredOptions = ["solverOptions", "meshingOptions", "airfoilFile", "aeroProblem", "numCST"]
 
@@ -523,8 +520,10 @@ class AirfoilCSTMultipoint():
                         .format(set(requiredOptions) - set(userProvidedOptions)))
 
         ############ Validating airfoilFile
-        if not os.path.exists(options["airfoilFile"]):
-            self._error("\"airfoilFile\" doesn't exists.")            
+        if not os.path.exists(os.path.abspath(options["airfoilFile"])):
+            self._error("\"airfoilFile\" doesn't exists.")
+        else:
+            options["airfoilFile"] = os.path.abspath(options["airfoilFile"])          
 
         ############ Validating numCST
         if not isinstance(options["numCST"], list):
