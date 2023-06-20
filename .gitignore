@@ -29,3 +29,4 @@ examples/analytical
 examples/onera
 examples/mach
 examples/aerostruct
+examples/airfoil_ffd/output
