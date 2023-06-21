@@ -6,7 +6,7 @@ from scipy import integrate
 from pyDOE2 import lhs
 from mpi4py import MPI
 from baseclasses import AeroProblem
-from pygeo import DVGeometry
+from pygeo import DVGeometry, geo_utils
 from prefoil import Airfoil
 from prefoil.utils import readCoordFile
 
@@ -153,6 +153,15 @@ class AirfoilFFD():
                 self.upperBound = np.append(self.upperBound, upperBound)
                 self.lowerBound = np.append(self.lowerBound, lowerBound)
                 self.locator = np.append(self.locator, locator)
+
+            # Getting the ffd points
+            pts = self.DVGeo.getLocalIndex(0) # location of all the ffd points
+
+            # Adding ffd at root as local dv
+            indexList1 = pts[:, :, 0].flatten()
+            PS1 = geo_utils.PointSelect("list", indexList1)
+            self.DVGeo.addLocalDV("shape", lower=lowerBound, upper=upperBound, axis="y", scale=1.0, pointSelect=PS1)
+            
         else:
             locator = np.array(["{}".format(name)])
 
@@ -165,12 +174,229 @@ class AirfoilFFD():
                 self.lowerBound = np.append(self.lowerBound, lowerBound)
                 self.locator = np.append(self.locator, locator)    
 
-        # Adding DV into DVGeo
-        if name not in ["alpha", "mach", "altitude"]:
-            self.DVGeo.addDV("{}".format(name), "{}".format(name))
-
         # Adding the DV to the list
         self.DV.append(name)
+
+    # ----------------------------------------------------------------------------
+    #                   Methods related to sample generation
+    # ----------------------------------------------------------------------------
+
+    def generateSamples(self, numSamples: int) -> None:
+        """
+            Method for generating samples.
+        """
+
+        # Performing checks
+        if len(self.DV) == 0:
+            self._error("Add design variables before running the analysis.")
+
+        if not isinstance(numSamples, int):
+            self._error("Number of samples argument is not an integer.")
+
+        # Number of analysis passed/failed
+        failed =[]
+        totalTime = 0
+
+        # Generating LHS samples
+        samples = self._lhs(numSamples)
+
+        # Creating empty dictionary for storing the data
+        data = {}
+
+        # Creating and writing a description file
+        description = open("{}/description.txt".format(self.options["directory"]), "a", buffering=1)
+        description.write("---------------------------------------------------")
+        description.write("\nAirfoil sample generation with FFD parametrization")
+        description.write("\n--------------------------------------------------")
+        description.write("\nDesign variables: {}".format(self.DV))
+        description.write("\nNumber of FFD points: {}".format(self.options["nffd"]))
+        description.write("\nLower bound for design variables:\n{}".format(self.lowerBound))
+        description.write("\nUpper bound for design variables:\n{}".format(self.upperBound))
+        description.write("\nTotal number of samples requested: {}".format(numSamples))
+        description.write("\n-----------------------------")
+        description.write("\nAnalysis specific description")
+        description.write("\n-----------------------------")
+
+        # Generate data
+        for sampleNo in range(numSamples):
+
+            description.write("\nAnalysis {}: ".format(sampleNo+1))
+
+            # Current sample
+            x = samples[sampleNo,:]
+
+            description.write("\nDesign Variable: {}".format(x))
+
+            # Starting time
+            t1 = time.time()
+
+            try:
+                # Getting output for specific sample
+                output = self.getObjectives(x)
+
+            except Exception as e:
+                print(e)
+                print("Error occured during the analysis. Check analysis.log in the respective folder for more details.")
+                failed.append(sampleNo + 1)
+                description.write("\nAnalysis failed.")
+
+            else:
+                # Check for analysis failure
+                if output["fail"] == True: # Check for analysis failure
+                    failed.append(sampleNo + 1)
+                    description.write("\nAnalysis failed.")
+
+                # Creating a dictionary of data
+                else:
+                    if self.genSamples - len(failed) == 1:
+                        data["x"] = np.array(x)
+                        for value in output.keys():
+                            data[value] = np.array([output[value]])
+
+                    else:
+                        # Appending data dictionary created earlier
+                        data["x"] = np.vstack((data["x"], x))
+                        for value in output.keys():
+                            data[value] = np.vstack(( data[value], np.array([output[value]]) ))
+
+                    # Saving the results
+                    savemat("{}/data.mat".format(self.options["directory"]), data)
+
+            finally:
+                # Ending time
+                t2 = time.time()
+
+                totalTime += (t2-t1)/60
+
+                # Writing time taken to file
+                description.write("\nTime taken for analysis: {} min.".format((t2-t1)/60))
+
+        # Making generated samples 0
+        self.genSamples = 0
+
+        # Writing final results in the description file
+        description.write("\n--------------------------------------")
+        description.write("\nTotal time taken for analysis: {} min.".format(totalTime))
+        description.write("\nNumber of successful analysis: {}".format(numSamples - len(failed)))
+        description.write("\nNumber of failed analysis: {}".format(len(failed)))
+        if len(failed) != 0:
+            description.write("\nFailed analysis: {}".format(failed))
+
+        # Closing the description file
+        description.close()
+
+    def getObjectives(self, x: np.ndarray) -> tuple:
+        """
+            Method for running a single analysis.
+        """
+
+        # Performing checks
+        if len(self.DV) == 0:
+            self._error("Add design variables before running the analysis.")
+
+        if not isinstance(x, np.ndarray):
+            self._error("Input sample is not a numpy array.")
+
+        if x.ndim != 1:
+            self._error("Input sample is a single dimensional array.")
+
+        if len(x) != len(self.lowerBound):
+            self._error("Input sample is not of correct size.")
+
+        print("Running analysis {}".format(self.genSamples + 1))
+
+        directory = self.options["directory"]
+
+        # Create the folder for saving the results
+        os.system("mkdir {}/{}".format(directory, self.genSamples+1))
+
+        # Getting the directory where package is saved
+        pkgdir = sys.modules["blackbox"].__path__[0]
+
+        # Setting filepath based on the how alpha is treated alpha
+        filepath = os.path.join(pkgdir, "runscripts/runscript_airfoil_cst.py")
+
+        # Copy the runscript to analysis directory
+        shutil.copy(filepath, "{}/{}/runscript.py".format(directory, self.genSamples+1))
+
+        # Creating the new design variable dict
+        # If there are no shape DV, then DVGeo
+        # will not update the airfoil pointset.
+        newDV = {}
+        for dv in self.DV:
+            loc = self.locator == dv
+            loc = loc.reshape(-1,)
+            newDV[dv] = x[loc]
+
+        # Creating the new design variable dict
+        self.DVGeo.setDesignVars(newDV)
+        points = self.DVGeo.update("airfoil")[:,0:2]
+
+        # Changing the directory to analysis folder
+        os.chdir("{}/{}".format(directory, self.genSamples+1))
+
+        if self.options["writeAirfoilCoordinates"]:
+            self._writeCoords(coords=points, filename="deformedAirfoil.dat")
+
+        if self.options["plotAirfoil"]:
+            self._plotAirfoil(points)
+
+        # Create input file
+        self._creatInputFile(x)
+
+        # Writing the surface mesh
+        self._writeSurfMesh(coords=points, filename="surfMesh.xyz")
+
+        # Spawning the runscript on desired number of processors
+        child_comm = MPI.COMM_SELF.Spawn(sys.executable, args=["runscript.py"], maxprocs=self.options["noOfProcessors"])
+
+        # Creating empty process id list
+        pid_list = []
+
+        # Getting each spawned process
+        for processor in range(self.options["noOfProcessors"]):
+            pid = child_comm.recv(source=MPI.ANY_SOURCE, tag=processor)
+            pid_list.append(psutil.Process(pid))
+
+        # Disconnecting from intercommunicator
+        child_comm.Disconnect()
+
+        # Waiting till all the child processors are finished
+        while len(pid_list) != 0:
+            for pid in pid_list:
+                if not pid.is_running():
+                    pid_list.remove(pid)
+
+        try:
+            # Reading the output file containing results
+            filehandler = open("output.pickle", 'rb')
+
+        except:
+            raise Exception
+
+        else:
+            # Read the output
+            output = pickle.load(filehandler)
+            filehandler.close()
+
+            # Calculate the area
+            output["area"] = integrate.simpson(points[:,0], points[:,1], even="avg")
+
+            return output
+
+        finally:
+            # Cleaning the directory
+            files = ["surfMesh.xyz", "volMesh.cgns", "input.pickle", "runscript.py",
+                    "output.pickle", "fort.6", "opt.hst"]
+            for file in files:
+                if os.path.exists(file):
+                    os.system("rm {}".format(file))
+
+            # Changing the directory back to root
+            os.chdir("../..")
+
+            # Increase the number of generated samples
+            self.genSamples += 1
 
     # ----------------------------------------------------------------------------
     #                       Methods related to validation
@@ -292,16 +518,20 @@ class AirfoilFFD():
         # Validating the bounds for "shape" variable
         if name == "shape":
             if not isinstance(lb, np.ndarray) or lb.ndim != 1:
-                self._error("Lower bound for \"upper\" variable should be a 1D numpy array.")
+                self._error("Lower bound for \"shape\" variable should be a 1D numpy array.")
 
             if not isinstance(ub, np.ndarray) or ub.ndim != 1:
-                self._error("Upper bound for \"upper\" variable should be a 1D numpy array.")
+                self._error("Upper bound for \"shape\" variable should be a 1D numpy array.")
 
             if len(lb) != self.options["nffd"]:
-                self._error("Length of lower bound for \"upper\" variable is not equal to number of CST coeff for upper surface.")
+                self._error("Length of lower bound array is not equal to number of FFD points.")
 
             if len(ub) != self.options["nffd"]:
-                self._error("Length of upper bound for \"upper\" variable is not equal to number of CST coeff for upper surface.")
+                self._error("Length of upper bound array is not equal to number of FFD points.")
+
+            if np.any(lb >= ub):
+                self._error("Lower bound is greater than or equal to upper bound for atleast one DV.")
+
         else:
             if not isinstance(lb, float):
                 self._error("Lower Bound argument is not a float.")
@@ -346,12 +576,114 @@ class AirfoilFFD():
             else:
                 self.options[key] = options[key]
 
-    def _createFFD(self) -> None:
+    def _lhs(self, numSamples) -> np.ndarray:
         """
-            Method for creating FFD box.
+            Method to generate the lhs samples.
         """
 
-        pass
+        # Number of dimensions
+        dim = len(self.lowerBound)
+
+        # Generating normalized lhs samples
+        samples = lhs(dim, samples=numSamples, criterion='cm', iterations=1000)
+
+        # Scaling the samples
+        x = self.lowerBound + (self.upperBound - self.lowerBound) * samples
+
+        return x
+
+    def _creatInputFile(self, x:np.ndarray) -> None:
+        """
+            Method to create an input file for analysis.
+        """
+
+        # Creating input dict
+        input = {
+            "solverOptions": self.options["solverOptions"],
+            "aeroProblem": self.options["aeroProblem"],
+            "meshingOptions": self.options["meshingOptions"],
+            "refine": self.options["refine"],
+            "writeSliceFile": self.options["writeSliceFile"]
+        }
+
+        # Adding non-shape DV
+        if "alpha" in self.DV:
+            loc = self.locator == "alpha"
+            loc = loc.reshape(-1,)
+            input["alpha"] = x[loc]
+
+        if "mach" in self.DV:
+            loc = self.locator == "mach"
+            loc = loc.reshape(-1,)
+            input["mach"] = x[loc]
+
+        if "altitude" in self.DV:
+            loc = self.locator == "altitude"
+            loc = loc.reshape(-1,)
+            input["altitude"] = x[loc]
+
+        # Saving the input file
+        filehandler = open("input.pickle", "xb")
+        pickle.dump(input, filehandler)
+        filehandler.close()
+
+    def _writeCoords(self, coords, filename) -> None:
+        """
+            Writes out a set of airfoil coordinates in dat format.
+        """
+
+        # X and Y ccordinates of the airfoil
+        x = coords[:, 0]
+        y = coords[:, 1]
+
+        with open(filename, "w") as f:
+            for i in range(len(x)):
+                f.write(str(round(x[i], 12)) + "\t\t" + str(round(y[i], 12)) + "\n")
+
+        f.close()
+
+    def _writeSurfMesh(self, coords, filename):
+        """
+            Writes out surface mesh in Plot 3D format (one element in z direction)
+        """
+
+        # X and Y ccordinates of the airfoil
+        x = coords[:, 0]
+        y = coords[:, 1]
+
+        # Writing the file
+        with open(filename, "w") as f:
+            f.write("1\n")
+            f.write("%d %d %d\n" % (len(x), 2, 1))
+            for iDim in range(3):
+                for j in range(2):
+                    for i in range(len(x)):
+                        if iDim == 0:
+                            f.write("%g\n" % x[i])
+                        elif iDim == 1:
+                            f.write("%g\n" % y[i])
+                        else:
+                            f.write("%g\n" % (float(j)))
+
+        f.close()
+
+    def _plotAirfoil(self, points) -> None:
+        """
+            Method for plotting the base airfoil
+            and the deformed airfoil.
+        """
+
+        fig, ax = plt.subplots()
+
+        ax.plot(self.coords[:,0], self.coords[:,1], label="Original airfoil")
+        ax.plot(points[:,0], points[:,1], label="Deformed airfoil")
+        ax.set_xlabel("x/c", fontsize=14)
+        ax.set_ylabel("y/c", fontsize=14)
+        ax.legend(fontsize=12)
+
+        plt.savefig("airfoil.png", dpi=400)
+
+        plt.close()
 
     def _warning(self, message: str) -> None:
         """

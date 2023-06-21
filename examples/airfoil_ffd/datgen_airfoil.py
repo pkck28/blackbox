@@ -58,6 +58,8 @@ ap = AeroProblem(
     areaRef=1.0, chordRef=1.0, evalFuncs=["cl", "cd", "cmz"], xRef = 0.25, yRef = 0.0, zRef = 0.0
 )
 
+nffd = 20 # Number of FFD points
+
 # Options for blackbox
 options = {
     "solverOptions": solverOptions,
@@ -73,6 +75,15 @@ options = {
 # Example for generating samples
 airfoil = AirfoilFFD(options=options)
 
+# Add alpha as an design variables
 airfoil.addDV("alpha", lowerBound=1.5, upperBound=3.5)
 
-print(airfoil.DV)
+# Lower and upper bounds for shape variables
+lower = np.array([-0.01]*nffd)
+upper = np.array([0.01]*nffd)
+
+# Add shape as a design variables
+airfoil.addDV("shape", lowerBound=lower, upperBound=upper)
+
+# Generate samples
+airfoil.generateSamples(5)

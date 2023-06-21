@@ -370,7 +370,7 @@ class AirfoilCST():
 
         # Setting filepath based on the how alpha is treated alpha
         if self.options["alpha"] == "explicit":
-            filepath = os.path.join(pkgdir, "runscripts/runscript_airfoil_cst.py")
+            filepath = os.path.join(pkgdir, "runscripts/runscript_airfoil.py")
         else:
             # filepath = os.path.join(pkgdir, "runscripts/runscript_airfoil_cst_opt.py")
             filepath = os.path.join(pkgdir, "runscripts/runscript_airfoil_cst_rf.py")
