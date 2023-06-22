@@ -20,8 +20,6 @@ else:
 
 comm = MPI.COMM_WORLD
 
-comm = MPI.COMM_WORLD
-
 class DefaultOptions():
     """
         Class creates a default option which are later 
@@ -314,7 +312,7 @@ class AirfoilFFD():
         pkgdir = sys.modules["blackbox"].__path__[0]
 
         # Setting filepath based on the how alpha is treated alpha
-        filepath = os.path.join(pkgdir, "runscripts/runscript_airfoil_cst.py")
+        filepath = os.path.join(pkgdir, "runscripts/airfoil/runscript_airfoil.py")
 
         # Copy the runscript to analysis directory
         shutil.copy(filepath, "{}/{}/runscript.py".format(directory, self.genSamples+1))

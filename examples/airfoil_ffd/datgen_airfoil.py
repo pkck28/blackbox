@@ -86,4 +86,4 @@ upper = np.array([0.01]*nffd)
 airfoil.addDV("shape", lowerBound=lower, upperBound=upper)
 
 # Generate samples
-airfoil.generateSamples(5)
+airfoil.generateSamples(2)
