@@ -105,16 +105,18 @@ class WingFFD():
         self._checkDV(name, lowerBound, upperBound)
 
         if name == "shape":
-            locator = np.array(["{}".format(name)]*len(lowerBound))
+
+            # Getting the number of ffd points
+            nffd = self.DVGeo.getLocalIndex(0).flatten().shape[0]
 
             if len(self.DV) == 0:
-                self.upperBound = upperBound
-                self.lowerBound = lowerBound
-                self.locator = locator
+                self.upperBound = np.array([upperBound]*nffd)
+                self.lowerBound = np.array([lowerBound]*nffd)
+                self.locator = np.array(["{}".format(name)]*nffd)
             else:
-                self.upperBound = np.append(self.upperBound, upperBound)
-                self.lowerBound = np.append(self.lowerBound, lowerBound)
-                self.locator = np.append(self.locator, locator)
+                self.upperBound = np.append(self.upperBound, np.array([upperBound]*nffd))
+                self.lowerBound = np.append(self.lowerBound, np.array([lowerBound]*nffd))
+                self.locator = np.append(self.locator, np.array(["{}".format(name)]*nffd))
 
             # Adding ffd as dv
             self.DVGeo.addLocalDV("shape", lower=lowerBound, upper=upperBound, axis="y", scale=1.0)
@@ -224,25 +226,14 @@ class WingFFD():
             if name not in self.options["aeroProblem"].inputs.keys():
                 self._error("You need to initialize \"{}\" in the aero problem to set it as design variable.".format(name))
 
-        # Validating the bounds for "shape" variable
-        if name == "shape":
-            if not isinstance(lb, np.ndarray) or lb.ndim != 1:
-                self._error("Lower bound for \"shape\" variable should be a 1D numpy array.")
+        if not isinstance(lb, float):
+            self._error("Lower Bound argument is not a float.")
 
-            if not isinstance(ub, np.ndarray) or ub.ndim != 1:
-                self._error("Upper bound for \"shape\" variable should be a 1D numpy array.")
+        if not isinstance(ub, float):
+            self._error("Upper Bound argument is not a float.")
 
-            # Getting the ffd points
-            pts = self.DVGeo.getLocalIndex(0).flatten # location of all the ffd points
-
-            if len(lb) != self.options["nffd"]:
-                self._error("Length of lower bound array is not equal to number of FFD points.")
-
-            if len(ub) != self.options["nffd"]:
-                self._error("Length of upper bound array is not equal to number of FFD points.")
-
-            if np.any(lb >= ub):
-                self._error("Lower bound is greater than or equal to upper bound for atleast one DV.")
+        if lb >= ub:
+            self._error("Lower bound is greater than or equal to upper bound.")
 
     # ----------------------------------------------------------------------------
     #                               Other methods

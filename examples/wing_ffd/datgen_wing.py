@@ -1,6 +1,5 @@
 from blackbox import WingFFD
 from baseclasses import AeroProblem
-import numpy as np
 
 solverOptions = {
     # Common Parameters
@@ -44,4 +43,11 @@ options = {
     "aeroProblem": ap
 }
 
+# Create the wing object
 wing = WingFFD(options=options)
+
+# Add alpha as a design variable
+wing.addDV("alpha", lowerBound=2.0, upperBound=3.0)
+
+# Add the wing shape as a design variable
+wing.addDV("shape", lowerBound=-0.01, upperBound=0.01)
