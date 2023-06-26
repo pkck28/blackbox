@@ -395,6 +395,62 @@ class AirfoilFFD():
             # Increase the number of generated samples
             self.genSamples += 1
 
+    def calculateArea(self, x: np.ndarray) -> float:
+        """
+            Note: This function should not be called in the middle of analysis
+            It should ONLY be used from outside. Do not use this method within 
+            getObjectives. That method has its own implementation
+            of area calculation.
+
+            Function to calculate the area of the airfoil
+            based on the value of design variable.
+
+            Input:
+            x - 1D numpy array (value of dv).
+
+            Ouput:
+            area: area of the airfoil.
+
+            Note: To use this method, shape should be added as DV
+        """
+
+        # Performing checks
+        if len(self.DV) == 0:
+            self._error("Add design variables before running the analysis.")
+
+        if not isinstance(x, np.ndarray):
+            self._error("Input sample is not a numpy array.")
+
+        if x.ndim != 1:
+            self._error("Input sample is a single dimensional array.")
+
+        if len(x) != len(self.lowerBound):
+            self._error("Input sample is not of correct size.")
+
+        if "upper" not in self.DV and "lower" not in self.DV:
+            self._error("\"upper\" or \"lower\" surface is not added as design variable.")
+
+        # Creating dictionary from x
+        newDV = {}
+        for dv in self.DV:
+            loc = self.locator == dv
+            loc = loc.reshape(-1,)
+            newDV[dv] = x[loc]
+
+        # Updating the airfoil pointset based on new DV
+        self.DVGeo.setDesignVars(newDV)
+
+        # Getting the updated airfoil points
+        points = self.DVGeo.update("airfoil")[:,0:2]
+        x = points[:,0]
+        y = points[:,1]
+
+        # Calculate the area using simpson's rule
+        # Note: x and y are both flipped here
+        area = integrate.simpson(x, y, even='avg')
+
+        return area
+
     # ----------------------------------------------------------------------------
     #                       Methods related to validation
     # ----------------------------------------------------------------------------
