@@ -6,9 +6,10 @@ from scipy import integrate
 from pyDOE2 import lhs
 from mpi4py import MPI
 from baseclasses import AeroProblem
-from pygeo import DVGeometry, geo_utils
-from prefoil import Airfoil
-from prefoil.utils import readCoordFile
+from pygeo import DVGeometry, DVConstraints
+from pygeo.geo_utils.polygon import *
+from cgnsutilities.cgnsutilities import readGrid
+from idwarp import USMesh
 
 # Trying to import matplotlib
 try:
@@ -34,7 +35,7 @@ class DefaultOptions():
         # Other options
         self.directory = "output"
         self.noOfProcessors = 4
-        self.writeSliceFile = False
+        self.sliceLocation = [0.05, 0.25, 0.5, 0.75, 0.95] # defines slice location
 
 class WingFFD():
     """
@@ -85,8 +86,39 @@ class WingFFD():
             os.system("rm -r {}".format(directory))
             os.system("mkdir {}".format(directory))
 
+        # Create mesh deformation object
+        self.mesh = USMesh(options={"gridFile": self.options["volumeMesh"]})
+
+        # Get the surface mesh coordinates
+        surfMesh = self.mesh.getSurfaceCoordinates()
+
+        # Read the volume grid
+        grid = readGrid(self.options["volumeMesh"])
+
+        # Extract the surface and write it out for DVCon
+        grid.extractSurface("wing_surf.xyz")
+
         # Creating DVGeometry object
         self.DVGeo = DVGeometry(self.options["ffdFile"])
+
+        # Adding surface mesh co-ordinates as a pointset
+        self.DVGeo.addPointSet(surfMesh, "wing_surface_mesh")
+
+        # Creating DVConstraints object
+        self.DVCon = DVConstraints()
+
+        # Connecting DVGeo and DVCon
+        self.DVCon.setDVGeo(self.DVGeo)
+
+        # Set the surface of DVConstraint
+        self.DVCon.setSurface("wing_surf.xyz", name="wing_surface")
+
+        p1, p2, p3 = self.DVCon._getSurfaceVertices("wing_surface")
+
+        vol = volumeTriangulatedMesh(p1, p2, p3)
+
+        # Removing the surface mesh file
+        os.system("rm wing_surf.xyz")
 
         # Some initializations which will be used later
         self.DV = []
@@ -135,6 +167,198 @@ class WingFFD():
 
         # Adding the DV to the list
         self.DV.append(name)
+
+    # ----------------------------------------------------------------------------
+    #                   Methods related to sample generation
+    # ----------------------------------------------------------------------------
+
+    def generateSamples(self, numSamples: int) -> None:
+        """
+            Method for generating samples.
+        """
+
+        # Performing checks
+        if len(self.DV) == 0:
+            self._error("Add design variables before running the analysis.")
+
+        if not isinstance(numSamples, int):
+            self._error("Number of samples argument is not an integer.")
+
+        # Number of analysis passed/failed
+        failed =[]
+        totalTime = 0
+
+        # Generating LHS samples
+        samples = self._lhs(numSamples)
+
+        # Creating empty dictionary for storing the data
+        data = {}
+
+        # Creating and writing a description file
+        description = open("{}/description.txt".format(self.options["directory"]), "a", buffering=1)
+        description.write("---------------------------------------------------")
+        description.write("\nAirfoil sample generation with FFD parametrization")
+        description.write("\n--------------------------------------------------")
+        description.write("\nDesign variables: {}".format(self.DV))
+        description.write("\nNumber of FFD points: {}".format(samples.shape[1]))
+        description.write("\nLower bound for design variables:\n{}".format(self.lowerBound))
+        description.write("\nUpper bound for design variables:\n{}".format(self.upperBound))
+        description.write("\nTotal number of samples requested: {}".format(numSamples))
+        description.write("\n-----------------------------")
+        description.write("\nAnalysis specific description")
+        description.write("\n-----------------------------")
+
+        # Generate data
+        for sampleNo in range(numSamples):
+
+            description.write("\nAnalysis {}: ".format(sampleNo+1))
+
+            # Current sample
+            x = samples[sampleNo,:]
+
+            description.write("\nDesign Variable: {}".format(x))
+
+            # Starting time
+            t1 = time.time()
+
+            # try:
+            # Getting output for specific sample
+            output = self.getObjectives(x)
+
+            # finally:
+            # Ending time
+            t2 = time.time()
+
+            totalTime += (t2-t1)/60
+
+            # Writing time taken to file
+            description.write("\nTime taken for analysis: {} min.".format((t2-t1)/60))
+
+        # Making generated samples 0
+        self.genSamples = 0
+
+        # Writing final results in the description file
+        description.write("\n--------------------------------------")
+        description.write("\nTotal time taken for analysis: {} min.".format(totalTime))
+        description.write("\nNumber of successful analysis: {}".format(numSamples - len(failed)))
+        description.write("\nNumber of failed analysis: {}".format(len(failed)))
+        if len(failed) != 0:
+            description.write("\nFailed analysis: {}".format(failed))
+
+        # Closing the description file
+        description.close()
+
+    def getObjectives(self, x: np.ndarray) -> tuple:
+        """
+            Method for running a single analysis.
+        """
+
+        # Performing checks
+        if len(self.DV) == 0:
+            self._error("Add design variables before running the analysis.")
+
+        if not isinstance(x, np.ndarray):
+            self._error("Input sample is not a numpy array.")
+
+        if x.ndim != 1:
+            self._error("Input sample is a single dimensional array.")
+
+        if len(x) != len(self.lowerBound):
+            self._error("Input sample is not of correct size.")
+
+        print("Running analysis {}".format(self.genSamples + 1))
+
+        directory = self.options["directory"]
+
+        # Create the folder for saving the results
+        os.system("mkdir {}/{}".format(directory, self.genSamples+1))
+
+        # Getting the directory where package is saved
+        pkgdir = sys.modules["blackbox"].__path__[0]
+
+        # Setting filepath based on the how alpha is treated alpha
+        filepath = os.path.join(pkgdir, "runscripts/runscript_wing.py")
+
+        # Copy the runscript to analysis directory
+        shutil.copy(filepath, "{}/{}/runscript.py".format(directory, self.genSamples+1))
+
+        # Creating the new design variable dict
+        # If there are no shape DV, then DVGeo
+        # will not update the wing surface.
+        newDV = {}
+        for dv in self.DV:
+            loc = self.locator == dv
+            loc = loc.reshape(-1,)
+            newDV[dv] = x[loc]
+
+        # Creating the new design variable dict
+        self.DVGeo.setDesignVars(newDV)
+        newSurfMesh = self.DVGeo.update("wing_surface_mesh")
+
+        # Update the surface mesh in IdWarp
+        self.mesh.setSurfaceCoordinates(newSurfMesh)
+
+        # Deform the volume mesh
+        self.mesh.warpMesh()
+
+        # Changing the directory to analysis folder
+        os.chdir("{}/{}".format(directory, self.genSamples+1))
+
+        # Write the new grid file.
+        self.mesh.writeGrid('volMesh.cgns')
+
+        # Create input file
+        self._creatInputFile(x)
+
+        # Spawning the runscript on desired number of processors
+        child_comm = MPI.COMM_SELF.Spawn(sys.executable, args=["runscript.py"], maxprocs=self.options["noOfProcessors"])
+
+        # Creating empty process id list
+        pid_list = []
+
+        # Getting each spawned process
+        for processor in range(self.options["noOfProcessors"]):
+            pid = child_comm.recv(source=MPI.ANY_SOURCE, tag=processor)
+            pid_list.append(psutil.Process(pid))
+
+        # Disconnecting from intercommunicator
+        child_comm.Disconnect()
+
+        # Waiting till all the child processors are finished
+        while len(pid_list) != 0:
+            for pid in pid_list:
+                if not pid.is_running():
+                    pid_list.remove(pid)
+
+        try:
+            # Reading the output file containing results
+            filehandler = open("output.pickle", 'rb')
+
+        except:
+            raise Exception
+
+        else:
+            # Read the output
+            output = pickle.load(filehandler)
+            filehandler.close()
+
+            # output["volume"] = volume
+
+            return output
+
+        finally:
+            # Cleaning the directory
+            files = ["surfMesh.xyz", "volMesh.cgns", "input.pickle", "runscript.py",
+                    "output.pickle", "fort.6", "opt.hst"]
+            for file in files:
+                if os.path.exists(file):
+                    os.system("rm {}".format(file))
+
+            # Changing the directory back to root
+            os.chdir("../..")
+
+            # Increase the number of generated samples
+            self.genSamples += 1
 
     # ----------------------------------------------------------------------------
     #                       Methods related to validation
@@ -191,10 +415,10 @@ class WingFFD():
             if psutil.cpu_count(False) < options["noOfProcessors"] + 1:
                 self._error("\"noOfProcessors\" requested is more than available processors.")
 
-        ############ Validating writeSliceFile
-        if "writeSliceFile" in userProvidedOptions:
-            if not isinstance(options["writeSliceFile"], bool):
-                self._error("\"writeSliceFile\" attribute is not a boolean value.")
+        ############ Validating sliceLocation
+        if "sliceLocation" in userProvidedOptions:
+            if not isinstance(options["sliceLocation"], list):
+                self._error("\"sliceLocation\" attribute is not a list of relative slice locations on wing.")
 
         ############ Validating directory attribute
         if "directory" in userProvidedOptions:
@@ -278,12 +502,45 @@ class WingFFD():
         dim = len(self.lowerBound)
 
         # Generating normalized lhs samples
-        samples = lhs(dim, samples=numSamples, criterion='cm', iterations=1000)
+        samples = lhs(dim, samples=numSamples, criterion='cm', iterations=100*dim)
 
         # Scaling the samples
         x = self.lowerBound + (self.upperBound - self.lowerBound) * samples
 
         return x
+    
+    def _creatInputFile(self, x:np.ndarray) -> None:
+        """
+            Method to create an input file for analysis.
+        """
+
+        # Creating input dict
+        input = {
+            "solverOptions": self.options["solverOptions"],
+            "aeroProblem": self.options["aeroProblem"],
+            "sliceLocation": self.options["sliceLocation"]
+        }
+
+        # Adding non-shape DV
+        if "alpha" in self.DV:
+            loc = self.locator == "alpha"
+            loc = loc.reshape(-1,)
+            input["alpha"] = x[loc]
+
+        if "mach" in self.DV:
+            loc = self.locator == "mach"
+            loc = loc.reshape(-1,)
+            input["mach"] = x[loc]
+
+        if "altitude" in self.DV:
+            loc = self.locator == "altitude"
+            loc = loc.reshape(-1,)
+            input["altitude"] = x[loc]
+
+        # Saving the input file
+        filehandler = open("input.pickle", "xb")
+        pickle.dump(input, filehandler)
+        filehandler.close()
 
     def _warning(self, message: str) -> None:
         """
