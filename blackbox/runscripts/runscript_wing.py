@@ -42,7 +42,7 @@ try:
     # Getting solver and meshing options from input file
     solverOptions = input["solverOptions"]
     solverOptions["gridFile"] = "volMesh.cgns"
-    solverOptions["liftindex"] = 2 # Always 2 since meshing is done internally
+    solverOptions["liftindex"] = 2 # Need to add this in documentation
     
     ############## Settign up adflow
 
@@ -58,7 +58,7 @@ try:
 
     # Adding pressure distribution output
     for loc in slice: 
-        CFDSolver.addSlices("z", loc, sliceType="relative")
+        CFDSolver.addSlices("z", loc, sliceType="absolute")
 
     ############## Run CFD
     CFDSolver(ap)

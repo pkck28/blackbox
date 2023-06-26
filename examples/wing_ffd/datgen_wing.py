@@ -41,7 +41,8 @@ options = {
     "volumeMesh": "wing_vol.cgns",
     "ffdFile": "wing_ffd.xyz",
     "aeroProblem": ap,
-    "noOfProcessors": 11,
+    "noOfProcessors": 4,
+    "sliceLocation": [0.7, 3.5, 7, 10.5, 13.3]
 }
 
 # Create the wing object
@@ -53,4 +54,4 @@ wing.addDV("alpha", lowerBound=2.0, upperBound=3.0)
 # Add the wing shape as a design variable
 wing.addDV("shape", lowerBound=-0.03, upperBound=0.03)
 
-wing.generateSamples(2)
+wing.generateSamples(5)

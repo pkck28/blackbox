@@ -2,22 +2,14 @@
 import os, sys, shutil, pickle, time, psutil
 import numpy as np
 from scipy.io import savemat
-from scipy import integrate
 from pyDOE2 import lhs
 from mpi4py import MPI
 from baseclasses import AeroProblem
-from pygeo import DVGeometry, DVConstraints
-from pygeo.geo_utils.polygon import *
+from pygeo import DVGeometry
+from pygeo.geo_utils.polygon import volumeTriangulatedMesh
+from pygeo.geo_utils.file_io import readPlot3DSurfFile
 from cgnsutilities.cgnsutilities import readGrid
 from idwarp import USMesh
-
-# Trying to import matplotlib
-try:
-    import matplotlib.pyplot as plt
-except ImportError:
-    msg_matplotlib = "Matplotlib is not installed"
-else:
-    msg_matplotlib = None
 
 comm = MPI.COMM_WORLD
 
@@ -35,11 +27,11 @@ class DefaultOptions():
         # Other options
         self.directory = "output"
         self.noOfProcessors = 4
-        self.sliceLocation = [0.05, 0.25, 0.5, 0.75, 0.95] # defines slice location
+        self.sliceLocation = [] # defines slice location
 
 class WingFFD():
     """
-        This class provides methods for generating samples for a simple wing
+        This class provides methods for generating samples for a given wing
         using FFD parameterization.
     """
 
@@ -92,33 +84,11 @@ class WingFFD():
         # Get the surface mesh coordinates
         surfMesh = self.mesh.getSurfaceCoordinates()
 
-        # Read the volume grid
-        grid = readGrid(self.options["volumeMesh"])
-
-        # Extract the surface and write it out for DVCon
-        grid.extractSurface("wing_surf.xyz")
-
         # Creating DVGeometry object
         self.DVGeo = DVGeometry(self.options["ffdFile"])
 
         # Adding surface mesh co-ordinates as a pointset
         self.DVGeo.addPointSet(surfMesh, "wing_surface_mesh")
-
-        # Creating DVConstraints object
-        self.DVCon = DVConstraints()
-
-        # Connecting DVGeo and DVCon
-        self.DVCon.setDVGeo(self.DVGeo)
-
-        # Set the surface of DVConstraint
-        self.DVCon.setSurface("wing_surf.xyz", name="wing_surface")
-
-        p1, p2, p3 = self.DVCon._getSurfaceVertices("wing_surface")
-
-        vol = volumeTriangulatedMesh(p1, p2, p3)
-
-        # Removing the surface mesh file
-        os.system("rm wing_surf.xyz")
 
         # Some initializations which will be used later
         self.DV = []
@@ -197,12 +167,10 @@ class WingFFD():
         # Creating and writing a description file
         description = open("{}/description.txt".format(self.options["directory"]), "a", buffering=1)
         description.write("---------------------------------------------------")
-        description.write("\nAirfoil sample generation with FFD parametrization")
+        description.write("\nWing sample generation with FFD parametrization")
         description.write("\n--------------------------------------------------")
         description.write("\nDesign variables: {}".format(self.DV))
-        description.write("\nNumber of FFD points: {}".format(samples.shape[1]))
-        description.write("\nLower bound for design variables:\n{}".format(self.lowerBound))
-        description.write("\nUpper bound for design variables:\n{}".format(self.upperBound))
+        description.write("\nNumber of DVs: {}".format(samples.shape[1]))
         description.write("\nTotal number of samples requested: {}".format(numSamples))
         description.write("\n-----------------------------")
         description.write("\nAnalysis specific description")
@@ -216,23 +184,48 @@ class WingFFD():
             # Current sample
             x = samples[sampleNo,:]
 
-            description.write("\nDesign Variable: {}".format(x))
-
             # Starting time
             t1 = time.time()
 
-            # try:
-            # Getting output for specific sample
-            output = self.getObjectives(x)
+            try:
+                # Getting output for specific sample
+                output = self.getObjectives(x)
 
-            # finally:
-            # Ending time
-            t2 = time.time()
+            except Exception as e:
+                print("Error occured during the analysis. Check analysis.log in the respective folder for more details.")
+                failed.append(sampleNo + 1)
+                description.write("\nAnalysis failed.")
 
-            totalTime += (t2-t1)/60
+            else:
+                # Check for analysis failure
+                if output["fail"] == True: # Check for analysis failure
+                    failed.append(sampleNo + 1)
+                    description.write("\nAnalysis failed.")
 
-            # Writing time taken to file
-            description.write("\nTime taken for analysis: {} min.".format((t2-t1)/60))
+                # Creating a dictionary of data
+                else:
+                    if self.genSamples - len(failed) == 1:
+                        data["x"] = np.array(x)
+                        for value in output.keys():
+                            data[value] = np.array([output[value]])
+
+                    else:
+                        # Appending data dictionary created earlier
+                        data["x"] = np.vstack((data["x"], x))
+                        for value in output.keys():
+                            data[value] = np.vstack(( data[value], np.array([output[value]]) ))
+
+                    # Saving the results
+                    savemat("{}/data.mat".format(self.options["directory"]), data)
+
+            finally:
+                # Ending time
+                t2 = time.time()
+
+                totalTime += (t2-t1)/60
+
+                # Writing time taken to file
+                description.write("\nTime taken for analysis: {} min.".format((t2-t1)/60))
 
         # Making generated samples 0
         self.genSamples = 0
@@ -342,7 +335,19 @@ class WingFFD():
             output = pickle.load(filehandler)
             filehandler.close()
 
-            # output["volume"] = volume
+            # Read the volume grid
+            grid = readGrid("volMesh.cgns")
+
+            # Extract the surface mesh
+            grid.extractSurface("surfMesh.xyz")
+
+            # Getting the vertex coordinates of the triangulated surface mesh
+            p0, v1, v2 = readPlot3DSurfFile("surfMesh.xyz")
+            p1 = p0 + v1 # Second vertex
+            p2 = p0 + v2 # Third vertex
+
+            # Calculating the volume of the triangulated surface mesh
+            output["volume"] = volumeTriangulatedMesh(p0, p1, p2)
 
             return output
 
@@ -359,6 +364,68 @@ class WingFFD():
 
             # Increase the number of generated samples
             self.genSamples += 1
+
+    def calculateVolume(self, x):
+        """
+            Method for calculating volume of the wing based 
+            on the given design variables.
+        """
+
+        # Performing checks
+        if len(self.DV) == 0:
+            self._error("Add design variables before running the analysis.")
+
+        if not isinstance(x, np.ndarray):
+            self._error("Input sample is not a numpy array.")
+
+        if x.ndim != 1:
+            self._error("Input sample is a single dimensional array.")
+
+        if len(x) != len(self.lowerBound):
+            self._error("Input sample is not of correct size.")
+
+        if "shape" not in self.DV:
+            self._error("\"shape\" is not a design variable.")
+
+        # Creating dictionary from x
+        newDV = {}
+        for dv in self.DV:
+            loc = self.locator == dv
+            loc = loc.reshape(-1,)
+            newDV[dv] = x[loc]
+
+        # Updating the airfoil pointset based on new DV
+        self.DVGeo.setDesignVars(newDV)
+
+        newSurfMesh = self.DVGeo.update("wing_surface_mesh")
+
+        # Update the surface mesh in IdWarp
+        self.mesh.setSurfaceCoordinates(newSurfMesh)
+
+        # Deform the volume mesh
+        self.mesh.warpMesh()
+
+        # Write the new grid file.
+        self.mesh.writeGrid('wing_x.cgns')
+
+        # Read the volume grid
+        grid = readGrid("wing_x.cgns")
+
+        # Extract the surface mesh
+        grid.extractSurface("wing_surf_x.xyz")
+
+        # Getting the vertex coordinates of the triangulated surface mesh
+        p0, v1, v2 = readPlot3DSurfFile("wing_surf_x.xyz")
+        p1 = p0 + v1 # Second vertex
+        p2 = p0 + v2 # Third vertex
+
+        # Deleting the temporary files
+        os.system("rm wing_surf_x.xyz wing_x.cgns")
+
+        # Calculating the volume
+        vol = volumeTriangulatedMesh(p0, p1, p2)
+
+        return vol
 
     # ----------------------------------------------------------------------------
     #                       Methods related to validation
