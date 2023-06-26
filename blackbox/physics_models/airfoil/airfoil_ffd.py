@@ -233,7 +233,6 @@ class AirfoilFFD():
                 output = self.getObjectives(x)
 
             except Exception as e:
-                print(e)
                 print("Error occured during the analysis. Check analysis.log in the respective folder for more details.")
                 failed.append(sampleNo + 1)
                 description.write("\nAnalysis failed.")
@@ -583,7 +582,7 @@ class AirfoilFFD():
         dim = len(self.lowerBound)
 
         # Generating normalized lhs samples
-        samples = lhs(dim, samples=numSamples, criterion='cm', iterations=1000)
+        samples = lhs(dim, samples=numSamples, criterion='cm', iterations=100*dim)
 
         # Scaling the samples
         x = self.lowerBound + (self.upperBound - self.lowerBound) * samples
