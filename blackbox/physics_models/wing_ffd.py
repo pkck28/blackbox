@@ -28,6 +28,7 @@ class DefaultOptions():
         self.directory = "output"
         self.noOfProcessors = 4
         self.sliceLocation = [] # defines slice location
+        self.writeDeformedFFD = False
 
 class WingFFD():
     """
@@ -297,6 +298,10 @@ class WingFFD():
         # Changing the directory to analysis folder
         os.chdir("{}/{}".format(directory, self.genSamples+1))
 
+        # Write deformed FFD file
+        if self.options["writeDeformedFFD"] == True:
+            self.DVGeo.writePlot3d("deformedFFD.xyz")
+
         # Write the new grid file.
         self.mesh.writeGrid('volMesh.cgns')
 
@@ -335,10 +340,10 @@ class WingFFD():
             output = pickle.load(filehandler)
             filehandler.close()
 
-            # Read the volume grid
+            # Read the deformed volume grid
             grid = readGrid("volMesh.cgns")
 
-            # Extract the surface mesh
+            # Write out deformed surface mesh
             grid.extractSurface("surfMesh.xyz")
 
             # Getting the vertex coordinates of the triangulated surface mesh
@@ -406,21 +411,21 @@ class WingFFD():
         self.mesh.warpMesh()
 
         # Write the new grid file.
-        self.mesh.writeGrid('wing_x.cgns')
+        self.mesh.writeGrid('volMesh.cgns')
 
         # Read the volume grid
-        grid = readGrid("wing_x.cgns")
+        grid = readGrid("volMesh.cgns")
 
         # Extract the surface mesh
-        grid.extractSurface("wing_surf_x.xyz")
+        grid.extractSurface("surfMesh.xyz")
 
         # Getting the vertex coordinates of the triangulated surface mesh
-        p0, v1, v2 = readPlot3DSurfFile("wing_surf_x.xyz")
+        p0, v1, v2 = readPlot3DSurfFile("surfMesh.xyz")
         p1 = p0 + v1 # Second vertex
         p2 = p0 + v2 # Third vertex
 
         # Deleting the temporary files
-        os.system("rm wing_surf_x.xyz wing_x.cgns")
+        os.system("rm surfMesh.xyz volMesh.cgns")
 
         # Calculating the volume
         vol = volumeTriangulatedMesh(p0, p1, p2)
@@ -486,6 +491,11 @@ class WingFFD():
         if "sliceLocation" in userProvidedOptions:
             if not isinstance(options["sliceLocation"], list):
                 self._error("\"sliceLocation\" attribute is not a list of relative slice locations on wing.")
+
+        ############ Validating writeDeformedFFD
+        if "writeDeformedFFD" in userProvidedOptions:
+            if not isinstance(options["writeDeformedFFD"], bool):
+                self._error("\"writeDeformedFFD\" attribute is not a boolean value.")
 
         ############ Validating directory attribute
         if "directory" in userProvidedOptions:
