@@ -56,9 +56,9 @@ try:
     CFDSolver = ADFLOW(options=solverOptions, comm=comm)
 
     # Adding pressure distribution output
-    if solverOptions["liftindex"] == 2: # y
+    if solverOptions["liftIndex"] == 2: # y
         sliceDirection = "z"
-    elif solverOptions["liftindex"] == 3: # z
+    elif solverOptions["liftIndex"] == 3: # z
         sliceDirection = "y"
 
     for loc in slice: 

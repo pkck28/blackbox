@@ -51,7 +51,7 @@ class WingFFD():
         self._getDefaultOptions()
 
         # Setting up the required options list
-        requiredOptions = ["solverOptions", "volumeMesh", "ffdFile", "aeroProblem"]
+        requiredOptions = ["solverOptions", "ffdFile", "aeroProblem"]
 
         # Validating user provided options
         self._checkOptions(options, requiredOptions)
@@ -80,7 +80,7 @@ class WingFFD():
             os.system("mkdir {}".format(directory))
 
         # Create mesh deformation object
-        self.mesh = USMesh(options={"gridFile": self.options["volumeMesh"]})
+        self.mesh = USMesh(options={"gridFile": self.options["solverOptions"]["gridFile"]})
 
         # Get the surface mesh coordinates
         surfMesh = self.mesh.getSurfaceCoordinates()
@@ -122,7 +122,12 @@ class WingFFD():
                 self.locator = np.append(self.locator, np.array(["{}".format(name)]*nffd))
 
             # Adding ffd as dv
-            self.DVGeo.addLocalDV("shape", lower=lowerBound, upper=upperBound, axis="y", scale=1.0)
+            if self.options["solverOptions"]["liftIndex"] == 2: # y 
+                axis = "y"
+            elif self.options["solverOptions"]["liftIndex"] == 3: # z
+                axis = "z"
+
+            self.DVGeo.addLocalDV("shape", lower=lowerBound, upper=upperBound, axis=axis, scale=1.0)
 
         else:
             locator = np.array(["{}".format(name)])
@@ -299,7 +304,7 @@ class WingFFD():
         os.chdir("{}/{}".format(directory, self.genSamples+1))
 
         # Write deformed FFD file
-        if self.options["writeDeformedFFD"] == True:
+        if self.options["writeDeformedFFD"]:
             self.DVGeo.writePlot3d("deformedFFD.xyz")
 
         # Write the new grid file.
@@ -464,20 +469,21 @@ class WingFFD():
         if not isinstance(options["solverOptions"], dict):
             self._error("\"solverOptions\" attribute is not a dictionary.")
 
-        if "gridFile" in options["solverOptions"].keys():
-            self._warning("\"gridFile\" attribute in solver options is not required.")
+        if "gridFile" not in options["solverOptions"].keys():
+            self._error("\"gridFile\" attribute in solver options is not provided.")
+        elif not os.path.exists(os.path.abspath(options["solverOptions"]["gridFile"])):
+            self._error("Provided grid file doesn't exists.")
+        else:
+            options["solverOptions"]["gridFile"] = os.path.abspath(options["solverOptions"]["gridFile"])
+
+        if "liftIndex" not in options["solverOptions"].keys():
+            self._error("\"liftIndex\" attribute in solver options is not provided.")
 
         ############ Validating ffdFile
         if not os.path.exists(os.path.abspath(options["ffdFile"])):
             self._error("Provided FFD file doesn't exists.")
         else:
             options["ffdFile"] = os.path.abspath(options["ffdFile"])
-
-        ############ Validating volumeMesh
-        if not os.path.exists(os.path.abspath(options["volumeMesh"])):
-            self._error("Provided Volume mesh file doesn't exists.")
-        else:
-            options["volumeMesh"] = os.path.abspath(options["volumeMesh"])
 
         ############ Validating noOfProcessors
         if "noOfProcessors" in userProvidedOptions:
