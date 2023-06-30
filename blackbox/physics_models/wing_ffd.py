@@ -88,6 +88,9 @@ class WingFFD():
         # Creating DVGeometry object
         self.DVGeo = DVGeometry(self.options["ffdFile"])
 
+        # Number of FFD points
+        self.nffd = self.DVGeo.getLocalIndex(0).flatten().shape[0]
+
         # Adding surface mesh co-ordinates as a pointset
         self.DVGeo.addPointSet(surfMesh, "wing_surface_mesh")
 
@@ -109,17 +112,14 @@ class WingFFD():
 
         if name == "shape":
 
-            # Getting the number of ffd points
-            nffd = self.DVGeo.getLocalIndex(0).flatten().shape[0]
-
             if len(self.DV) == 0:
-                self.upperBound = np.array([upperBound]*nffd)
-                self.lowerBound = np.array([lowerBound]*nffd)
-                self.locator = np.array(["{}".format(name)]*nffd)
+                self.upperBound = upperBound
+                self.lowerBound = lowerBound
+                self.locator = np.array(["{}".format(name)]*self.nffd)
             else:
-                self.upperBound = np.append(self.upperBound, np.array([upperBound]*nffd))
-                self.lowerBound = np.append(self.lowerBound, np.array([lowerBound]*nffd))
-                self.locator = np.append(self.locator, np.array(["{}".format(name)]*nffd))
+                self.upperBound = np.append(self.upperBound, upperBound)
+                self.lowerBound = np.append(self.lowerBound, lowerBound)
+                self.locator = np.append(self.locator, np.array(["{}".format(name)]*self.nffd))
 
             # Adding ffd as dv
             if self.options["solverOptions"]["liftIndex"] == 2: # y 
@@ -533,14 +533,32 @@ class WingFFD():
             if name not in self.options["aeroProblem"].inputs.keys():
                 self._error("You need to initialize \"{}\" in the aero problem to set it as design variable.".format(name))
 
-        if not isinstance(lb, float):
-            self._error("Lower Bound argument is not a float.")
+        # Validating the bounds for "shape" variable
+        if name == "shape":
+            if not isinstance(lb, np.ndarray) or lb.ndim != 1:
+                self._error("Lower bound for \"shape\" variable should be a 1D numpy array.")
 
-        if not isinstance(ub, float):
-            self._error("Upper Bound argument is not a float.")
+            if not isinstance(ub, np.ndarray) or ub.ndim != 1:
+                self._error("Upper bound for \"shape\" variable should be a 1D numpy array.")
 
-        if lb >= ub:
-            self._error("Lower bound is greater than or equal to upper bound.")
+            if len(lb) != self.nffd:
+                self._error("Length of lower bound array is not equal to number of FFD points.")
+
+            if len(ub) != self.nffd:
+                self._error("Length of upper bound array is not equal to number of FFD points.")
+
+            if np.any(lb >= ub):
+                self._error("Lower bound is greater than or equal to upper bound for atleast one DV.")
+
+        else:
+            if not isinstance(lb, float):
+                self._error("Lower Bound argument is not a float.")
+
+            if not isinstance(ub, float):
+                self._error("Upper Bound argument is not a float.")
+
+            if lb >= ub:
+                self._error("Lower bound is greater than or equal to upper bound.")
 
     # ----------------------------------------------------------------------------
     #                               Other methods

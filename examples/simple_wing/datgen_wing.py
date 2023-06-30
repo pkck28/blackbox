@@ -1,5 +1,6 @@
 from blackbox import WingFFD
 from baseclasses import AeroProblem
+import numpy as np
 
 solverOptions = {
     # Common Parameters
@@ -42,7 +43,7 @@ options = {
     "solverOptions": solverOptions,
     "ffdFile": "wing_ffd.xyz",
     "aeroProblem": ap,
-    "noOfProcessors": 4,
+    "noOfProcessors": 8,
     "sliceLocation": [0.14, 3.22, 6.3, 9.38, 12.46, 13.86],
     "writeDeformedFFD": True,
 }
@@ -54,6 +55,10 @@ wing = WingFFD(options=options)
 wing.addDV("alpha", lowerBound=2.0, upperBound=5.0)
 
 # Add the wing shape as a design variable
-wing.addDV("shape", lowerBound=-0.03, upperBound=0.03)
+nffd = 96 # Number of FFD points
+lowerBound = np.array([-0.03]*nffd)
+upperBound = np.array([0.03]*nffd)
+wing.addDV("shape", lowerBound=lowerBound, upperBound=upperBound)
 
+# Generate samples
 wing.generateSamples(5)

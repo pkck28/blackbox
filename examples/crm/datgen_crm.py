@@ -1,5 +1,6 @@
 from blackbox import WingFFD
 from baseclasses import AeroProblem
+import numpy as np
 
 solverOptions = {
     # Common Parameters
@@ -38,7 +39,7 @@ solverOptions = {
 
 # Creating aeroproblem for adflow
 ap = AeroProblem(
-    name="ap", alpha=2.2, mach=0.85, reynolds=5e6, reynoldsLength=1.0, T=298.15,
+    name="crm", alpha=2.2, mach=0.85, reynolds=5e6, reynoldsLength=1.0, T=298.15,
     areaRef=3.407014, chordRef=1.0, evalFuncs=["cl", "cd", "cmy"], xRef = 1.2077, yRef = 0.0, 
     zRef = 0.007669
 )
@@ -59,6 +60,9 @@ wing = WingFFD(options=options)
 wing.addDV("alpha", lowerBound=1.5, upperBound=3.5)
 
 # Add the wing shape as a design variable
-wing.addDV("shape", lowerBound=-0.01, upperBound=0.01)
+nffd = 192 # Number of FFD points
+lowerBound = np.array([-0.01]*nffd)
+upperBound = np.array([0.01]*nffd)
+wing.addDV("shape", lowerBound=lowerBound, upperBound=upperBound)
 
 wing.generateSamples(5)
