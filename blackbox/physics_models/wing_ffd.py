@@ -94,6 +94,19 @@ class WingFFD():
         # Adding surface mesh co-ordinates as a pointset
         self.DVGeo.addPointSet(surfMesh, "wing_surface_mesh")
 
+        if self.options["solverOptions"]["liftIndex"] == 2: # y
+            self.spanIndex = "k" # If y is lift index, then span is along z (k)
+            self.liftIndex = "y"
+        elif self.options["solverOptions"]["liftIndex"] == 3: # z
+            self.spanIndex = "j" # If z is lift index, then span is along y (i)
+            self.liftIndex = "z"
+
+        # Create reference axis
+        self.nRefAxPts = self.DVGeo.addRefAxis("wingAxis", xFraction=0.25, alignIndex=self.spanIndex)
+
+        # Number of twist locations
+        self.nTwist = self.nRefAxPts - 1 # Root is fixed
+
         # Some initializations which will be used later
         self.DV = []
         self.genSamples = 0
@@ -110,36 +123,39 @@ class WingFFD():
         # Checking
         self._checkDV(name, lowerBound, upperBound)
 
+        # Adding the pyGeo related DVs
         if name == "shape":
+            self.DVGeo.addLocalDV("shape", lower=lowerBound, upper=upperBound, axis=self.liftIndex, scale=1.0)
 
-            if len(self.DV) == 0:
-                self.upperBound = upperBound
-                self.lowerBound = lowerBound
-                self.locator = np.array(["{}".format(name)]*self.nffd)
-            else:
-                self.upperBound = np.append(self.upperBound, upperBound)
-                self.lowerBound = np.append(self.lowerBound, lowerBound)
-                self.locator = np.append(self.locator, np.array(["{}".format(name)]*self.nffd))
+        elif name == "twist":
+            def twist_z(val, geo):
+                for i in range(1, self.nRefAxPts):
+                    geo.rot_z["wingAxis"].coef[i] = -val[i - 1]
 
-            # Adding ffd as dv
-            if self.options["solverOptions"]["liftIndex"] == 2: # y 
-                axis = "y"
-            elif self.options["solverOptions"]["liftIndex"] == 3: # z
-                axis = "z"
+            def twist_y(val, geo):
+                for i in range(1, self.nRefAxPts):
+                    geo.rot_y["wingAxis"].coef[i] = val[i - 1]
 
-            self.DVGeo.addLocalDV("shape", lower=lowerBound, upper=upperBound, axis=axis, scale=1.0)
+            # Adding the twist DV
+            if self.spanIndex == "k":
+                self.DVGeo.addGlobalDV(dvName="twist", value=[0]*self.nTwist, func=twist_z, lower=lowerBound, upper=upperBound)
+            elif self.spanIndex == "j":
+                self.DVGeo.addGlobalDV(dvName="twist", value=[0]*self.nTwist, func=twist_y, lower=lowerBound, upper=upperBound)
 
+        # Converting to numpy array
+        if isinstance(lowerBound, float):
+            lowerBound = np.array([lowerBound])
+            upperBound = np.array([upperBound])
+
+        # Creating/Appending the design variable list
+        if len(self.DV) == 0:
+            self.upperBound = upperBound
+            self.lowerBound = lowerBound
+            self.locator = np.array(["{}".format(name)]*upperBound.shape[0])
         else:
-            locator = np.array(["{}".format(name)])
-
-            if len(self.DV) == 0:
-                self.upperBound = np.array([upperBound])
-                self.lowerBound = np.array([lowerBound])
-                self.locator = np.array([locator])
-            else:
-                self.upperBound = np.append(self.upperBound, upperBound)
-                self.lowerBound = np.append(self.lowerBound, lowerBound)
-                self.locator = np.append(self.locator, locator)    
+            self.upperBound = np.append(self.upperBound, upperBound)
+            self.lowerBound = np.append(self.lowerBound, lowerBound)
+            self.locator = np.append(self.locator, np.array(["{}".format(name)]*upperBound.shape[0]))
 
         # Adding the DV to the list
         self.DV.append(name)
@@ -307,7 +323,7 @@ class WingFFD():
         if self.options["writeDeformedFFD"]:
             self.DVGeo.writePlot3d("deformedFFD.xyz")
 
-        # Write the new grid file.
+        # Write the new grid file
         self.mesh.writeGrid('volMesh.cgns')
 
         # Create input file
@@ -514,7 +530,7 @@ class WingFFD():
         """
 
         # List of possible DVs
-        possibleDVs = ["shape", "alpha", "mach", "altitude"]
+        possibleDVs = ["shape", "twist", "alpha", "mach", "altitude"]
 
         # Validating name of the DV
         if not isinstance(name, str):
@@ -534,18 +550,26 @@ class WingFFD():
                 self._error("You need to initialize \"{}\" in the aero problem to set it as design variable.".format(name))
 
         # Validating the bounds for "shape" variable
-        if name == "shape":
+        if name == "shape" or name == "twist":
             if not isinstance(lb, np.ndarray) or lb.ndim != 1:
                 self._error("Lower bound for \"shape\" variable should be a 1D numpy array.")
 
             if not isinstance(ub, np.ndarray) or ub.ndim != 1:
                 self._error("Upper bound for \"shape\" variable should be a 1D numpy array.")
+            
+            if name == "shape":
+                if len(lb) != self.nffd:
+                    self._error("Length of lower bound array is not equal to number of FFD points.")
 
-            if len(lb) != self.nffd:
-                self._error("Length of lower bound array is not equal to number of FFD points.")
+                if len(ub) != self.nffd:
+                    self._error("Length of upper bound array is not equal to number of FFD points.")
 
-            if len(ub) != self.nffd:
-                self._error("Length of upper bound array is not equal to number of FFD points.")
+            elif name == "twist":
+                if len(lb) != self.nTwist:
+                    self._error("Length of lower bound array is not equal to number of twist variables.")
+
+                if len(ub) != self.nTwist:
+                    self._error("Length of upper bound array is not equal to number of twist variables.")
 
             if np.any(lb >= ub):
                 self._error("Lower bound is greater than or equal to upper bound for atleast one DV.")

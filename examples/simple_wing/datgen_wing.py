@@ -55,10 +55,14 @@ wing = WingFFD(options=options)
 wing.addDV("alpha", lowerBound=2.0, upperBound=5.0)
 
 # Add the wing shape as a design variable
-nffd = 96 # Number of FFD points
-lowerBound = np.array([-0.03]*nffd)
-upperBound = np.array([0.03]*nffd)
+lowerBound = np.array([-0.03]*wing.nffd)
+upperBound = np.array([0.03]*wing.nffd)
 wing.addDV("shape", lowerBound=lowerBound, upperBound=upperBound)
+
+# Add the wing twist as a design variable
+lowerBound = np.array([-2.0]*wing.nTwist)
+upperBound = np.array([2.0]*wing.nTwist)
+wing.addDV("twist", lowerBound=lowerBound, upperBound=upperBound)
 
 # Generate samples
 wing.generateSamples(5)
