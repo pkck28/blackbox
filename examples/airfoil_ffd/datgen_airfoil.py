@@ -47,7 +47,7 @@ meshingOptions = {
     # ---------------------------
     #        Grid Parameters
     # ---------------------------
-    "N": 257,
+    "N": 129,
     "s0": 1e-6,
     "marchDist": 100.0,
 }
@@ -69,7 +69,9 @@ options = {
     "nffd": 20,
     "meshingOptions": meshingOptions,
     "writeAirfoilCoordinates": True,
-    "plotAirfoil": True
+    "plotAirfoil": True,
+    "writeDeformedFFD": True,
+    "fitted": True
 }
 
 # Example for generating samples
@@ -86,4 +88,4 @@ upper = np.array([0.01]*nffd)
 airfoil.addDV("shape", lowerBound=lower, upperBound=upper)
 
 # Generate samples
-airfoil.generateSamples(2)
+airfoil.generateSamples(5)

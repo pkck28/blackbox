@@ -6,7 +6,7 @@ from scipy import integrate
 from pyDOE2 import lhs
 from mpi4py import MPI
 from baseclasses import AeroProblem
-from pygeo import DVGeometry, geo_utils
+from pygeo import DVGeometry
 from prefoil import Airfoil
 from prefoil.utils import readCoordFile
 
@@ -38,6 +38,7 @@ class DefaultOptions():
         self.writeSliceFile = False
         self.writeAirfoilCoordinates = False
         self.plotAirfoil = False
+        self.writeDeformedFFD = False
 
         # FFD related options
         self.fitted = False
@@ -152,13 +153,8 @@ class AirfoilFFD():
                 self.lowerBound = np.append(self.lowerBound, lowerBound)
                 self.locator = np.append(self.locator, locator)
 
-            # Getting the ffd points
-            pts = self.DVGeo.getLocalIndex(0) # location of all the ffd points
-
-            # Adding ffd at root as local dv
-            indexList1 = pts[:, :, 0].flatten()
-            PS1 = geo_utils.PointSelect("list", indexList1)
-            self.DVGeo.addLocalDV("shape", lower=lowerBound, upper=upperBound, axis="y", scale=1.0, pointSelect=PS1)
+            # Adding FFD points as a DV
+            self.DVGeo.addSpanwiseLocalDV("shape", spanIndex="k", axis="y", lower=lowerBound, upper=upperBound)
             
         else:
             locator = np.array(["{}".format(name)])
@@ -337,6 +333,9 @@ class AirfoilFFD():
 
         if self.options["plotAirfoil"]:
             self._plotAirfoil(points)
+
+        if self.options["writeDeformedFFD"]:
+            self.DVGeo.writePlot3d("deformedFFD.xyz")
 
         # Create input file
         self._creatInputFile(x)
@@ -543,6 +542,10 @@ class AirfoilFFD():
             if not isinstance(options["ymarginl"], float):
                 self._error("\"ymarginl\" attribute is not a float.")
 
+        if "writeDeformedFFD" in userProvidedOptions:
+            if not isinstance(options["writeDeformedFFD"], bool):
+                self._error("\"writeDeformedFFD\" attribute is not a boolean.")
+
     def _checkDV(self, name: str, lb: float or np.ndarray, ub: float or np.ndarray) -> None:
         """
             Method for validating DV user wants to add.
@@ -584,6 +587,27 @@ class AirfoilFFD():
 
             if np.any(lb >= ub):
                 self._error("Lower bound is greater than or equal to upper bound for atleast one DV.")
+
+            # Checking if the bounds are within the limits
+            coeff = self.DVGeo.origFFDCoef
+            index = self.DVGeo.getLocalIndex(0)
+            dist = coeff[index[:,1,0], 1] - coeff[index[:,0,0], 1]
+            allowableLowerBound = np.zeros(self.options["nffd"])
+            allowableUpperBound = np.zeros(self.options["nffd"])
+
+            for i in range(dist.shape[0]):
+                allowableLowerBound[2*i] = -0.45 * dist[i]
+                allowableLowerBound[2*i+1] = -0.45 * dist[i]
+                allowableUpperBound[2*i] = 0.45 * dist[i]
+                allowableUpperBound[2*i+1] = 0.45 * dist[i]
+
+            if np.any(lb <= allowableLowerBound):
+                self._error("Lower bound for some FFD points is greater than or equal to 45% of the \
+                            local FFD thickness. Reduce the bound and try again.")
+                
+            if np.any(ub >= allowableUpperBound):
+                self._error("Upper bound for some FFD points is greater than or equal to 45% of the \
+                            local FFD thickness. Reduce the bound and try again.")
 
         else:
             if not isinstance(lb, float):
