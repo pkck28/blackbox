@@ -101,4 +101,4 @@ ub = coeff + np.sign(coeff)*0.3*coeff
 airfoil.addDV("upper", lowerBound=lb, upperBound=ub)
 
 # Generating the samples
-airfoil.generateSamples(5)
+airfoil.generateSamples(2)

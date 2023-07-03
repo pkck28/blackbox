@@ -76,9 +76,6 @@ class AirfoilCST():
         # Setting up default options
         self._getDefaultOptions()
 
-        # Changing to absolute path for airfoil file
-        options["airfoilFile"] = os.path.abspath(options["airfoilFile"])
-
         # Setting up the required options list
         requiredOptions = ["solverOptions", "meshingOptions", "airfoilFile", "aeroProblem", "numCST"]
 
@@ -373,10 +370,10 @@ class AirfoilCST():
 
         # Setting filepath based on the how alpha is treated alpha
         if self.options["alpha"] == "explicit":
-            filepath = os.path.join(pkgdir, "runscripts/runscript_airfoil_cst.py")
+            filepath = os.path.join(pkgdir, "runscripts/airfoil/runscript_airfoil.py")
         else:
-            # filepath = os.path.join(pkgdir, "runscripts/runscript_airfoil_cst_opt.py")
-            filepath = os.path.join(pkgdir, "runscripts/runscript_airfoil_cst_rf.py")
+            # filepath = os.path.join(pkgdir, "runscripts/airfoil/runscipt_airfoil_cst_opt.py")
+            filepath = os.path.join(pkgdir, "runscripts/airfoil/runscript_airfoil_cst_rf.py")
 
         # Copy the runscript to analysis directory
         shutil.copy(filepath, "{}/{}/runscript.py".format(directory, self.genSamples+1))
@@ -570,8 +567,10 @@ class AirfoilCST():
                         .format(set(requiredOptions) - set(userProvidedOptions)))
 
         ############ Validating airfoilFile
-        if not os.path.exists(options["airfoilFile"]):
-            self._error("\"airfoilFile\" doesn't exists.")            
+        if not os.path.exists(os.path.abspath(options["airfoilFile"])):
+            self._error("\"airfoilFile\" doesn't exists.")
+        else:
+            options["airfoilFile"] = os.path.abspath(options["airfoilFile"]) 
 
         ############ Validating numCST
         if not isinstance(options["numCST"], list):

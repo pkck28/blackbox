@@ -1,4 +1,4 @@
-from blackbox import AirfoilCST
+from blackbox import AirfoilFFD
 from baseclasses import AeroProblem
 import numpy as np
 
@@ -32,8 +32,7 @@ solverOptions = {
     "NKOuterPreconIts": 3,
     "NKInnerPreconIts": 3,
     # Termination Criteria
-    "L2Convergence": 1e-14,
-    "L2ConvergenceCoarse": 1e-4
+    "L2Convergence": 1e-14
 }
 
 meshingOptions = {
@@ -59,37 +58,32 @@ ap = AeroProblem(
     areaRef=1.0, chordRef=1.0, evalFuncs=["cl", "cd", "cmz"], xRef = 0.25, yRef = 0.0, zRef = 0.0
 )
 
+nffd = 20 # Number of FFD points
+
 # Options for blackbox
 options = {
     "solverOptions": solverOptions,
     "noOfProcessors": 8,
     "aeroProblem": ap,
-    "airfoilFile": "rae2822_L1.dat",
-    "numCST": [6, 6],
+    "airfoilFile": "rae2822.dat",
+    "nffd": 20,
     "meshingOptions": meshingOptions,
     "writeAirfoilCoordinates": True,
-    "plotAirfoil": True,
+    "plotAirfoil": True
 }
 
 # Example for generating samples
-airfoil = AirfoilCST(options=options)
+airfoil = AirfoilFFD(options=options)
 
-######### Multi Analysis
+# Add alpha as an design variables
+airfoil.addDV("alpha", lowerBound=1.5, upperBound=3.5)
 
-# Adding design variable
-airfoil.addDV("alpha", 2.0, 3.0)
+# Lower and upper bounds for shape variables
+lower = np.array([-0.01]*nffd)
+upper = np.array([0.01]*nffd)
 
-# Adding lower surface CST coeffs as DV
-coeff = airfoil.DVGeo.defaultDV["lower"] # get the fitted CST coeff
-lb = coeff - np.sign(coeff)*0.3*coeff
-ub = coeff + np.sign(coeff)*0.3*coeff
-airfoil.addDV("lower", lowerBound=lb, upperBound=ub)
+# Add shape as a design variables
+airfoil.addDV("shape", lowerBound=lower, upperBound=upper)
 
-# Adding upper surface CST coeffs as DV
-coeff = airfoil.DVGeo.defaultDV["upper"] # get the fitted CST coeff
-lb = coeff - np.sign(coeff)*0.3*coeff
-ub = coeff + np.sign(coeff)*0.3*coeff
-airfoil.addDV("upper", lowerBound=lb, upperBound=ub)
-
-# Generating the samples
+# Generate samples
 airfoil.generateSamples(2)
