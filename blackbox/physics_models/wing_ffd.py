@@ -30,6 +30,12 @@ class DefaultOptions():
         self.sliceLocation = [] # defines slice location
         self.writeDeformedFFD = False
 
+        # Alpha implicit related options
+        self.alpha = "explicit"
+        self.targetCL = 0.5
+        self.targetCLTol = 1e-4
+        self.startingAlpha = 2.5
+
 class WingFFD():
     """
         This class provides methods for generating samples for a given wing
@@ -292,7 +298,10 @@ class WingFFD():
         pkgdir = sys.modules["blackbox"].__path__[0]
 
         # Setting filepath based on the how alpha is treated alpha
-        filepath = os.path.join(pkgdir, "runscripts/runscript_wing.py")
+        if self.options["alpha"] == "explicit":
+            filepath = os.path.join(pkgdir, "runscripts/runscript_wing.py")
+        else:
+            filepath = os.path.join(pkgdir, "runscripts/runscript_wing_rf.py")
 
         # Copy the runscript to analysis directory
         shutil.copy(filepath, "{}/{}/runscript.py".format(directory, self.genSamples+1))
@@ -524,6 +533,27 @@ class WingFFD():
             if not isinstance(options["directory"], str):
                 self._error("\"directory\" attribute is not string.")
 
+        ############ Validating implicit\explicit alpha
+        if "alpha" in userProvidedOptions:
+            if not isinstance(options["alpha"], str):
+                self._error("\"alpha\" attribute is not string.")
+
+            if options["alpha"] not in ["explicit", "implicit"]:
+                self._error("\"alpha\" attribute is not recognized. It can be either \"explicit\" or \"implicit\".")
+
+            if options["alpha"] == "implicit":
+                if "targetCL" in userProvidedOptions:
+                    if not isinstance(options["targetCL"], float):
+                        self._error("\"targetCL\" option is not float.")
+
+                if "targetCLTol" in userProvidedOptions:
+                    if not isinstance(options["targetCLTol"], float):
+                        self._error("\"targetCLTol\" option is not float.")
+                
+                if "startingAlpha" in userProvidedOptions:
+                    if not isinstance(options["startingAlpha"], float):
+                        self._error("\"startingAlpha\" option is not float.")
+
     def _checkDV(self, name: str, lb: float or np.ndarray, ub: float or np.ndarray) -> None:
         """
             Method for validating DV user wants to add.
@@ -548,6 +578,11 @@ class WingFFD():
         if name in ["mach", "altitude"]:
             if name not in self.options["aeroProblem"].inputs.keys():
                 self._error("You need to initialize \"{}\" in the aero problem to set it as design variable.".format(name))
+
+        # Checking if alpha can be added as a DV
+        if name == "alpha":
+            if self.options["alpha"] != "explicit":
+                self._error("Alpha cannot be a design variable when \"alpha\" attribute in option is \"implicit\".")
 
         # Validating the bounds for "shape" variable
         if name == "shape" or name == "twist":
@@ -661,6 +696,12 @@ class WingFFD():
             loc = self.locator == "altitude"
             loc = loc.reshape(-1,)
             input["altitude"] = x[loc]
+
+        # Adding target Cl if alpha is implicit
+        if self.options["alpha"] == "implicit":
+            input["targetCL"] = self.options["targetCL"]
+            input["targetCLTol"] = self.options["targetCLTol"]
+            input["startingAlpha"] = self.options["startingAlpha"]
 
         # Saving the input file
         filehandler = open("input.pickle", "xb")
