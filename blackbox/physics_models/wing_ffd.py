@@ -30,6 +30,12 @@ class DefaultOptions():
         self.sliceLocation = [] # defines slice location
         self.writeDeformedFFD = False
 
+        # Alpha implicit related options
+        self.alpha = "explicit"
+        self.targetCL = 0.5
+        self.targetCLTol = 1e-4
+        self.startingAlpha = 2.5
+
 class WingFFD():
     """
         This class provides methods for generating samples for a given wing
@@ -94,6 +100,19 @@ class WingFFD():
         # Adding surface mesh co-ordinates as a pointset
         self.DVGeo.addPointSet(surfMesh, "wing_surface_mesh")
 
+        if self.options["solverOptions"]["liftIndex"] == 2: # y
+            self.spanIndex = "k" # If y is lift index, then span is along z (k)
+            self.liftIndex = "y"
+        elif self.options["solverOptions"]["liftIndex"] == 3: # z
+            self.spanIndex = "j" # If z is lift index, then span is along y (i)
+            self.liftIndex = "z"
+
+        # Create reference axis
+        self.nRefAxPts = self.DVGeo.addRefAxis("wingAxis", xFraction=0.25, alignIndex=self.spanIndex)
+
+        # Number of twist locations
+        self.nTwist = self.nRefAxPts - 1 # Root is fixed
+
         # Some initializations which will be used later
         self.DV = []
         self.genSamples = 0
@@ -110,36 +129,39 @@ class WingFFD():
         # Checking
         self._checkDV(name, lowerBound, upperBound)
 
+        # Adding the pyGeo related DVs
         if name == "shape":
+            self.DVGeo.addLocalDV("shape", lower=lowerBound, upper=upperBound, axis=self.liftIndex, scale=1.0)
 
-            if len(self.DV) == 0:
-                self.upperBound = upperBound
-                self.lowerBound = lowerBound
-                self.locator = np.array(["{}".format(name)]*self.nffd)
-            else:
-                self.upperBound = np.append(self.upperBound, upperBound)
-                self.lowerBound = np.append(self.lowerBound, lowerBound)
-                self.locator = np.append(self.locator, np.array(["{}".format(name)]*self.nffd))
+        elif name == "twist":
+            def twist_z(val, geo):
+                for i in range(1, self.nRefAxPts):
+                    geo.rot_z["wingAxis"].coef[i] = -val[i - 1]
 
-            # Adding ffd as dv
-            if self.options["solverOptions"]["liftIndex"] == 2: # y 
-                axis = "y"
-            elif self.options["solverOptions"]["liftIndex"] == 3: # z
-                axis = "z"
+            def twist_y(val, geo):
+                for i in range(1, self.nRefAxPts):
+                    geo.rot_y["wingAxis"].coef[i] = val[i - 1]
 
-            self.DVGeo.addLocalDV("shape", lower=lowerBound, upper=upperBound, axis=axis, scale=1.0)
+            # Adding the twist DV
+            if self.spanIndex == "k":
+                self.DVGeo.addGlobalDV(dvName="twist", value=[0]*self.nTwist, func=twist_z, lower=lowerBound, upper=upperBound)
+            elif self.spanIndex == "j":
+                self.DVGeo.addGlobalDV(dvName="twist", value=[0]*self.nTwist, func=twist_y, lower=lowerBound, upper=upperBound)
 
+        # Converting to numpy array
+        if isinstance(lowerBound, float):
+            lowerBound = np.array([lowerBound])
+            upperBound = np.array([upperBound])
+
+        # Creating/Appending the design variable list
+        if len(self.DV) == 0:
+            self.upperBound = upperBound
+            self.lowerBound = lowerBound
+            self.locator = np.array(["{}".format(name)]*upperBound.shape[0])
         else:
-            locator = np.array(["{}".format(name)])
-
-            if len(self.DV) == 0:
-                self.upperBound = np.array([upperBound])
-                self.lowerBound = np.array([lowerBound])
-                self.locator = np.array([locator])
-            else:
-                self.upperBound = np.append(self.upperBound, upperBound)
-                self.lowerBound = np.append(self.lowerBound, lowerBound)
-                self.locator = np.append(self.locator, locator)    
+            self.upperBound = np.append(self.upperBound, upperBound)
+            self.lowerBound = np.append(self.lowerBound, lowerBound)
+            self.locator = np.append(self.locator, np.array(["{}".format(name)]*upperBound.shape[0]))
 
         # Adding the DV to the list
         self.DV.append(name)
@@ -276,7 +298,10 @@ class WingFFD():
         pkgdir = sys.modules["blackbox"].__path__[0]
 
         # Setting filepath based on the how alpha is treated alpha
-        filepath = os.path.join(pkgdir, "runscripts/runscript_wing.py")
+        if self.options["alpha"] == "explicit":
+            filepath = os.path.join(pkgdir, "runscripts/runscript_wing.py")
+        else:
+            filepath = os.path.join(pkgdir, "runscripts/runscript_wing_rf.py")
 
         # Copy the runscript to analysis directory
         shutil.copy(filepath, "{}/{}/runscript.py".format(directory, self.genSamples+1))
@@ -307,7 +332,7 @@ class WingFFD():
         if self.options["writeDeformedFFD"]:
             self.DVGeo.writePlot3d("deformedFFD.xyz")
 
-        # Write the new grid file.
+        # Write the new grid file
         self.mesh.writeGrid('volMesh.cgns')
 
         # Create input file
@@ -508,13 +533,34 @@ class WingFFD():
             if not isinstance(options["directory"], str):
                 self._error("\"directory\" attribute is not string.")
 
+        ############ Validating implicit\explicit alpha
+        if "alpha" in userProvidedOptions:
+            if not isinstance(options["alpha"], str):
+                self._error("\"alpha\" attribute is not string.")
+
+            if options["alpha"] not in ["explicit", "implicit"]:
+                self._error("\"alpha\" attribute is not recognized. It can be either \"explicit\" or \"implicit\".")
+
+            if options["alpha"] == "implicit":
+                if "targetCL" in userProvidedOptions:
+                    if not isinstance(options["targetCL"], float):
+                        self._error("\"targetCL\" option is not float.")
+
+                if "targetCLTol" in userProvidedOptions:
+                    if not isinstance(options["targetCLTol"], float):
+                        self._error("\"targetCLTol\" option is not float.")
+                
+                if "startingAlpha" in userProvidedOptions:
+                    if not isinstance(options["startingAlpha"], float):
+                        self._error("\"startingAlpha\" option is not float.")
+
     def _checkDV(self, name: str, lb: float or np.ndarray, ub: float or np.ndarray) -> None:
         """
             Method for validating DV user wants to add.
         """
 
         # List of possible DVs
-        possibleDVs = ["shape", "alpha", "mach", "altitude"]
+        possibleDVs = ["shape", "twist", "alpha", "mach", "altitude"]
 
         # Validating name of the DV
         if not isinstance(name, str):
@@ -533,19 +579,32 @@ class WingFFD():
             if name not in self.options["aeroProblem"].inputs.keys():
                 self._error("You need to initialize \"{}\" in the aero problem to set it as design variable.".format(name))
 
+        # Checking if alpha can be added as a DV
+        if name == "alpha":
+            if self.options["alpha"] != "explicit":
+                self._error("Alpha cannot be a design variable when \"alpha\" attribute in option is \"implicit\".")
+
         # Validating the bounds for "shape" variable
-        if name == "shape":
+        if name == "shape" or name == "twist":
             if not isinstance(lb, np.ndarray) or lb.ndim != 1:
                 self._error("Lower bound for \"shape\" variable should be a 1D numpy array.")
 
             if not isinstance(ub, np.ndarray) or ub.ndim != 1:
                 self._error("Upper bound for \"shape\" variable should be a 1D numpy array.")
+            
+            if name == "shape":
+                if len(lb) != self.nffd:
+                    self._error("Length of lower bound array is not equal to number of FFD points.")
 
-            if len(lb) != self.nffd:
-                self._error("Length of lower bound array is not equal to number of FFD points.")
+                if len(ub) != self.nffd:
+                    self._error("Length of upper bound array is not equal to number of FFD points.")
 
-            if len(ub) != self.nffd:
-                self._error("Length of upper bound array is not equal to number of FFD points.")
+            elif name == "twist":
+                if len(lb) != self.nTwist:
+                    self._error("Length of lower bound array is not equal to number of twist variables.")
+
+                if len(ub) != self.nTwist:
+                    self._error("Length of upper bound array is not equal to number of twist variables.")
 
             if np.any(lb >= ub):
                 self._error("Lower bound is greater than or equal to upper bound for atleast one DV.")
@@ -637,6 +696,12 @@ class WingFFD():
             loc = self.locator == "altitude"
             loc = loc.reshape(-1,)
             input["altitude"] = x[loc]
+
+        # Adding target Cl if alpha is implicit
+        if self.options["alpha"] == "implicit":
+            input["targetCL"] = self.options["targetCL"]
+            input["targetCLTol"] = self.options["targetCLTol"]
+            input["startingAlpha"] = self.options["startingAlpha"]
 
         # Saving the input file
         filehandler = open("input.pickle", "xb")

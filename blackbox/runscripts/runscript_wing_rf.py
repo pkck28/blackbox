@@ -1,22 +1,21 @@
-import pickle, os, time
+############## Script file for running airfoil analysis.
+# Imports
+import pickle, os
 from mpi4py import MPI
-from baseclasses import AeroProblem
 from adflow import ADFLOW
-from idwarp import USMesh
-from pyhyp import pyHyp
-from cgnsutilities.cgnsutilities import readGrid
 
 # Getting MPI comm
 comm = MPI.COMM_WORLD
 parent_comm = comm.Get_parent()
 
+# Redirecting the stdout - only root processor does printing
+if comm.rank == 0:
+    stdout = os.dup(1)
+    log = open("log.txt", "a")
+    os.dup2(log.fileno(), 1)
+
 # Send the processor
 parent_comm.send(os.getpid(), dest=0, tag=comm.rank)
-
-# Redirecting the stdout
-stdout = os.dup(1)
-log = open("log.txt", "a")
-os.dup2(log.fileno(), 1)
 
 try:
     ############## Reading input file for the analysis
@@ -28,9 +27,10 @@ try:
 
     # Getting aero problem from input file
     ap = input["aeroProblem"]
-    refine = input["refine"]
-    slice = input["writeSliceFile"]
+    slice = input["sliceLocation"]
     CL_target = input["targetCL"]
+    tol = input["targetCLTol"]
+    alpha0 = input["startingAlpha"]
 
     # Assigning non-shape DVs
     if "mach" in input.keys():
@@ -42,46 +42,7 @@ try:
     # Getting solver and meshing options from input file
     solverOptions = input["solverOptions"]
     solverOptions["gridFile"] = "volMesh.cgns"
-    solverOptions["liftindex"] = 2 # Always 2 since meshing is done internally
-
-    meshingOptions = input["meshingOptions"]
-    meshingOptions["inputFile"] = "surfMesh.xyz"
-
-    ############## Generating mesh
-
-    if comm.rank == 0:
-        print("#" + "-"*129 + "#")
-        print(" "*59 + "Meshing Log" + ""*59)
-        print("#" + "-"*129 + "#")
-        print("")
-
-    hyp = pyHyp(options=meshingOptions, comm=comm)
-    hyp.run()
-    hyp.writeCGNS("volMesh.cgns")
-
-    ############## Refining the mesh
-
-    if comm.rank == 0:
-        # Read the grid
-        grid = readGrid("volMesh.cgns")
-
-        # Only one processor has to do this
-        if refine == 1:
-            grid.refine(['i', 'k'])
-        if refine == 2:
-            grid.refine(['i', 'k'])
-            grid.refine(['i', 'k'])
-        if refine == -1:
-            grid.coarsen()
-        if refine == -2:
-            grid.coarsen()
-            grid.coarsen()
-
-        grid.writeToCGNS("volMesh.cgns")
-        
-    # Wait till root is done with refining/coarse of mesh
-    comm.barrier()
-
+    
     ############## Settign up adflow
 
     if comm.rank == 0:
@@ -95,11 +56,16 @@ try:
     CFDSolver = ADFLOW(options=solverOptions, comm=comm)
 
     # Adding pressure distribution output
-    if slice:
-        CFDSolver.addSlices("z", 0.5, sliceType="absolute")
+    if solverOptions["liftIndex"] == 2: # y
+        sliceDirection = "z"
+    elif solverOptions["liftIndex"] == 3: # z
+        sliceDirection = "y"
+
+    for loc in slice: 
+        CFDSolver.addSlices(sliceDirection, loc, sliceType="absolute")
 
     ############## Solving for the CL
-    CFDSolver.solveCL(ap, CLStar=CL_target, alpha0=2.8, delta=0.2, tol=0.0001, autoReset=False, maxIter=8)
+    CFDSolver.solveCL(ap, CLStar=CL_target, alpha0=alpha0, delta=0.2, tol=tol, autoReset=False, maxIter=8)
 
     ############# Post-processing
 
@@ -112,7 +78,7 @@ try:
     CFDSolver.checkSolutionFailure(ap, funcs)
 
     # printing the result
-    if MPI.COMM_WORLD.rank == 0:
+    if comm.rank == 0:
         print("")
         print("#" + "-"*129 + "#")
         print(" "*59 + "Result" + ""*59)
@@ -141,11 +107,12 @@ except Exception as e:
 
 finally:
     # Redirecting to original stdout
-    os.dup2(stdout, 1)
+    if comm.rank == 0:
+        os.dup2(stdout, 1)
 
-    # close the file and stdout
-    log.close()
-    os.close(stdout)
+        # close the file and stdout
+        log.close()
+        os.close(stdout)
 
     # Getting intercomm and disconnecting
     # Otherwise, program will enter deadlock

@@ -48,7 +48,7 @@ options = {
     "solverOptions": solverOptions,
     "ffdFile": "crm_ffd.xyz",
     "aeroProblem": ap,
-    "noOfProcessors": 2,
+    "noOfProcessors": 8,
     "sliceLocation": [0.883, 1.003, 2.093, 2.612, 3.112, 3.548],
     "writeDeformedFFD": True
 }
@@ -60,9 +60,14 @@ wing = WingFFD(options=options)
 wing.addDV("alpha", lowerBound=1.5, upperBound=3.5)
 
 # Add the wing shape as a design variable
-nffd = 192 # Number of FFD points
-lowerBound = np.array([-0.01]*nffd)
-upperBound = np.array([0.01]*nffd)
+lowerBound = np.array([-0.01]*wing.nffd)
+upperBound = np.array([0.01]*wing.nffd)
 wing.addDV("shape", lowerBound=lowerBound, upperBound=upperBound)
 
+# Add the wing twist as a design variable
+lowerBound = np.array([-2.0]*wing.nTwist)
+upperBound = np.array([2.0]*wing.nTwist)
+wing.addDV("twist", lowerBound=lowerBound, upperBound=upperBound)
+
+# Generate samples
 wing.generateSamples(5)
