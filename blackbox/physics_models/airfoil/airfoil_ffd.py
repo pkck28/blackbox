@@ -10,6 +10,14 @@ from pygeo import DVGeometry
 from prefoil import Airfoil
 from prefoil.utils import readCoordFile
 
+# Trying to import pyvista
+try:
+    import pyvista
+except ImportError:
+    msg_pyvista = "pyVista is not installed"
+else:
+    msg_pyvista = None
+
 # Trying to import matplotlib
 try:
     import matplotlib.pyplot as plt
@@ -39,6 +47,11 @@ class DefaultOptions():
         self.writeAirfoilCoordinates = False
         self.plotAirfoil = False
         self.writeDeformedFFD = False
+
+        # Flow-field related options
+        # if getFlowFieldData is false, then all other options are useless
+        self.getFlowFieldData = False
+        self.region = "surface"
 
         # FFD related options
         self.fitted = False
@@ -81,6 +94,12 @@ class AirfoilFFD():
         self.options["solverOptions"]["outputDirectory"] = "."
         self.options["solverOptions"]["numberSolutions"] = False
         self.options["solverOptions"]["printTiming"] = False
+
+        # Raise an error if pyvista is not installed
+        if self.options["getFlowFieldData"]:
+            if msg_pyvista != None:
+                self._error(msg_pyvista)
+            self.options["solverOptions"]["writeSurfaceSolution"] = True
 
         # Raise an error if matplotlib is not installed
         if self.options["plotAirfoil"]:
@@ -196,6 +215,7 @@ class AirfoilFFD():
 
         # Creating empty dictionary for storing the data
         data = {}
+        fieldData = {}
 
         # Creating and writing a description file
         description = open("{}/description.txt".format(self.options["directory"]), "a", buffering=1)
@@ -226,7 +246,7 @@ class AirfoilFFD():
 
             try:
                 # Getting output for specific sample
-                output = self.getObjectives(x)
+                output, field = self.getObjectives(x)
 
             except Exception as e:
                 print("Error occured during the analysis. Check analysis.log in the respective folder for more details.")
@@ -246,14 +266,36 @@ class AirfoilFFD():
                         for value in output.keys():
                             data[value] = np.array([output[value]])
 
+                        # Creating a dictionary of field data
+                        if self.options["getFlowFieldData"]:
+                            fieldData["x"] = np.array(x)
+                            for value in field.keys():
+                                if field[value].ndim == 2:
+                                    fieldData[value] = field[value].reshape(1,-1,3)
+                                else:
+                                    fieldData[value] = field[value].reshape(1,-1)
+
                     else:
                         # Appending data dictionary created earlier
                         data["x"] = np.vstack((data["x"], x))
                         for value in output.keys():
                             data[value] = np.vstack(( data[value], np.array([output[value]]) ))
 
+                        # Appending field data dictionary created earlier
+                        if self.options["getFlowFieldData"]:
+                            fieldData["x"] = np.vstack((fieldData["x"], x))
+                            for value in field.keys():
+                                if field[value].ndim == 2:
+                                    fieldData[value] = np.vstack(( fieldData[value], field[value].reshape(1,-1,3) ))
+                                else:
+                                    fieldData[value] = np.vstack(( fieldData[value], field[value].reshape(1,-1) ))
+
                     # Saving the results
                     savemat("{}/data.mat".format(self.options["directory"]), data)
+
+                    # Saving the field data
+                    if self.options["getFlowFieldData"]:
+                        savemat("{}/fieldData.mat".format(self.options["directory"]), fieldData)
 
             finally:
                 # Ending time
@@ -378,7 +420,35 @@ class AirfoilFFD():
             # Calculate the area
             output["area"] = integrate.simpson(points[:,0], points[:,1], even="avg")
 
-            return output
+            if self.options["getFlowFieldData"]:
+                # Reading the cgns file
+                filename = self.options["aeroProblem"].name + "_surf.cgns"
+                reader = pyvista.CGNSReader(filename)
+                reader.load_boundary_patch = False
+
+                # Reading the mesh
+                mesh = reader.read()
+
+                # Setting region for extraction
+                if self.options["region"] == "surface":
+                    mesh = mesh[0][0]
+                else:
+                    mesh = mesh[0][2]
+
+                # Get the values
+                fieldData = {}
+
+                for index, var in enumerate(mesh.array_names):
+                    # Skipping the first entry in the array
+                    if index != 0:
+                        # set_active_scalars returns a tuple, and second
+                        # entry contains the pyvista numpy array.
+                        fieldData[var] = np.asarray(mesh.set_active_scalars(var, "cell")[1])
+
+            else:
+                fieldData = None
+
+            return output, fieldData
 
         finally:
             # Cleaning the directory
@@ -524,6 +594,19 @@ class AirfoilFFD():
         if "directory" in userProvidedOptions:
             if not isinstance(options["directory"], str):
                 self._error("\"directory\" attribute is not string.")
+
+        ############ Validating getFlowFieldData attribute
+        if "getFlowFieldData" in userProvidedOptions:
+            if not isinstance(options["getFlowFieldData"], bool):
+                self._error("\"getFlowFieldData\" attribute is not a boolean value.")
+
+            # Checking the other related options
+            if "region" in userProvidedOptions:
+                if not isinstance(options["region"], str):
+                    self._error("\"region\" attribute is not a string.")
+
+                if options["region"] not in ["surface", "field"]:
+                    self._error("\"region\" attribute is not recognized. It can be either \"surface\" or \"field\".")
 
         ############ Validating FFD options
         if "fitted" in userProvidedOptions:

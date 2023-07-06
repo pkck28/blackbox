@@ -48,7 +48,7 @@ options = {
     "solverOptions": solverOptions,
     "ffdFile": "crm_ffd.xyz",
     "aeroProblem": ap,
-    "noOfProcessors": 2,
+    "noOfProcessors": 8,
     "sliceLocation": [0.883, 1.003, 2.093, 2.612, 3.112, 3.548],
     "writeDeformedFFD": True
 }
