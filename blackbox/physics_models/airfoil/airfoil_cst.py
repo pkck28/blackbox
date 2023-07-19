@@ -208,9 +208,14 @@ class AirfoilCST():
     #                   Methods related to sample generation
     # ----------------------------------------------------------------------------
 
-    def generateSamples(self, numSamples: int) -> None:
+    def generateSamples(self, numSamples: int, doe: np.ndarray=None) -> None:
         """
             Method for generating samples.
+
+            Inputs: 
+            numSamples (int): Number of samples
+            doe (np.ndarray): User provided samples of size n x numSamples. 
+                            If not provided, then LHS samples are generated.
         """
 
         # Performing checks
@@ -224,8 +229,21 @@ class AirfoilCST():
         failed =[]
         totalTime = 0
 
-        # Generating LHS samples
-        samples = self._lhs(numSamples)
+        # Generating LHS samples or using user provided samples
+        if isinstance(doe, np.ndarray):
+            if doe.ndim != 2:
+                self._error("doe argument is not a 2D numpy array.")
+            
+            if doe.shape[0] != numSamples:
+                self._error("Number of samples in doe argument is not equal to numSamples argument.")
+
+            samples = doe
+
+        elif doe is None:
+            samples = self._lhs(numSamples)
+
+        else:
+            self._error("doe argument should be NONE or a numpy array.")
 
         # Creating empty dictionary for storing the data
         data = {}
