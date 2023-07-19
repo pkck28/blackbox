@@ -1,8 +1,8 @@
-import pickle, os, time
+############## Script file for running airfoil analysis.
+# Imports
+import pickle, os
 from mpi4py import MPI
-from baseclasses import AeroProblem
 from adflow import ADFLOW
-from idwarp import USMesh
 from pyhyp import pyHyp
 from cgnsutilities.cgnsutilities import readGrid
 
@@ -10,13 +10,14 @@ from cgnsutilities.cgnsutilities import readGrid
 comm = MPI.COMM_WORLD
 parent_comm = comm.Get_parent()
 
+# Redirecting the stdout
+if comm.rank == 0:
+    stdout = os.dup(1)
+    log = open("log.txt", "a")
+    os.dup2(log.fileno(), 1)
+
 # Send the processor
 parent_comm.send(os.getpid(), dest=0, tag=comm.rank)
-
-# Redirecting the stdout
-stdout = os.dup(1)
-log = open("log.txt", "a")
-os.dup2(log.fileno(), 1)
 
 try:
     ############## Reading input file for the analysis
@@ -31,6 +32,8 @@ try:
     refine = input["refine"]
     slice = input["writeSliceFile"]
     CL_target = input["targetCL"]
+    tol = input["targetCLTol"]
+    alpha0 = input["startingAlpha"]
 
     # Assigning non-shape DVs
     if "mach" in input.keys():
@@ -99,7 +102,7 @@ try:
         CFDSolver.addSlices("z", 0.5, sliceType="absolute")
 
     ############## Solving for the CL
-    CFDSolver.solveCL(ap, CLStar=CL_target, alpha0=2.8, delta=0.2, tol=0.0001, autoReset=False, maxIter=8)
+    CFDSolver.solveCL(ap, CLStar=CL_target, alpha0=alpha0, delta=0.2, tol=tol, autoReset=False, maxIter=8)
 
     ############# Post-processing
 
@@ -141,11 +144,13 @@ except Exception as e:
 
 finally:
     # Redirecting to original stdout
-    os.dup2(stdout, 1)
+    if comm.rank == 0:
+        # Redirecting to original stdout
+        os.dup2(stdout, 1)
 
-    # close the file and stdout
-    log.close()
-    os.close(stdout)
+        # close the file and stdout
+        log.close()
+        os.close(stdout)
 
     # Getting intercomm and disconnecting
     # Otherwise, program will enter deadlock
