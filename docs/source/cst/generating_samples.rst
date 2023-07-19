@@ -1,5 +1,3 @@
-.. _generating_samples:
-
 ******************
 Generating Samples
 ******************
@@ -10,7 +8,7 @@ Setting up options
 ------------------
 
 First step involves creating options dictionary which is used for initializating the module. There are various 
-options which can be set, please refer to :ref:`options<Options>` section for more details. Following snippet 
+options which can be set, please refer to :ref:`options<AirfoilCST Options>` section for more details. Following snippet 
 of the code shows an example::
 
     # Flow solver options

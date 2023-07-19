@@ -1,9 +1,8 @@
 # Blackbox
-Blackbox provides a way to generate data which can then be used for building/testing a surrogate model or for any other prupose.
-Currently, only airfoil data generation with CST parameterization is ready to use, rest all modules are under developement.
+Blackbox provides a way to generate aerodynamic/aerostructural data which can then be used for building/testing a surrogate model or for any other purpose. Currently, airfoil data generation using CST and FFD parameterization, and wing data generation using FFD parameterization are ready to use, aerostructural module is under developement.
 
 ## Documentation
-Since the repository is not public, you will have to build the documentation locally.
+**Since the repository is not public, you will have to build the documentation locally**.
 
 - Clone (not download) the repo in a folder where you usually store packages (``packages`` folder is recommended)
   since you will be installing in editable mode. Easiest way to clone is to use terminal.

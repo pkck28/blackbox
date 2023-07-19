@@ -1,5 +1,3 @@
-.. _generating_field_data:
-
 ******************
 Getting Field Data
 ******************

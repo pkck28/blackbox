@@ -3,8 +3,6 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-.. _adflow:
-
 =========================
 Blackbox
 =========================
@@ -14,4 +12,5 @@ Blackbox
 
    introduction
    install
-   airfoil_cst
+   cst/airfoil_cst
+   ffd/airfoil_ffd

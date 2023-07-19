@@ -1,5 +1,3 @@
-.. _airfoil_cst_tutorial:
-
 ********************************
 Airfoil with CST Parametrization
 ********************************
@@ -33,6 +31,6 @@ and then proceed to other sub-sections. The `rae2822.dat` file used in the tutor
 .. toctree::
    :maxdepth: 2
 
-   options_description
+   options_cst
    generating_samples
    generating_field_data
