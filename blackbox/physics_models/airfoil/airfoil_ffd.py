@@ -59,6 +59,12 @@ class DefaultOptions():
         self.ymarginu = 0.02
         self.ymarginl = 0.02
 
+        # Alpha implicit related options
+        self.alpha = "explicit"
+        self.targetCL = 0.824
+        self.targetCLTol = 1e-4
+        self.startingAlpha = 2.5
+
 class AirfoilFFD():
     """
         This class provides methods for generating samples for a general airfoil
@@ -194,9 +200,14 @@ class AirfoilFFD():
     #                   Methods related to sample generation
     # ----------------------------------------------------------------------------
 
-    def generateSamples(self, numSamples: int) -> None:
+    def generateSamples(self, numSamples: int, doe: np.ndarray=None) -> None:
         """
             Method for generating samples.
+
+            Inputs: 
+            numSamples (int): Number of samples
+            doe (np.ndarray): User provided samples of size n x numSamples. 
+                            If not provided, then LHS samples are generated.
         """
 
         # Performing checks
@@ -210,8 +221,21 @@ class AirfoilFFD():
         failed =[]
         totalTime = 0
 
-        # Generating LHS samples
-        samples = self._lhs(numSamples)
+        # Generating LHS samples or using user provided samples
+        if isinstance(doe, np.ndarray):
+            if doe.ndim != 2:
+                self._error("doe argument is not a 2D numpy array.")
+            
+            if doe.shape[0] != numSamples:
+                self._error("Number of samples in doe argument is not equal to numSamples argument.")
+
+            samples = doe
+
+        elif doe is None:
+            samples = self._lhs(numSamples)
+
+        else:
+            self._error("doe argument should be NONE or a numpy array.")
 
         # Creating empty dictionary for storing the data
         data = {}
@@ -256,6 +280,11 @@ class AirfoilFFD():
             else:
                 # Check for analysis failure
                 if output["fail"] == True: # Check for analysis failure
+                    failed.append(sampleNo + 1)
+                    description.write("\nAnalysis failed.")
+
+                # Check for implicit alpha
+                elif self.options["alpha"] == "implicit" and abs(output["cl"] - self.options["targetCL"]) > self.options["targetCLTol"]: 
                     failed.append(sampleNo + 1)
                     description.write("\nAnalysis failed.")
 
@@ -349,7 +378,12 @@ class AirfoilFFD():
         pkgdir = sys.modules["blackbox"].__path__[0]
 
         # Setting filepath based on the how alpha is treated alpha
-        filepath = os.path.join(pkgdir, "runscripts/airfoil/runscript_airfoil.py")
+        # Setting filepath based on the how alpha is treated alpha
+        if self.options["alpha"] == "explicit":
+            filepath = os.path.join(pkgdir, "runscripts/airfoil/runscript_airfoil.py")
+        else:
+            # filepath = os.path.join(pkgdir, "runscripts/airfoil/runscipt_airfoil_cst_opt.py")
+            filepath = os.path.join(pkgdir, "runscripts/airfoil/runscript_airfoil_rf.py")
 
         # Copy the runscript to analysis directory
         shutil.copy(filepath, "{}/{}/runscript.py".format(directory, self.genSamples+1))
@@ -585,6 +619,27 @@ class AirfoilFFD():
             if not isinstance(options["refine"], int):
                 self._error("\"refine\" attribute is not an integer.")
 
+        ############ Validating alpha
+        if "alpha" in userProvidedOptions:
+            if not isinstance(options["alpha"], str):
+                self._error("\"alpha\" attribute is not string.")
+
+            if options["alpha"] not in ["explicit", "implicit"]:
+                self._error("\"alpha\" attribute is not recognized. It can be either \"explicit\" or \"implicit\".")
+
+            if options["alpha"] == "implicit":
+                if "targetCL" in userProvidedOptions:
+                    if not isinstance(options["targetCL"], float):
+                        self._error("\"targetCL\" option is not float.")
+
+            if "targetCLTol" in userProvidedOptions:
+                    if not isinstance(options["targetCLTol"], float):
+                        self._error("\"targetCLTol\" option is not float.")
+                
+            if "startingAlpha" in userProvidedOptions:
+                if not isinstance(options["startingAlpha"], float):
+                    self._error("\"startingAlpha\" option is not float.")
+
         ############ Validating writeSliceFile
         if "writeSliceFile" in userProvidedOptions:
             if not isinstance(options["writeSliceFile"], bool):
@@ -648,6 +703,11 @@ class AirfoilFFD():
         # Checking if the DV is already added
         if name in self.DV:
             self._error("{} already exists.".format(name))
+
+        # Checking if alpha can be added as a DV
+        if name == "alpha":
+            if self.options["alpha"] != "explicit":
+                self._error("Alpha cannot be a design variable when \"alpha\" attribute in option is \"implicit\".")
 
         # Checking if these variables are initialized through aero problem or not
         if name in ["mach", "altitude"]:
@@ -781,6 +841,12 @@ class AirfoilFFD():
             loc = self.locator == "altitude"
             loc = loc.reshape(-1,)
             input["altitude"] = x[loc]
+
+        # Adding target Cl if alpha is implicit
+        if self.options["alpha"] == "implicit":
+            input["targetCL"] = self.options["targetCL"]
+            input["targetCLTol"] = self.options["targetCLTol"]
+            input["startingAlpha"] = self.options["startingAlpha"]
 
         # Saving the input file
         filehandler = open("input.pickle", "xb")

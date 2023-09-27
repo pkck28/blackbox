@@ -55,6 +55,7 @@ class DefaultOptions():
         self.alpha = "explicit"
         self.targetCL = 0.824
         self.targetCLTol = 1e-4
+        self.startingAlpha = 2.5
 
 class AirfoilCST():
     """
@@ -391,7 +392,7 @@ class AirfoilCST():
             filepath = os.path.join(pkgdir, "runscripts/airfoil/runscript_airfoil.py")
         else:
             # filepath = os.path.join(pkgdir, "runscripts/airfoil/runscipt_airfoil_cst_opt.py")
-            filepath = os.path.join(pkgdir, "runscripts/airfoil/runscript_airfoil_cst_rf.py")
+            filepath = os.path.join(pkgdir, "runscripts/airfoil/runscript_airfoil_rf.py")
 
         # Copy the runscript to analysis directory
         shutil.copy(filepath, "{}/{}/runscript.py".format(directory, self.genSamples+1))
@@ -413,7 +414,7 @@ class AirfoilCST():
         os.chdir("{}/{}".format(directory, self.genSamples+1))
 
         if self.options["writeAirfoilCoordinates"]:
-            self.DVGeo.foil.writeCoords("deformedAirfoil", coords=points, file_format="dat")
+            self._writeCoords(coords=points, filename="deformedAirfoil.dat")
 
         if self.options["plotAirfoil"]:
             self._plotAirfoil(points)
@@ -422,7 +423,7 @@ class AirfoilCST():
         self._creatInputFile(x)
 
         # Writing the surface mesh
-        self.DVGeo.foil.writeCoords("surfMesh", points)
+        self._writeSurfMesh(coords=points, filename="surfMesh.xyz")
 
         # Spawning the runscript on desired number of processors
         child_comm = MPI.COMM_SELF.Spawn(sys.executable, args=["runscript.py"], maxprocs=self.options["noOfProcessors"])
@@ -651,6 +652,14 @@ class AirfoilCST():
                     if not isinstance(options["targetCL"], float):
                         self._error("\"targetCL\" option is not float.")
 
+            if "targetCLTol" in userProvidedOptions:
+                    if not isinstance(options["targetCLTol"], float):
+                        self._error("\"targetCLTol\" option is not float.")
+                
+            if "startingAlpha" in userProvidedOptions:
+                if not isinstance(options["startingAlpha"], float):
+                    self._error("\"startingAlpha\" option is not float.")
+
         ############ Validating writeSliceFile
         if "writeSliceFile" in userProvidedOptions:
             if not isinstance(options["writeSliceFile"], bool):
@@ -827,11 +836,53 @@ class AirfoilCST():
         # Adding target Cl if alpha is implicit
         if self.options["alpha"] == "implicit":
             input["targetCL"] = self.options["targetCL"]
+            input["targetCLTol"] = self.options["targetCLTol"]
+            input["startingAlpha"] = self.options["startingAlpha"]
 
         # Saving the input file
         filehandler = open("input.pickle", "xb")
         pickle.dump(input, filehandler)
         filehandler.close()
+
+    def _writeCoords(self, coords, filename) -> None:
+        """
+            Writes out a set of airfoil coordinates in dat format.
+        """
+
+        # X and Y ccordinates of the airfoil
+        x = coords[:, 0]
+        y = coords[:, 1]
+
+        with open(filename, "w") as f:
+            for i in range(len(x)):
+                f.write(str(round(x[i], 12)) + "\t\t" + str(round(y[i], 12)) + "\n")
+
+        f.close()
+
+    def _writeSurfMesh(self, coords, filename):
+        """
+            Writes out surface mesh in Plot 3D format (one element in z direction)
+        """
+
+        # X and Y ccordinates of the airfoil
+        x = coords[:, 0]
+        y = coords[:, 1]
+
+        # Writing the file
+        with open(filename, "w") as f:
+            f.write("1\n")
+            f.write("%d %d %d\n" % (len(x), 2, 1))
+            for iDim in range(3):
+                for j in range(2):
+                    for i in range(len(x)):
+                        if iDim == 0:
+                            f.write("%g\n" % x[i])
+                        elif iDim == 1:
+                            f.write("%g\n" % y[i])
+                        else:
+                            f.write("%g\n" % (float(j)))
+
+        f.close()
 
     def _plotAirfoil(self, points) -> None:
         """

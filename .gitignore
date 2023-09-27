@@ -5,7 +5,7 @@ blackbox/analytical_functions/__pycache__
 blackbox/physics_models/__pycache__
 blackbox/physics_models/airfoil/__pycache__
 blackbox/base/__pycache__
-blackbox/docs/build
+docs/build
 examples/__pycache__
 examples/airfoil_cst/output
 examples/airfoil_cst_multipoint/output

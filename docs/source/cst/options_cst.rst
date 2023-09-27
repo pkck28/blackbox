@@ -1,10 +1,8 @@
-.. _options_description:
+******************
+AirfoilCST Options
+******************
 
-*******
-Options
-*******
-
-There are various options which can be set for Blackbox. Please read the entire list of options carefully:
+There are various options which can be set for this class. Please read the entire list of options carefully:
 
 **Required options**:
 
@@ -33,4 +31,11 @@ There are various options which can be set for Blackbox. Please read the entire 
   ``explicit`` (normal analysis) and ``implicit`` (internal root finder). When this option is set to implicit, then for each sample secant method
   is used to find alpha such that target CL is achived. So, this option also takes longer to evaluate. **Note**: When this option is set to implicit, then 
   ``alpha`` cannot be added as a DV.
-- ``targetCL (float, default=0.824)``: this option only applies when ``alpha`` is set to ``implicit``. This option specifies optimizer the value of target CL.
+- ``targetCL (float, default=0.824)``: this option only applies when ``alpha`` is set to ``implicit``. 
+  This option specifies the value of target CL to be met.
+- ``targetCLTol (float, default=1e-4)`` : this option only applies when ``alpha`` is set to ``implicit``. 
+  This option specifies the required tolerance to be met for target CL.
+- ``startingAlpha (float, default=2.5)`` : this option only applies when ``alpha`` is set to ``implicit``. 
+  This option specifies the initial guess for angle of attack (in degrees) 
+  for secant method. Note that this value has a huge impact on the convergence speed of the secant method. 
+  So, it is recommended to set this value close to the expected value.
