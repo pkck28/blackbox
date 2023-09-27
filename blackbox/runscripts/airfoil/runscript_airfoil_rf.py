@@ -128,6 +128,7 @@ try:
         for obj in ap.evalFuncs:
             print("{} = ".format(obj), funcs["{}_{}".format(ap.name, obj)])
             output["{}".format(obj)] = funcs["{}_{}".format(ap.name, obj)]
+        output["alpha"] = ap.alpha
 
         # Other mandatory outputs
         print("fail = ", funcs["fail"])
