@@ -19,8 +19,11 @@ class DefaultOptions():
 
     def __init__(self):
 
-        # Aero solver Options
+        # Aero solver / Meshing Options
         self.aeroSolver = "adflow"
+        self.solverOptions = {}
+        self.meshingOptions = {}
+        self.aeroProblem = None
 
         # Other options
         self.directory = "output"
@@ -66,6 +69,10 @@ class AirfoilBaseClass():
             doe (np.ndarray): User provided samples of size n x numSamples. 
                             If not provided, then LHS samples are generated.
         """
+
+        # Checking if the appropriate options are set for analysis
+        if self.options["solverOptions"] == {} or self.options["meshingOptions"] == {} or self.options["aeroProblem"] == None:
+            self._error("You need to set solverOptions, meshingOptions and aeroProblem in the options dictionary for running the analysis.")
 
         # Performing checks
         if len(self.DV) == 0:
@@ -137,8 +144,7 @@ class AirfoilBaseClass():
                 # Getting output for specific sample
                 output, field = self.getObjectives(x)
 
-            except Exception as e:
-                print(e)
+            except:
                 print("Error occured during the analysis. Check analysis.log in the respective folder for more details.")
                 failed.append(sampleNo + 1)
                 description.write("\nAnalysis failed.")
@@ -217,7 +223,14 @@ class AirfoilBaseClass():
 
     def getAirfoil(self, x: np.ndarray) -> np.ndarray:
         """
-            Method for getting the airfoil for a given design variable.
+            Method for getting the airfoil for a given design variable
+            using parameterization within in pyGeo.
+
+            Input:
+            x - 1D numpy array (value of dv).
+
+            Output:
+            points - 2D numpy array containing the airfoil coordinates.
         """
 
         # Performing checks
@@ -232,11 +245,9 @@ class AirfoilBaseClass():
 
         if len(x) != len(self.lowerBound):
             self._error("Input sample is not of correct size.")
-
-        if "upper" not in self.DV and "lower" not in self.DV:
-            self._error("\"upper\" or \"lower\" surface is not added as design variable.")
-
-        self.DVGeo
+            
+        # if self.DVGeo.getNDV() == 0:
+        #     self._error("No geoemtric design variables are added", type=1)
 
         # Creating dictionary from x
         newDV = {}
@@ -273,36 +284,8 @@ class AirfoilBaseClass():
             coefficient should be added as a DV.
         """
 
+        # Getting the updated airfoil points
         points = self.getAirfoil(x)
-
-        # # Performing checks
-        # if len(self.DV) == 0:
-        #     self._error("Add design variables before running the analysis.")
-
-        # if not isinstance(x, np.ndarray):
-        #     self._error("Input sample is not a numpy array.")
-
-        # if x.ndim != 1:
-        #     self._error("Input sample is a single dimensional array.")
-
-        # if len(x) != len(self.lowerBound):
-        #     self._error("Input sample is not of correct size.")
-
-        # if "upper" not in self.DV and "lower" not in self.DV:
-        #     self._error("\"upper\" or \"lower\" surface is not added as design variable.")
-
-        # # Creating dictionary from x
-        # newDV = {}
-        # for dv in self.DV:
-        #     loc = self.locator == dv
-        #     loc = loc.reshape(-1,)
-        #     newDV[dv] = x[loc]
-
-        # # Updating the airfoil pointset based on new DV
-        # self.DVGeo.setDesignVars(newDV)
-
-        # # Getting the updated airfoil points
-        # points = self.DVGeo.update("airfoil")[:,0:2]
         x = points[:,0]
         y = points[:,1]
 

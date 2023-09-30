@@ -48,7 +48,7 @@ class AirfoilCST(AirfoilBaseClass):
 
         # Setting up the required options list
         defaultOptions = list(self.options.keys())
-        requiredOptions = ["solverOptions", "meshingOptions", "airfoilFile", "aeroProblem", "numCST"]
+        requiredOptions = ["airfoilFile", "numCST"]
 
         # Validating user provided options
         self._checkOptions(defaultOptions, requiredOptions, options)
@@ -56,18 +56,10 @@ class AirfoilCST(AirfoilBaseClass):
         # Updating/Appending the default option list with user provided options
         self._setOptions(options)
 
-        # Overiding/set some solver options
-        self.options["solverOptions"]["printAllOptions"] = False
-        self.options["solverOptions"]["printIntro"] = False
-        self.options["solverOptions"]["outputDirectory"] = "."
-        self.options["solverOptions"]["numberSolutions"] = False
-        self.options["solverOptions"]["printTiming"] = False
-
         # Raise an error if pyvista is not installed
         if self.options["getFlowFieldData"]:
             if msg_pyvista != None:
                 self._error(msg_pyvista)
-            self.options["solverOptions"]["writeSurfaceSolution"] = True
 
         # Raise an error if matplotlib is not installed
         if self.options["plotAirfoil"]:
@@ -203,21 +195,35 @@ class AirfoilCST(AirfoilBaseClass):
 
     def getObjectives(self, x: np.ndarray) -> tuple:
         """
-            Method for running a single analysis.
+            Method for running an analysis at a given sample.
+
+            Input:
+                x: 1D numpy array containing the design variables.
+
+            Output:
+                output: A tuple containing two dictionaries. 
+                First dictionary contains the output from the analysis.
+                Second dictionary contains the flow field data, if requested.
+                Otherwise, it is None.
         """
 
-        # Performing checks
-        if len(self.DV) == 0:
-            self._error("Add design variables before running the analysis.")
+        # Checking if the appropriate options are set for analysis
+        if self.options["solverOptions"] == {} or self.options["meshingOptions"] == {} or self.options["aeroProblem"] == None:
+            self._error("You need to set solverOptions, meshingOptions and aeroProblem in the options dictionary for running the analysis.")
 
-        if not isinstance(x, np.ndarray):
-            self._error("Input sample is not a numpy array.")
+        # Overiding/set some solver options
+        self.options["solverOptions"]["printAllOptions"] = False
+        self.options["solverOptions"]["printIntro"] = False
+        self.options["solverOptions"]["outputDirectory"] = "."
+        self.options["solverOptions"]["numberSolutions"] = False
+        self.options["solverOptions"]["printTiming"] = False
 
-        if x.ndim != 1:
-            self._error("Input sample is a single dimensional array.")
+        # Raise an error if pyvista is not installed
+        if self.options["getFlowFieldData"]:
+            self.options["solverOptions"]["writeSurfaceSolution"] = True
 
-        if len(x) != len(self.lowerBound):
-            self._error("Input sample is not of correct size.")
+        # Getting the deformed airfoil
+        points = self.getAirfoil(x)
 
         print("Running analysis {}".format(self.genSamples + 1))
 
@@ -238,19 +244,6 @@ class AirfoilCST(AirfoilBaseClass):
 
         # Copy the runscript to analysis directory
         shutil.copy(filepath, "{}/{}/runscript.py".format(directory, self.genSamples+1))
-
-        # Creating the new design variable dict
-        # If there are no shape DV, then DVGeo
-        # will not update the airfoil pointset.
-        newDV = {}
-        for dv in self.DV:
-            loc = self.locator == dv
-            loc = loc.reshape(-1,)
-            newDV[dv] = x[loc]
-
-        # Updating the airfoil pointset based on new DV
-        self.DVGeo.setDesignVars(newDV)
-        points = self.DVGeo.update("airfoil")[:,0:2]
 
         # Changing the directory to analysis folder
         os.chdir("{}/{}".format(directory, self.genSamples+1))

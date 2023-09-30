@@ -18,7 +18,6 @@ options = {
     "airfoilFile": "rae2822.dat",
     "nffd": nffd,
     "meshingOptions": {},
-    "writeDeformedFFD": True,
     "fitted": True,
     "sampling": "internal",
     "samplingCriterion": "ese",
@@ -34,18 +33,18 @@ upper = np.array([0.01]*nffd)
 # Add shape as a design variables
 airfoil.addDV("shape", lowerBound=lower, upperBound=upper)
 
-num = 5
+# Number of samples
+num = 100
 
 # Generate sampling plan
 x = airfoil.sampler(num)
 
+# Plotting the airfoils
 for i in range(num):
     new_coords = airfoil.getAirfoil(x[i,:])
     fig, ax = plt.subplots()
     ax.plot(airfoil.coords[:,0], airfoil.coords[:,1], label="original")
-    ax.plot(new_coords[i,0], new_coords[i,1], label="deformed")
+    ax.plot(new_coords[:,0], new_coords[:,1], label="deformed")
     ax.legend()
     ax.set_title("Sample {}".format(i))
     plt.show()
-
-# print(x.shape)
