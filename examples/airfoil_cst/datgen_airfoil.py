@@ -48,7 +48,7 @@ meshingOptions = {
     # ---------------------------
     #        Grid Parameters
     # ---------------------------
-    "N": 257,
+    "N": 129,
     "s0": 1e-6,
     "marchDist": 100.0,
 }
@@ -64,7 +64,7 @@ options = {
     "solverOptions": solverOptions,
     "noOfProcessors": 8,
     "aeroProblem": ap,
-    "airfoilFile": "rae2822_L1.dat",
+    "airfoilFile": "rae2822.dat",
     "numCST": [6, 6],
     "meshingOptions": meshingOptions,
     "writeAirfoilCoordinates": True,
@@ -92,4 +92,4 @@ ub = coeff + np.sign(coeff)*0.3*coeff
 airfoil.addDV("upper", lowerBound=lb, upperBound=ub)
 
 # Generating the samples
-airfoil.generateSamples(2)
+airfoil.generateSamples(5)
