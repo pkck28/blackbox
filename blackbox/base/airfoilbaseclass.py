@@ -41,6 +41,11 @@ class DefaultOptions():
         self.targetCLTol = 1e-4
         self.startingAlpha = 2.5
 
+        # Sampling options
+        self.sampling = "internal"
+        self.samplingCriterion = "cm"
+        self.randomState = None
+
 class AirfoilBaseClass():
     """
         Base class for airfoil related classes.
@@ -48,11 +53,15 @@ class AirfoilBaseClass():
         This class needs to be inherited by all the airfoil related classes.
     """
 
-    def generateSamples(self, numSamples: int, doe: np.ndarray=None) -> None:
+    # ----------------------------------------------------------------------------
+    #                       Methods related to analysis
+    # ----------------------------------------------------------------------------
+
+    def generateSamples(self, numSamples: int=None, doe: np.ndarray=None) -> None:
         """
             Method for generating samples.
 
-            Inputs: 
+            Inputs (only one is rquired, depending on user preference):
             numSamples (int): Number of samples
             doe (np.ndarray): User provided samples of size n x numSamples. 
                             If not provided, then LHS samples are generated.
@@ -62,28 +71,37 @@ class AirfoilBaseClass():
         if len(self.DV) == 0:
             self._error("Add design variables before running the analysis.")
 
-        if not isinstance(numSamples, int):
-            self._error("Number of samples argument is not an integer.")
+        # Sampling plan
+        if self.options["sampling"] == "internal":
+
+            # Validation
+            if numSamples is None:
+                self._error("Number of samples is not provided.")
+            if not isinstance(numSamples, int):
+                self._error("Number of samples argument is not an integer.")
+
+            # Generate sampling plan
+            samples = self.sampler(numSamples)
+    
+        elif self.options["sampling"] == "external":
+
+            # Validation
+            if doe is None:
+                self._error("External samples are not provided.")
+            if not isinstance(doe, np.ndarray):
+                self._error("Provided external samples are not a numpy array.")
+            if doe.ndim != 2:
+                self._error("Provided external samples are not a 2D numpy array.")
+            if doe.shape[1] != len(self.DV):
+                self._error("Provided external samples are not of correct size.")
+
+            # Assign user provided samples
+            samples = doe
+            numSamples = samples.shape[0]
 
         # Number of analysis passed/failed
-        failed =[]
+        failed = []
         totalTime = 0
-
-        # Generating LHS samples or using user provided samples
-        if isinstance(doe, np.ndarray):
-            if doe.ndim != 2:
-                self._error("doe argument is not a 2D numpy array.")
-            
-            if doe.shape[0] != numSamples:
-                self._error("Number of samples in doe argument is not equal to numSamples argument.")
-
-            samples = doe
-
-        elif doe is None:
-            samples = self._lhs(numSamples)
-
-        else:
-            self._error("doe argument should be NONE or a numpy array.")
 
         # Creating empty dictionary for storing the data
         data = {}
@@ -196,6 +214,67 @@ class AirfoilBaseClass():
 
         # Closing the description file
         description.close()
+
+    def calculateArea(self, x: np.ndarray) -> float:
+        """
+            Note: This function should not be called in the middle of analysis
+            It should ONLY be used from outside. Do not use this method within 
+            getObjectives. That method has its own implementation
+            of area calculation.
+
+            Function to calculate the area of the airfoil
+            based on the value of design variable.
+
+            Input:
+            x - 1D numpy array (value of dv).
+
+            Ouput:
+            area: area of the airfoil.
+
+            Note: To use this method, atleast lower or upper surface CST
+            coefficient should be added as a DV.
+        """
+
+        # Performing checks
+        if len(self.DV) == 0:
+            self._error("Add design variables before running the analysis.")
+
+        if not isinstance(x, np.ndarray):
+            self._error("Input sample is not a numpy array.")
+
+        if x.ndim != 1:
+            self._error("Input sample is a single dimensional array.")
+
+        if len(x) != len(self.lowerBound):
+            self._error("Input sample is not of correct size.")
+
+        if "upper" not in self.DV and "lower" not in self.DV:
+            self._error("\"upper\" or \"lower\" surface is not added as design variable.")
+
+        # Creating dictionary from x
+        newDV = {}
+        for dv in self.DV:
+            loc = self.locator == dv
+            loc = loc.reshape(-1,)
+            newDV[dv] = x[loc]
+
+        # Updating the airfoil pointset based on new DV
+        self.DVGeo.setDesignVars(newDV)
+
+        # Getting the updated airfoil points
+        points = self.DVGeo.update("airfoil")[:,0:2]
+        x = points[:,0]
+        y = points[:,1]
+
+        # Calculate the area using simpson's rule
+        # Note: x and y are both flipped here
+        area = integrate.simpson(x, y, even='avg')
+
+        return area
+    
+    # ----------------------------------------------------------------------------
+    #                       Methods related to validation
+    # ----------------------------------------------------------------------------
 
     def _checkOptions(self, defaultOptions: list, requiredOptions: list, options: dict) -> None:
         """
@@ -363,6 +442,29 @@ class AirfoilBaseClass():
             if not isinstance(options["writeDeformedFFD"], bool):
                 self._error("\"writeDeformedFFD\" attribute is not a boolean.")
 
+        ############ Validating sampling options
+        if "sampling" in userProvidedOptions:
+            if not isinstance(options["sampling"], str):
+                self._error("\"sampling\" attribute is not a string.")
+
+            if options["sampling"] not in ["internal", "external"]:
+                self._error("\"sampling\" attribute is not recognized. It can be either \"internal\" or \"external\".")
+
+        if "samplingCriterion" in userProvidedOptions:
+            if not isinstance(options["samplingCriterion"], str):
+                self._error("\"samplingCriterion\" attribute is not a string.")
+
+            if options["samplingCriterion"] not in ["c", "m", "cm", "ese"]:
+                self._error("\"samplingCriterion\" attribute is not recognized. It can be \"c\", \"m\", \"cm\", or \"ese\".")
+
+        if "randomState" in userProvidedOptions:
+            if not isinstance(options["randomState"], int):
+                self._error("\"randomState\" attribute is not an integer.")
+
+    # ----------------------------------------------------------------------------
+    #                               Other methods
+    # ----------------------------------------------------------------------------
+
     def _getDefaultOptions(self, defaultOptions) -> None:
         """
             Setting up the initial values of options.
@@ -392,63 +494,6 @@ class AirfoilBaseClass():
                     self.options[key] = options[key]
             else:
                 self.options[key] = options[key]
-
-    def calculateArea(self, x: np.ndarray) -> float:
-        """
-            Note: This function should not be called in the middle of analysis
-            It should ONLY be used from outside. Do not use this method within 
-            getObjectives. That method has its own implementation
-            of area calculation.
-
-            Function to calculate the area of the airfoil
-            based on the value of design variable.
-
-            Input:
-            x - 1D numpy array (value of dv).
-
-            Ouput:
-            area: area of the airfoil.
-
-            Note: To use this method, atleast lower or upper surface CST
-            coefficient should be added as a DV.
-        """
-
-        # Performing checks
-        if len(self.DV) == 0:
-            self._error("Add design variables before running the analysis.")
-
-        if not isinstance(x, np.ndarray):
-            self._error("Input sample is not a numpy array.")
-
-        if x.ndim != 1:
-            self._error("Input sample is a single dimensional array.")
-
-        if len(x) != len(self.lowerBound):
-            self._error("Input sample is not of correct size.")
-
-        if "upper" not in self.DV and "lower" not in self.DV:
-            self._error("\"upper\" or \"lower\" surface is not added as design variable.")
-
-        # Creating dictionary from x
-        newDV = {}
-        for dv in self.DV:
-            loc = self.locator == dv
-            loc = loc.reshape(-1,)
-            newDV[dv] = x[loc]
-
-        # Updating the airfoil pointset based on new DV
-        self.DVGeo.setDesignVars(newDV)
-
-        # Getting the updated airfoil points
-        points = self.DVGeo.update("airfoil")[:,0:2]
-        x = points[:,0]
-        y = points[:,1]
-
-        # Calculate the area using simpson's rule
-        # Note: x and y are both flipped here
-        area = integrate.simpson(x, y, even='avg')
-
-        return area
 
     def _lhs(self, numSamples) -> np.ndarray:
         """
@@ -547,7 +592,7 @@ class AirfoilBaseClass():
 
         f.close()
 
-    def _plotAirfoil(plt, orig_airfoil, def_airfoil) -> None:
+    def _plotAirfoil(self, plt, orig_airfoil, def_airfoil) -> None:
         """
             Method for plotting the base airfoil
             and the deformed airfoil.
@@ -565,7 +610,7 @@ class AirfoilBaseClass():
 
         plt.close()
 
-    def _error(self, message: str, type=1) -> None:
+    def _error(self, message: str, type=0) -> None:
         """
             Method for printing errors in nice manner.
 

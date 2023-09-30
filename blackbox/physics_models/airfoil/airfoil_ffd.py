@@ -40,11 +40,6 @@ class AirfoilFFDDefaultOptions(DefaultOptions):
         # Other options
         self.writeDeformedFFD = False
 
-        # Flow-field related options
-        # if getFlowFieldData is false, then all other options are useless
-        self.getFlowFieldData = False
-        self.region = "surface"
-
         # FFD related options
         self.fitted = False
         self.xmargin = 0.001
@@ -204,6 +199,10 @@ class AirfoilFFD(AirfoilBaseClass):
         # Removing the entry from DV list
         self.DV.remove(name)
 
+    # ----------------------------------------------------------------------------
+    #                       Methods related to analysis
+    # ----------------------------------------------------------------------------
+
     def getObjectives(self, x: np.ndarray) -> tuple:
         """
             Method for running a single analysis.
@@ -263,8 +262,7 @@ class AirfoilFFD(AirfoilBaseClass):
             self._writeCoords(coords=points, filename="deformedAirfoil.dat")
 
         if self.options["plotAirfoil"]:
-            # self._plotAirfoil(plt, self.coords, points)
-            pass
+            self._plotAirfoil(plt, self.coords, points)
 
         if self.options["writeDeformedFFD"]:
             self.DVGeo.writePlot3d("deformedFFD.xyz")
@@ -353,6 +351,10 @@ class AirfoilFFD(AirfoilBaseClass):
 
             # Increase the number of generated samples
             self.genSamples += 1
+
+    # ----------------------------------------------------------------------------
+    #                       Methods related to validation
+    # ----------------------------------------------------------------------------
 
     def _checkDV(self, name: str, lb: float or np.ndarray, ub: float or np.ndarray) -> None:
         """

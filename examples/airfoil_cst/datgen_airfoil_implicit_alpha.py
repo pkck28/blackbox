@@ -75,7 +75,9 @@ options = {
     "alpha": "implicit",
     "targetCL": 0.824,
     "startingAlpha": 2.8,
-    "targetCLTol": 1e-4
+    "targetCLTol": 1e-4,
+    "sampling": "internal",
+    "samplingCriterion": "ese"
 }
 
 # Example for generating samples
