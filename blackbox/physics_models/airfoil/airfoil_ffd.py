@@ -6,6 +6,7 @@ from mpi4py import MPI
 from pygeo import DVGeometry
 from prefoil import Airfoil
 from prefoil.utils import readCoordFile
+from smt.sampling_methods import LHS
 from ...base.airfoilbaseclass import AirfoilBaseClass, DefaultOptions
 
 # Trying to import pyvista
@@ -179,6 +180,15 @@ class AirfoilFFD(AirfoilBaseClass):
         # Adding the DV to the list
         self.DV.append(name)
 
+        # Creating sampler based on internal sampling
+        if self.options["sampling"] == "internal":
+            
+            # Limits for sampler
+            xlimits = np.hstack((self.lowerBound.reshape(-1,1), self.upperBound.reshape(-1,1)))
+
+            # Creating the sampler
+            self.sampler = LHS(xlimits=xlimits, criterion=self.options["samplingCriterion"], random_state=self.options["randomState"])
+
     def removeDV(self, name: str) -> None:
         """
             Method to remove a DV. 
@@ -198,6 +208,18 @@ class AirfoilFFD(AirfoilBaseClass):
 
         # Removing the entry from DV list
         self.DV.remove(name)
+
+        # Updating the sampler based on internal sampling
+        if self.options["sampling"] == "internal":
+
+            if len(self.DV) == 0:
+                delattr(self, "sampler")
+            else:
+                # Limits for sampler
+                xlimits = np.hstack((self.lowerBound.reshape(-1,1), self.upperBound.reshape(-1,1)))
+
+                # Creating the sampler
+                self.sampler = LHS(xlimits=xlimits, criterion=self.options["samplingCriterion"], random_state=self.options["randomState"])
 
     # ----------------------------------------------------------------------------
     #                       Methods related to analysis

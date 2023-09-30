@@ -71,7 +71,9 @@ options = {
     "writeAirfoilCoordinates": True,
     "plotAirfoil": True,
     "writeDeformedFFD": True,
-    "fitted": True
+    "fitted": True,
+    "sampling": "internal",
+    "samplingCriterion": "ese",
 }
 
 # Example for generating samples

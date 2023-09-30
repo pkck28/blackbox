@@ -215,6 +215,44 @@ class AirfoilBaseClass():
         # Closing the description file
         description.close()
 
+    def getAirfoil(self, x: np.ndarray) -> np.ndarray:
+        """
+            Method for getting the airfoil for a given design variable.
+        """
+
+        # Performing checks
+        if len(self.DV) == 0:
+            self._error("Add design variables before running the analysis.")
+
+        if not isinstance(x, np.ndarray):
+            self._error("Input sample is not a numpy array.")
+
+        if x.ndim != 1:
+            self._error("Input sample is a single dimensional array.")
+
+        if len(x) != len(self.lowerBound):
+            self._error("Input sample is not of correct size.")
+
+        if "upper" not in self.DV and "lower" not in self.DV:
+            self._error("\"upper\" or \"lower\" surface is not added as design variable.")
+
+        self.DVGeo
+
+        # Creating dictionary from x
+        newDV = {}
+        for dv in self.DV:
+            loc = self.locator == dv
+            loc = loc.reshape(-1,)
+            newDV[dv] = x[loc]
+
+        # Updating the airfoil pointset based on new DV
+        self.DVGeo.setDesignVars(newDV)
+
+        # Getting the updated airfoil points
+        points = self.DVGeo.update("airfoil")[:,0:2]
+
+        return points
+
     def calculateArea(self, x: np.ndarray) -> float:
         """
             Note: This function should not be called in the middle of analysis
@@ -235,34 +273,36 @@ class AirfoilBaseClass():
             coefficient should be added as a DV.
         """
 
-        # Performing checks
-        if len(self.DV) == 0:
-            self._error("Add design variables before running the analysis.")
+        points = self.getAirfoil(x)
 
-        if not isinstance(x, np.ndarray):
-            self._error("Input sample is not a numpy array.")
+        # # Performing checks
+        # if len(self.DV) == 0:
+        #     self._error("Add design variables before running the analysis.")
 
-        if x.ndim != 1:
-            self._error("Input sample is a single dimensional array.")
+        # if not isinstance(x, np.ndarray):
+        #     self._error("Input sample is not a numpy array.")
 
-        if len(x) != len(self.lowerBound):
-            self._error("Input sample is not of correct size.")
+        # if x.ndim != 1:
+        #     self._error("Input sample is a single dimensional array.")
 
-        if "upper" not in self.DV and "lower" not in self.DV:
-            self._error("\"upper\" or \"lower\" surface is not added as design variable.")
+        # if len(x) != len(self.lowerBound):
+        #     self._error("Input sample is not of correct size.")
 
-        # Creating dictionary from x
-        newDV = {}
-        for dv in self.DV:
-            loc = self.locator == dv
-            loc = loc.reshape(-1,)
-            newDV[dv] = x[loc]
+        # if "upper" not in self.DV and "lower" not in self.DV:
+        #     self._error("\"upper\" or \"lower\" surface is not added as design variable.")
 
-        # Updating the airfoil pointset based on new DV
-        self.DVGeo.setDesignVars(newDV)
+        # # Creating dictionary from x
+        # newDV = {}
+        # for dv in self.DV:
+        #     loc = self.locator == dv
+        #     loc = loc.reshape(-1,)
+        #     newDV[dv] = x[loc]
 
-        # Getting the updated airfoil points
-        points = self.DVGeo.update("airfoil")[:,0:2]
+        # # Updating the airfoil pointset based on new DV
+        # self.DVGeo.setDesignVars(newDV)
+
+        # # Getting the updated airfoil points
+        # points = self.DVGeo.update("airfoil")[:,0:2]
         x = points[:,0]
         y = points[:,1]
 
@@ -636,4 +676,5 @@ class AirfoilBaseClass():
  
         print(msg, flush=True)
 
-        exit()
+        if type == 0:
+            exit()
