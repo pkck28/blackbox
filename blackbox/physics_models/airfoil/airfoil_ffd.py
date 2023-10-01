@@ -120,6 +120,11 @@ class AirfoilFFD(AirfoilBaseClass):
     def addDV(self, name: str, lowerBound: list, upperBound: list) -> None:
         """
             Method for adding a DV for CST parameterization.
+
+            Input:
+                name: string indicating name of the DV.
+                lowerBound: float or 1D numpy array for lower bound of DV.
+                upperBound: float or 1D numpy array for lower bound of DV.
         """
 
         # Checking
@@ -137,8 +142,17 @@ class AirfoilFFD(AirfoilBaseClass):
                 self.lowerBound = np.append(self.lowerBound, lowerBound)
                 self.locator = np.append(self.locator, locator)
 
+            # Modify the bounds if LE/TE are fixed
+            # User is only giving bounds for the independent FFD points
+            # if self.options["fixLETE"]:
+            #     lowerBound = np.append(lowerBound[0], lowerBound)
+            #     lowerBound = np.append(lowerBound, lowerBound[-1])
+
+            #     upperBound = np.append(upperBound[0], upperBound)
+            #     upperBound = np.append(upperBound, upperBound[-1])
+
             # Adding FFD points as a DV
-            self.DVGeo.addSpanwiseLocalDV("shape", spanIndex="k", axis="y", lower=lowerBound, upper=upperBound)
+            self.DVGeo.addSpanwiseLocalDV("shape", spanIndex="k", axis="y")
             
         else:
             locator = np.array(["{}".format(name)])
@@ -238,35 +252,42 @@ class AirfoilFFD(AirfoilBaseClass):
             if not isinstance(ub, np.ndarray) or ub.ndim != 1:
                 self._error("Upper bound for \"shape\" variable should be a 1D numpy array.")
 
-            if len(lb) != self.options["nffd"]:
-                self._error("Length of lower bound array is not equal to number of FFD points.")
+            if self.options["fixLETE"]:
+                if len(lb) != self.options["nffd"] - 2:
+                    self._error("Length of lower bound array is not equal to (nffd - 2) points.")
 
-            if len(ub) != self.options["nffd"]:
-                self._error("Length of upper bound array is not equal to number of FFD points.")
+                if len(ub) != self.options["nffd"] - 2:
+                    self._error("Length of upper bound array is not equal to (nffd - 2) points.")
+            else:
+                if len(lb) != self.options["nffd"]:
+                    self._error("Length of lower bound array is not equal to number of FFD points.")
+
+                if len(ub) != self.options["nffd"]:
+                    self._error("Length of upper bound array is not equal to number of FFD points.")
 
             if np.any(lb >= ub):
                 self._error("Lower bound is greater than or equal to upper bound for atleast one DV.")
 
             # Checking if the bounds are within the limits
-            coeff = self.DVGeo.origFFDCoef
-            index = self.DVGeo.getLocalIndex(0)
-            dist = coeff[index[:,1,0], 1] - coeff[index[:,0,0], 1]
-            allowableLowerBound = np.zeros(self.options["nffd"])
-            allowableUpperBound = np.zeros(self.options["nffd"])
+            # coeff = self.DVGeo.origFFDCoef
+            # index = self.DVGeo.getLocalIndex(0)
+            # dist = coeff[index[:,1,0], 1] - coeff[index[:,0,0], 1]
+            # allowableLowerBound = np.zeros(self.options["nffd"])
+            # allowableUpperBound = np.zeros(self.options["nffd"])
 
-            for i in range(dist.shape[0]):
-                allowableLowerBound[2*i] = -0.45 * dist[i]
-                allowableLowerBound[2*i+1] = -0.45 * dist[i]
-                allowableUpperBound[2*i] = 0.45 * dist[i]
-                allowableUpperBound[2*i+1] = 0.45 * dist[i]
+            # for i in range(dist.shape[0]):
+            #     allowableLowerBound[2*i] = -0.45 * dist[i]
+            #     allowableLowerBound[2*i+1] = -0.45 * dist[i]
+            #     allowableUpperBound[2*i] = 0.45 * dist[i]
+            #     allowableUpperBound[2*i+1] = 0.45 * dist[i]
 
-            if np.any(lb <= allowableLowerBound):
-                self._error("Lower bound for some FFD points is greater than or equal to 45% of the \
-                            local FFD thickness. Reduce the bound and try again.")
+            # if np.any(lb <= allowableLowerBound):
+            #     self._error("Lower bound for some FFD points is greater than or equal to 45% of the \
+            #                 local FFD thickness. Reduce the bound and try again.")
                 
-            if np.any(ub >= allowableUpperBound):
-                self._error("Upper bound for some FFD points is greater than or equal to 45% of the \
-                            local FFD thickness. Reduce the bound and try again.")
+            # if np.any(ub >= allowableUpperBound):
+            #     self._error("Upper bound for some FFD points is greater than or equal to 45% of the \
+            #                 local FFD thickness. Reduce the bound and try again.")
 
         else:
             if not isinstance(lb, float):

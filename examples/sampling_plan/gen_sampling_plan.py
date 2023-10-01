@@ -21,14 +21,15 @@ options = {
     "fitted": True,
     "sampling": "internal",
     "samplingCriterion": "ese",
+    "fixLETE": True
 }
 
 # Creating blackbox object
 airfoil = AirfoilFFD(options=options)
 
 # Lower and upper bounds for shape variables
-lower = np.array([-0.01]*nffd)
-upper = np.array([0.01]*nffd)
+lower = np.array([-0.01]*(nffd-2))
+upper = np.array([0.01]*(nffd-2))
 
 # Add shape as a design variables
 airfoil.addDV("shape", lowerBound=lower, upperBound=upper)

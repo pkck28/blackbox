@@ -53,17 +53,23 @@ class DefaultOptions():
         self.samplingCriterion = "cm"
         self.randomState = None
 
-        # FFD related options
+        # FFD Box related options
         self.fitted = False
         self.xmargin = 0.001
         self.ymarginu = 0.02
         self.ymarginl = 0.02
+
+        # LE/TE related options
+        self.fixLETE = True
 
 class AirfoilBaseClass():
     """
         Base class for airfoil related classes.
 
         This class needs to be inherited by all the airfoil related classes.
+
+        Wherever this class is used, child class needs to initialize various
+        variables for proper working of the class.
     """
 
     # ----------------------------------------------------------------------------
@@ -292,7 +298,7 @@ class AirfoilBaseClass():
         if self.options["plotAirfoil"]:
             self._plotAirfoil(self.plt, self.coords, points)
 
-        if self.options["writeDeformedFFD"]:
+        if self.parametrization == "FFD" and self.options["writeDeformedFFD"]:
             self.DVGeo.writePlot3d("deformedFFD.xyz")
 
         # Create input file
@@ -405,8 +411,9 @@ class AirfoilBaseClass():
         if len(x) != len(self.lowerBound):
             self._error("Input sample is not of correct size.")
             
-        # if self.DVGeo.getNDV() == 0:
-        #     self._error("No geoemtric design variables are added", type=1)
+        # If no geometric design variable is present, then return the original airfoil
+        if self.DVGeo.getNDV() == 0:
+            return self.coords[:,0:2]
 
         # Creating dictionary from x
         newDV = {}
@@ -414,6 +421,18 @@ class AirfoilBaseClass():
             loc = self.locator == dv
             loc = loc.reshape(-1,)
             newDV[dv] = x[loc]
+
+        if self.parametrization == "FFD" and self.options["fixLETE"]:
+
+            # Adjusting LE FFD points
+            midpoint = newDV["shape"][0]/2
+            newDV["shape"][0] -= midpoint
+            newDV["shape"] = np.append(-midpoint, newDV["shape"])
+
+            # Adjusting TE FFD points
+            midpoint = newDV["shape"][-1]/2
+            newDV["shape"][-1] -= midpoint
+            newDV["shape"] = np.append(newDV["shape"], -midpoint)
 
         # Updating the airfoil pointset based on new DV
         self.DVGeo.setDesignVars(newDV)
@@ -642,6 +661,11 @@ class AirfoilBaseClass():
         if "randomState" in userProvidedOptions:
             if not isinstance(options["randomState"], int):
                 self._error("\"randomState\" attribute is not an integer.")
+
+        ############ Validating LE/TE options
+        if "fixLETE" in userProvidedOptions:
+            if not isinstance(options["fixLETE"], bool):
+                self._error("\"fixLETE\" attribute is not a boolean.")
 
     # ----------------------------------------------------------------------------
     #                               Other methods

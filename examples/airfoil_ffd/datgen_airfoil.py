@@ -74,6 +74,7 @@ options = {
     "fitted": True,
     "sampling": "internal",
     "samplingCriterion": "ese",
+    "fixLETE": True
 }
 
 # Example for generating samples
@@ -83,8 +84,8 @@ airfoil = AirfoilFFD(options=options)
 airfoil.addDV("alpha", lowerBound=1.5, upperBound=3.5)
 
 # Lower and upper bounds for shape variables
-lower = np.array([-0.01]*nffd)
-upper = np.array([0.01]*nffd)
+lower = np.array([-0.01]*(nffd-2))
+upper = np.array([0.01]*(nffd-2))
 
 # Add shape as a design variables
 airfoil.addDV("shape", lowerBound=lower, upperBound=upper)
