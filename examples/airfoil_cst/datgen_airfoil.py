@@ -32,8 +32,7 @@ solverOptions = {
     "NKOuterPreconIts": 3,
     "NKInnerPreconIts": 3,
     # Termination Criteria
-    "L2Convergence": 1e-14,
-    "L2ConvergenceCoarse": 1e-4
+    "L2Convergence": 1e-14
 }
 
 meshingOptions = {
@@ -70,7 +69,7 @@ options = {
     "writeAirfoilCoordinates": True,
     "plotAirfoil": True,
     "sampling": "internal",
-    "samplingCriterion": "cm"
+    "samplingCriterion": "ese"
 }
 
 # Example for generating samples

@@ -1,7 +1,6 @@
 # Imports
-import os, sys, shutil, pickle, psutil
+import os
 import numpy as np
-from scipy import integrate
 from mpi4py import MPI
 from pygeo import DVGeometry
 from prefoil import Airfoil
@@ -27,26 +26,6 @@ else:
 
 comm = MPI.COMM_WORLD
 
-class AirfoilFFDDefaultOptions(DefaultOptions):
-    """
-        Class creates a default option which are later 
-        edited/appended with user provided options.
-    """
-
-    def __init__(self):
-
-        # Initializing the parent class
-        super().__init__()
-
-        # Other options
-        self.writeDeformedFFD = False
-
-        # FFD related options
-        self.fitted = False
-        self.xmargin = 0.001
-        self.ymarginu = 0.02
-        self.ymarginl = 0.02
-
 class AirfoilFFD(AirfoilBaseClass):
     """
         This class provides methods for generating samples for a general airfoil
@@ -65,7 +44,7 @@ class AirfoilFFD(AirfoilBaseClass):
         self.options = {}
 
         # Setting up default options
-        self._getDefaultOptions(AirfoilFFDDefaultOptions())
+        self._getDefaultOptions(DefaultOptions())
 
         # Setting up the required options list
         defaultOptions = list(self.options.keys())
@@ -81,11 +60,15 @@ class AirfoilFFD(AirfoilBaseClass):
         if self.options["getFlowFieldData"]:
             if msg_pyvista != None:
                 self._error(msg_pyvista)
+            else:
+                self.pyvista = pyvista
 
         # Raise an error if matplotlib is not installed
         if self.options["plotAirfoil"]:
             if msg_matplotlib != None:
                 self._error(msg_matplotlib)
+            else:
+                self.plt = plt
 
         # Getting abs path for the storage directory
         self.options["directory"] = os.path.abspath(self.options["directory"])
@@ -212,160 +195,6 @@ class AirfoilFFD(AirfoilBaseClass):
 
                 # Creating the sampler
                 self.sampler = LHS(xlimits=xlimits, criterion=self.options["samplingCriterion"], random_state=self.options["randomState"])
-
-    # ----------------------------------------------------------------------------
-    #                       Methods related to analysis
-    # ----------------------------------------------------------------------------
-
-    def getObjectives(self, x: np.ndarray) -> tuple:
-        """
-            Method for running an analysis at a given sample.
-
-            Input:
-                x: 1D numpy array containing the design variables.
-
-            Output:
-                output: A tuple containing two dictionaries. 
-                First dictionary contains the output from the analysis.
-                Second dictionary contains the flow field data, if requested.
-                Otherwise, it is None.
-        """
-
-        # Checking if the appropriate options are set for analysis
-        if self.options["solverOptions"] == {} or self.options["meshingOptions"] == {} or self.options["aeroProblem"] == None:
-            self._error("You need to set solverOptions, meshingOptions and aeroProblem in the options dictionary for running the analysis.")
-
-        # Overiding/set some solver options
-        self.options["solverOptions"]["printAllOptions"] = False
-        self.options["solverOptions"]["printIntro"] = False
-        self.options["solverOptions"]["outputDirectory"] = "."
-        self.options["solverOptions"]["numberSolutions"] = False
-        self.options["solverOptions"]["printTiming"] = False
-
-        # Raise an error if pyvista is not installed
-        if self.options["getFlowFieldData"]:
-            self.options["solverOptions"]["writeSurfaceSolution"] = True
-
-        # Getting the deformed airfoil
-        points = self.getAirfoil(x)
-
-        print("Running analysis {}".format(self.genSamples + 1))
-
-        directory = self.options["directory"]
-
-        # Create the folder for saving the results
-        os.system("mkdir {}/{}".format(directory, self.genSamples+1))
-
-        # Getting the directory where package is saved
-        pkgdir = sys.modules["blackbox"].__path__[0]
-
-        # Setting filepath based on the how alpha is treated alpha
-        # Setting filepath based on the how alpha is treated alpha
-        if self.options["alpha"] == "explicit":
-            filepath = os.path.join(pkgdir, "runscripts/airfoil/runscript_airfoil.py")
-        else:
-            # filepath = os.path.join(pkgdir, "runscripts/airfoil/runscipt_airfoil_cst_opt.py")
-            filepath = os.path.join(pkgdir, "runscripts/airfoil/runscript_airfoil_rf.py")
-
-        # Copy the runscript to analysis directory
-        shutil.copy(filepath, "{}/{}/runscript.py".format(directory, self.genSamples+1))
-
-        # Changing the directory to analysis folder
-        os.chdir("{}/{}".format(directory, self.genSamples+1))
-
-        if self.options["writeAirfoilCoordinates"]:
-            self._writeCoords(coords=points, filename="deformedAirfoil.dat")
-
-        if self.options["plotAirfoil"]:
-            self._plotAirfoil(plt, self.coords, points)
-
-        if self.options["writeDeformedFFD"]:
-            self.DVGeo.writePlot3d("deformedFFD.xyz")
-
-        # Create input file
-        self._creatInputFile(x)
-
-        # Writing the surface mesh
-        self._writeSurfMesh(coords=points, filename="surfMesh.xyz")
-
-        # Spawning the runscript on desired number of processors
-        child_comm = MPI.COMM_SELF.Spawn(sys.executable, args=["runscript.py"], maxprocs=self.options["noOfProcessors"])
-
-        # Creating empty process id list
-        pid_list = []
-
-        # Getting each spawned process
-        for processor in range(self.options["noOfProcessors"]):
-            pid = child_comm.recv(source=MPI.ANY_SOURCE, tag=processor)
-            pid_list.append(psutil.Process(pid))
-
-        # Disconnecting from intercommunicator
-        child_comm.Disconnect()
-
-        # Waiting till all the child processors are finished
-        while len(pid_list) != 0:
-            for pid in pid_list:
-                if not pid.is_running():
-                    pid_list.remove(pid)
-
-        try:
-            # Reading the output file containing results
-            filehandler = open("output.pickle", 'rb')
-
-        except:
-            raise Exception
-
-        else:
-            # Read the output
-            output = pickle.load(filehandler)
-            filehandler.close()
-
-            # Calculate the area
-            output["area"] = integrate.simpson(points[:,0], points[:,1], even="avg")
-
-            if self.options["getFlowFieldData"]:
-                # Reading the cgns file
-                filename = self.options["aeroProblem"].name + "_surf.cgns"
-                reader = pyvista.CGNSReader(filename)
-                reader.load_boundary_patch = False
-
-                # Reading the mesh
-                mesh = reader.read()
-
-                # Setting region for extraction
-                if self.options["region"] == "surface":
-                    mesh = mesh[0][0]
-                else:
-                    mesh = mesh[0][2]
-
-                # Get the values
-                fieldData = {}
-
-                for index, var in enumerate(mesh.array_names):
-                    # Skipping the first entry in the array
-                    if index != 0:
-                        # set_active_scalars returns a tuple, and second
-                        # entry contains the pyvista numpy array.
-                        fieldData[var] = np.asarray(mesh.set_active_scalars(var, "cell")[1])
-
-            else:
-                fieldData = None
-
-            return output, fieldData
-
-        finally:
-            # Cleaning the directory
-            files = ["surfMesh.xyz", "volMesh.cgns", "input.pickle", "runscript.py",
-                    "output.pickle", "fort.6", "opt.hst"]
-            for file in files:
-                if os.path.exists(file):
-                    os.system("rm {}".format(file))
-
-            # Changing the directory back to root
-            os.chdir("../..")
-
-            # Increase the number of generated samples
-            self.genSamples += 1
 
     # ----------------------------------------------------------------------------
     #                       Methods related to validation

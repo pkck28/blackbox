@@ -83,8 +83,6 @@ options = {
 # Example for generating samples
 airfoil = AirfoilCST(options=options)
 
-######### Multi Analysis
-
 # Adding lower surface CST coeffs as DV
 coeff = airfoil.DVGeo.defaultDV["lower"] # get the fitted CST coeff
 lb = coeff - np.sign(coeff)*0.3*coeff
