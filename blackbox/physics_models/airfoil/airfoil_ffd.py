@@ -142,15 +142,6 @@ class AirfoilFFD(AirfoilBaseClass):
                 self.lowerBound = np.append(self.lowerBound, lowerBound)
                 self.locator = np.append(self.locator, locator)
 
-            # Modify the bounds if LE/TE are fixed
-            # User is only giving bounds for the independent FFD points
-            # if self.options["fixLETE"]:
-            #     lowerBound = np.append(lowerBound[0], lowerBound)
-            #     lowerBound = np.append(lowerBound, lowerBound[-1])
-
-            #     upperBound = np.append(upperBound[0], upperBound)
-            #     upperBound = np.append(upperBound, upperBound[-1])
-
             # Adding FFD points as a DV
             self.DVGeo.addSpanwiseLocalDV("shape", spanIndex="k", axis="y")
             
@@ -268,7 +259,7 @@ class AirfoilFFD(AirfoilBaseClass):
             if np.any(lb >= ub):
                 self._error("Lower bound is greater than or equal to upper bound for atleast one DV.")
 
-            # Checking if the bounds are within the limits
+            # Checking if the bounds are within the limits ########## Instead of checking for bounds, implement checking for intersecting surface
             # coeff = self.DVGeo.origFFDCoef
             # index = self.DVGeo.getLocalIndex(0)
             # dist = coeff[index[:,1,0], 1] - coeff[index[:,0,0], 1]
@@ -298,3 +289,111 @@ class AirfoilFFD(AirfoilBaseClass):
 
             if lb >= ub:
                 self._error("Lower bound is greater than or equal to upper bound.")
+
+    # ----------------------------------------------------------------------------
+    #                   Methods related to Laplacian Smoothing
+    # ----------------------------------------------------------------------------
+
+    def LaplacianSmoothing(self, x: np.ndarray) -> np.ndarray:
+        """
+            Method for performing Laplacian smoothing on the FFD points.
+            
+            Input:
+                x: 1D numpy array containing the only the DV values.
+
+            Output:
+                x_smooth: 1D numpy array containing the smoothed DV values.
+        """
+
+        # Performing checks
+        if len(self.DV) == 0:
+            self._error("Add design variables before running the analysis.")
+
+        if not isinstance(x, np.ndarray):
+            self._error("Input sample is not a numpy array.")
+
+        if x.ndim != 1:
+            self._error("Input sample is a single dimensional array.")
+
+        if len(x) != len(self.lowerBound):
+            self._error("Input sample is not of correct size.")
+
+        # If no geometric design variable is present, then return the original airfoil
+        if self.DVGeo.getNDV() == 0:
+            self._error("No shape design variable is present to smooth", type=1)
+            return x
+
+        # Smoothing parameters
+        theta = self.options["smoothingTheta"]
+        maxIter = self.options["smoothingMaxIterations"]
+        tolerance = self.options["smoothingTolerance"]
+
+        # Creating dictionary from x
+        loc = self.locator == "shape"
+        loc = loc.reshape(-1,)
+        y = x[loc]
+
+        # Fixing the LE and TE FFD points
+        if self.options["fixLETE"]:
+
+            midpoint = y[0]/2
+            y[0] -= midpoint
+            y = np.append(-midpoint, y)
+
+            midpoint = y[-1]/2
+            y[-1] -= midpoint
+            y = np.append(y, -midpoint)
+
+        # Array containing index of lower and upper surface FFD points in design variable
+        lowerIndex = np.linspace(0, self.options["nffd"]-2, int(self.options["nffd"]/2), dtype=int) # lower surface ffd point index in dv array
+        upperIndex = np.linspace(1, self.options["nffd"]-1, int(self.options["nffd"]/2), dtype=int) # upper surface ffd point index in dv array
+
+        # Looping control variables
+        error = 1
+        itr = 0
+
+        # Smoothing operation
+        while error > tolerance and itr < maxIter:
+
+            # Getting the airfoil coordinates for previous iteration
+            if self.options["fixLETE"]:
+                x[loc] = np.delete(y, [0,-1]) # Dropping first and last entry, since they are not design variables
+            else:
+                x[loc] = y
+            airfoil_prev = self.getAirfoil(x)
+
+            # Lower surface FFD points
+            for i in lowerIndex:
+                if i == lowerIndex[0]:
+                    y[i] = theta * y[i] + (1-theta) * y[i+2]
+
+                elif i == lowerIndex[-1]:
+                    y[i] = theta * y[i] + (1-theta) * y[i-2]
+
+                else:
+                    y[i] = theta * y[i] + (1-theta) * (y[i-2] + y[i+2])/2
+
+            # Upper surface FFD points
+            for i in upperIndex:
+                if i == upperIndex[0]:
+                    y[i] = theta * y[i] + (1-theta) * y[i+2]
+
+                elif i == upperIndex[-1]:
+                    y[i] = theta * y[i] + (1-theta) * y[i-2]
+
+                else:
+                    y[i] = theta * y[i] + (1-theta) * (y[i-2] + y[i+2])/2
+
+            # Getting the airfoil coordinates for current iteration
+            if self.options["fixLETE"]:
+                x[loc] = np.delete(y, [0,-1])  # Dropping first and last entry, since they are not design variables
+            else:
+                x[loc] = y
+            airfoil = self.getAirfoil(x)
+
+            # Calculating error
+            error = np.linalg.norm(airfoil - airfoil_prev) / np.linalg.norm(airfoil_prev)
+            
+            itr = itr + 1
+
+        return x

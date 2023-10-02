@@ -62,6 +62,12 @@ class DefaultOptions():
         # LE/TE related options
         self.fixLETE = True
 
+        # Smoothing options
+        self.smoothing = False
+        self.smoothingTheta = 0.75
+        self.smoothingMaxIterations = 100
+        self.smoothingTolerance = 5e-4
+
 class AirfoilBaseClass():
     """
         Base class for airfoil related classes.
@@ -150,6 +156,10 @@ class AirfoilBaseClass():
 
             # Current sample
             x = samples[sampleNo,:]
+
+            # Laplacian smoothing
+            if self.parametrization == "FFD" and self.options["smoothing"]:
+                x = self.LaplacianSmoothing(x)
 
             description.write("\nDesign Variable: {}".format(x))
 
@@ -666,6 +676,23 @@ class AirfoilBaseClass():
         if "fixLETE" in userProvidedOptions:
             if not isinstance(options["fixLETE"], bool):
                 self._error("\"fixLETE\" attribute is not a boolean.")
+
+        ############ Validating smoothing options
+        if "smoothing" in userProvidedOptions:
+            if not isinstance(options["smoothing"], bool):
+                self._error("\"smoothing\" attribute is not a boolean.")
+
+        if "smoothingTheta" in userProvidedOptions:
+            if not isinstance(options["smoothingTheta"], float):
+                self._error("\"smoothingTheta\" attribute is not a float.")
+
+        if "smoothingMaxIterations" in userProvidedOptions:
+            if not isinstance(options["smoothingMaxIterations"], int):
+                self._error("\"smoothingMaxIterations\" attribute is not an integer.")
+
+        if "smoothingTolerance" in userProvidedOptions:
+            if not isinstance(options["smoothingTolerance"], float):
+                self._error("\"smoothingTolerance\" attribute is not a float.")
 
     # ----------------------------------------------------------------------------
     #                               Other methods

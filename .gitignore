@@ -13,3 +13,4 @@ examples/airfoil_cst_multipoint/output
 examples/airfoil_ffd/output
 examples/simple_wing/output
 examples/crm/output
+examples/sampling_plan/output

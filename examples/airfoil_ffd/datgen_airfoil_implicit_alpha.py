@@ -65,6 +65,11 @@ options = {
     # Requried options
     "airfoilFile": "rae2822.dat",
     "nffd": 20,
+    # Implicit alpha
+    "alpha": "implicit",
+    "targetCL": 0.824,
+    "targetCLTol": 1e-4,
+    "startingAlpha": 2.8,
     # FFD Box options
     "fitted": True,
     "ymarginl": 0.015,
@@ -77,7 +82,7 @@ options = {
     # Smoothing options
     "smoothing": True,
     "smoothingTolerance": 5e-4,
-    "smoothingTheta": 0.6,
+    "smoothingTheta": 0.7,
     # Other options
     "noOfProcessors": 8,
     "aeroProblem": ap,
@@ -91,44 +96,13 @@ options = {
 # Example for generating samples
 airfoil = AirfoilFFD(options=options)
 
-# Add alpha as an design variables
-airfoil.addDV("alpha", lowerBound=1.5, upperBound=3.5)
-
-############ Setting bounds for shape design variables ############
-
-coeff = airfoil.DVGeo.origFFDCoef
-index = airfoil.DVGeo.getLocalIndex(0)
-
-# Initialize bounds
-lowerBound = np.zeros(int(coeff.shape[0]/2))
-upperBound = np.zeros(int(coeff.shape[0]/2))
-
-# Lift direction
-liftIndex = 1 # y
-
-# Computing the y distance between upper and lower surface FFD points
-# 0 at thrid index denotes section location - there are two sections
-# (0,1) at second index denotes lower and upper surface of FFD points
-dist = coeff[index[:,1,0], liftIndex] - coeff[index[:,0,0], liftIndex]
-
-# Lower and upper surface FFD point index in DV
-lowerIndex = np.linspace(0, nffd-2, dist.shape[0], dtype=int) # lower surface ffd point index in DV
-upperIndex = np.linspace(1, nffd-1, dist.shape[0], dtype=int) # upper surface ffd point index in DV
-
-# FFD local thickness
-delta = 0.15
-
-# Lower bounds
-lowerBound[lowerIndex] = -delta * dist
-lowerBound[upperIndex] = -delta * dist
-
-# Upper bounds
-upperBound[lowerIndex] = delta * dist
-upperBound[upperIndex] = delta * dist
+# Lower and upper bounds for shape variables
+# First and last entry is dropped for fixing LE/TE
+lower = np.array([-0.01]*(nffd-2))
+upper = np.array([0.01]*(nffd-2))
 
 # Add shape as a design variables
-# First and last entry is dropped since option for fixing LE/TE is set in blackbox
-airfoil.addDV("shape", lowerBound=lowerBound[1:-1], upperBound=upperBound[1:-1])
+airfoil.addDV("shape", lowerBound=lower, upperBound=upper)
 
 # Generate samples
 airfoil.generateSamples(5)
