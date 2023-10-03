@@ -322,6 +322,9 @@ class AirfoilFFD(AirfoilBaseClass):
         if self.DVGeo.getNDV() == 0:
             self._error("No shape design variable is present to smooth", type=1)
             return x
+        
+        # Copying the original x
+        x_smooth = x.copy()
 
         # Smoothing parameters
         theta = self.options["smoothingTheta"]
@@ -331,7 +334,7 @@ class AirfoilFFD(AirfoilBaseClass):
         # Creating dictionary from x
         loc = self.locator == "shape"
         loc = loc.reshape(-1,)
-        y = x[loc]
+        y = x_smooth[loc]
 
         # Fixing the LE and TE FFD points
         if self.options["fixLETE"]:
@@ -357,10 +360,10 @@ class AirfoilFFD(AirfoilBaseClass):
 
             # Getting the airfoil coordinates for previous iteration
             if self.options["fixLETE"]:
-                x[loc] = np.delete(y, [0,-1]) # Dropping first and last entry, since they are not design variables
+                x_smooth[loc] = np.delete(y, [0,-1]) # Dropping first and last entry, since they are not design variables
             else:
-                x[loc] = y
-            airfoil_prev = self.getAirfoil(x)
+                x_smooth[loc] = y
+            airfoil_prev = self.getAirfoil(x_smooth)
 
             # Lower surface FFD points
             for i in lowerIndex:
@@ -386,14 +389,14 @@ class AirfoilFFD(AirfoilBaseClass):
 
             # Getting the airfoil coordinates for current iteration
             if self.options["fixLETE"]:
-                x[loc] = np.delete(y, [0,-1])  # Dropping first and last entry, since they are not design variables
+                x_smooth[loc] = np.delete(y, [0,-1])  # Dropping first and last entry, since they are not design variables
             else:
-                x[loc] = y
-            airfoil = self.getAirfoil(x)
+                x_smooth[loc] = y
+            airfoil = self.getAirfoil(x_smooth)
 
             # Calculating error
             error = np.linalg.norm(airfoil - airfoil_prev) / np.linalg.norm(airfoil_prev)
             
             itr = itr + 1
 
-        return x
+        return x_smooth
