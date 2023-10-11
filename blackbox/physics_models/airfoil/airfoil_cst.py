@@ -242,27 +242,27 @@ class AirfoilCST(AirfoilBaseClass):
         # Writing the surface mesh
         self._writeSurfMesh(coords=points, filename="surfMesh.xyz")
 
-        # Spawning the runscript on desired number of processors
-        child_comm = MPI.COMM_SELF.Spawn(sys.executable, args=["runscript.py"], maxprocs=self.options["noOfProcessors"])
-
-        # Creating empty process id list
-        pid_list = []
-
-        # Getting each spawned process
-        for processor in range(self.options["noOfProcessors"]):
-            pid = child_comm.recv(source=MPI.ANY_SOURCE, tag=processor)
-            pid_list.append(psutil.Process(pid))
-
-        # Disconnecting from intercommunicator
-        child_comm.Disconnect()
-
-        # Waiting till all the child processors are finished
-        while len(pid_list) != 0:
-            for pid in pid_list:
-                if not pid.is_running():
-                    pid_list.remove(pid)
-
         try:
+            # Spawning the runscript on desired number of processors
+            child_comm = MPI.COMM_SELF.Spawn(sys.executable, args=["runscript.py"], maxprocs=self.options["noOfProcessors"])
+    
+            # Creating empty process id list
+            pid_list = []
+    
+            # Getting each spawned process
+            for processor in range(self.options["noOfProcessors"]):
+                pid = child_comm.recv(source=MPI.ANY_SOURCE, tag=processor)
+                pid_list.append(psutil.Process(pid))
+    
+            # Disconnecting from intercommunicator
+            child_comm.Disconnect()
+    
+            # Waiting till all the child processors are finished
+            while len(pid_list) != 0:
+                for pid in pid_list:
+                    if not pid.is_running():
+                        pid_list.remove(pid)
+
             # Reading the output file containing results
             filehandler = open("output.pickle", 'rb')
 
