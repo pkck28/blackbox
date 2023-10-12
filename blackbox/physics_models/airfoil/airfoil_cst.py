@@ -180,7 +180,6 @@ class AirfoilCST(AirfoilBaseClass):
         # Removing the entry from DV list
         self.DV.remove(name)
 
-        # Updating the sampler based on internal sampling
         if self.options["sampling"] == "internal":
 
             if len(self.DV) == 0:

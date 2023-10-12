@@ -14,7 +14,7 @@ parent_comm = comm.Get_parent()
 parent_comm.send(os.getpid(), dest=0, tag=comm.rank)
 
 try:
-    # Redirecting the stdout
+    # Redirecting the stdout - only root processor does printing
     if comm.rank == 0:
         log = open("log.txt", "a")
         stdout = os.dup(1)
@@ -115,7 +115,7 @@ try:
     CFDSolver.checkSolutionFailure(ap, funcs)
 
     # printing the result
-    if MPI.COMM_WORLD.rank == 0:
+    if comm.rank == 0:
         print("")
         print("#" + "-"*129 + "#")
         print(" "*59 + "Result" + ""*59)
