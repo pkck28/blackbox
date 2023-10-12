@@ -19,7 +19,7 @@ try:
         log = open("log.txt", "a")
         stdout = os.dup(1)
         os.dup2(log.fileno(), 1)
-    
+
     ############## Reading input file for the analysis
 
     # Reading input file

@@ -1,8 +1,4 @@
-### This examples shows how to generate samples for CST parameterization
-### with alpha as implicit variable. A simple secant method is used to
-### to find the correct alpha value for the given CL value.
-
-from blackbox import AirfoilCST
+from blackbox import AirfoilFFD
 from baseclasses import AeroProblem
 import numpy as np
 
@@ -62,38 +58,51 @@ ap = AeroProblem(
     areaRef=1.0, chordRef=1.0, evalFuncs=["cl", "cd", "cmz"], xRef = 0.25, yRef = 0.0, zRef = 0.0
 )
 
+nffd = 20 # Number of FFD points
+
 # Options for blackbox
 options = {
-    "solverOptions": solverOptions,
+    # Requried options
+    "airfoilFile": "rae2822.dat",
+    "nffd": 20,
+    # Implicit alpha
+    "alpha": "implicit",
+    "targetCL": 0.824,
+    "targetCLTol": 1e-4,
+    "startingAlpha": 2.8,
+    # FFD Box options
+    "fitted": True,
+    "ymarginl": 0.015,
+    "ymarginu": 0.015,
+    # Sampling options
+    "sampling": "internal",
+    "samplingCriterion": "ese",
+    # Fixing the LE/TE
+    "fixLETE": True,
+    # Smoothing options
+    "smoothing": True,
+    "smoothingTolerance": 5e-4,
+    "smoothingTheta": 0.7,
+    # Other options
     "noOfProcessors": 8,
     "aeroProblem": ap,
-    "airfoilFile": "rae2822.dat",
-    "numCST": [6, 6],
+    "solverOptions": solverOptions,
     "meshingOptions": meshingOptions,
     "writeAirfoilCoordinates": True,
     "plotAirfoil": True,
-    "alpha": "implicit",
-    "targetCL": 0.824,
-    "startingAlpha": 2.8,
-    "targetCLTol": 1e-4,
-    "sampling": "internal",
-    "samplingCriterion": "ese"
+    "writeDeformedFFD": True,
 }
 
 # Example for generating samples
-airfoil = AirfoilCST(options=options)
+airfoil = AirfoilFFD(options=options)
 
-# Adding lower surface CST coeffs as DV
-coeff = airfoil.DVGeo.defaultDV["lower"] # get the fitted CST coeff
-lb = coeff - np.sign(coeff)*0.3*coeff
-ub = coeff + np.sign(coeff)*0.3*coeff
-airfoil.addDV("lower", lowerBound=lb, upperBound=ub)
+# Lower and upper bounds for shape variables
+# First and last entry is dropped for fixing LE/TE
+lower = np.array([-0.01]*(nffd-2))
+upper = np.array([0.01]*(nffd-2))
 
-# Adding upper surface CST coeffs as DV
-coeff = airfoil.DVGeo.defaultDV["upper"] # get the fitted CST coeff
-lb = coeff - np.sign(coeff)*0.3*coeff
-ub = coeff + np.sign(coeff)*0.3*coeff
-airfoil.addDV("upper", lowerBound=lb, upperBound=ub)
+# Add shape as a design variables
+airfoil.addDV("shape", lowerBound=lower, upperBound=upper)
 
-# Generating the samples
+# Generate samples
 airfoil.generateSamples(5)

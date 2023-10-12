@@ -1,12 +1,15 @@
 # This script contains parent classes for different airfoil use cases in blackbox
 
 # General imports
-import os, pickle, psutil, time
+import os, pickle, psutil, time, shutil, sys
 import numpy as np
 from pyDOE2 import lhs
 from baseclasses import AeroProblem
 from scipy.io import savemat
 from scipy import integrate
+from mpi4py import MPI
+
+comm = MPI.COMM_WORLD
 
 class DefaultOptions():
     """
@@ -19,8 +22,11 @@ class DefaultOptions():
 
     def __init__(self):
 
-        # Aero solver Options
+        # Aero solver / Meshing Options
         self.aeroSolver = "adflow"
+        self.solverOptions = {}
+        self.meshingOptions = {}
+        self.aeroProblem = None
 
         # Other options
         self.directory = "output"
@@ -29,6 +35,7 @@ class DefaultOptions():
         self.writeSliceFile = False
         self.writeAirfoilCoordinates = False
         self.plotAirfoil = False
+        self.writeDeformedFFD = False
 
         # Flow-field related options
         # if getFlowFieldData is false, then all other options are useless
@@ -41,49 +48,89 @@ class DefaultOptions():
         self.targetCLTol = 1e-4
         self.startingAlpha = 2.5
 
+        # Sampling options
+        self.sampling = "internal"
+        self.samplingCriterion = "cm"
+        self.randomState = None
+
+        # FFD Box related options
+        self.fitted = False
+        self.xmargin = 0.001
+        self.ymarginu = 0.02
+        self.ymarginl = 0.02
+
+        # LE/TE related options
+        self.fixLETE = True
+
+        # Smoothing options
+        self.smoothing = False
+        self.smoothingTheta = 0.75
+        self.smoothingMaxIterations = 100
+        self.smoothingTolerance = 5e-4
+
 class AirfoilBaseClass():
     """
         Base class for airfoil related classes.
 
         This class needs to be inherited by all the airfoil related classes.
+
+        Wherever this class is used, child class needs to initialize various
+        variables for proper working of the class.
     """
 
-    def generateSamples(self, numSamples: int, doe: np.ndarray=None) -> None:
+    # ----------------------------------------------------------------------------
+    #                       Methods related to analysis
+    # ----------------------------------------------------------------------------
+
+    def generateSamples(self, numSamples: int=None, doe: np.ndarray=None) -> None:
         """
             Method for generating samples.
 
-            Inputs: 
+            Inputs (only one is rquired, depending on user preference):
             numSamples (int): Number of samples
             doe (np.ndarray): User provided samples of size n x numSamples. 
                             If not provided, then LHS samples are generated.
         """
 
+        # Checking if the appropriate options are set for analysis
+        if self.options["solverOptions"] == {} or self.options["meshingOptions"] == {} or self.options["aeroProblem"] == None:
+            self._error("You need to set solverOptions, meshingOptions and aeroProblem in the options dictionary for running the analysis.")
+
         # Performing checks
         if len(self.DV) == 0:
             self._error("Add design variables before running the analysis.")
 
-        if not isinstance(numSamples, int):
-            self._error("Number of samples argument is not an integer.")
+        # Sampling plan
+        if self.options["sampling"] == "internal":
+
+            # Validation
+            if numSamples is None:
+                self._error("Number of samples is not provided.")
+            if not isinstance(numSamples, int):
+                self._error("Number of samples argument is not an integer.")
+
+            # Generate sampling plan
+            samples = self.sampler(numSamples)
+    
+        elif self.options["sampling"] == "external":
+
+            # Validation
+            if doe is None:
+                self._error("External samples are not provided.")
+            if not isinstance(doe, np.ndarray):
+                self._error("Provided external samples are not a numpy array.")
+            if doe.ndim != 2:
+                self._error("Provided external samples are not a 2D numpy array.")
+            if doe.shape[1] != len(self.DV):
+                self._error("Provided external samples are not of correct size.")
+
+            # Assign user provided samples
+            samples = doe
+            numSamples = samples.shape[0]
 
         # Number of analysis passed/failed
-        failed =[]
+        failed = []
         totalTime = 0
-
-        # Generating LHS samples or using user provided samples
-        if isinstance(doe, np.ndarray):
-            if doe.ndim != 2:
-                self._error("doe argument is not a 2D numpy array.")
-            
-            if doe.shape[0] != numSamples:
-                self._error("Number of samples in doe argument is not equal to numSamples argument.")
-
-            samples = doe
-
-        elif doe is None:
-            samples = self._lhs(numSamples)
-
-        else:
-            self._error("doe argument should be NONE or a numpy array.")
 
         # Creating empty dictionary for storing the data
         data = {}
@@ -110,6 +157,10 @@ class AirfoilBaseClass():
             # Current sample
             x = samples[sampleNo,:]
 
+            # Laplacian smoothing
+            if self.parametrization == "FFD" and self.options["smoothing"]:
+                x = self.LaplacianSmoothing(x)
+
             description.write("\nDesign Variable: {}".format(x))
 
             # Starting time
@@ -119,8 +170,7 @@ class AirfoilBaseClass():
                 # Getting output for specific sample
                 output, field = self.getObjectives(x)
 
-            except Exception as e:
-                print(e)
+            except:
                 print("Error occured during the analysis. Check analysis.log in the respective folder for more details.")
                 failed.append(sampleNo + 1)
                 description.write("\nAnalysis failed.")
@@ -196,6 +246,246 @@ class AirfoilBaseClass():
 
         # Closing the description file
         description.close()
+
+    def getObjectives(self, x: np.ndarray) -> tuple:
+        """
+            Method for running an analysis at a given sample.
+
+            Input:
+                x: 1D numpy array containing the design variables.
+
+            Output:
+                output: A tuple containing two dictionaries. 
+                First dictionary contains the output from the analysis.
+                Second dictionary contains the flow field data, if requested.
+                Otherwise, it is None.
+        """
+
+        # Checking if the appropriate options are set for analysis
+        if self.options["solverOptions"] == {} or self.options["meshingOptions"] == {} or self.options["aeroProblem"] == None:
+            self._error("You need to set solverOptions, meshingOptions and aeroProblem in the options dictionary for running the analysis.")
+
+        # Overiding/set some solver options
+        self.options["solverOptions"]["printAllOptions"] = False
+        self.options["solverOptions"]["printIntro"] = False
+        self.options["solverOptions"]["outputDirectory"] = "."
+        self.options["solverOptions"]["numberSolutions"] = False
+        self.options["solverOptions"]["printTiming"] = False
+
+        # Raise an error if pyvista is not installed
+        if self.options["getFlowFieldData"]:
+            self.options["solverOptions"]["writeSurfaceSolution"] = True
+
+        # Getting the deformed airfoil
+        points = self.getAirfoil(x)
+
+        print("Running analysis {}".format(self.genSamples + 1))
+
+        directory = self.options["directory"]
+
+        # Create the folder for saving the results
+        os.system("mkdir {}/{}".format(directory, self.genSamples+1))
+
+        # Getting the directory where package is saved
+        pkgdir = sys.modules["blackbox"].__path__[0]
+
+        # Setting filepath based on the how alpha is treated alpha
+        if self.options["alpha"] == "explicit":
+            filepath = os.path.join(pkgdir, "runscripts/airfoil/runscript_airfoil.py")
+        else:
+            # filepath = os.path.join(pkgdir, "runscripts/airfoil/runscipt_airfoil_cst_opt.py")
+            filepath = os.path.join(pkgdir, "runscripts/airfoil/runscript_airfoil_rf.py")
+
+        # Copy the runscript to analysis directory
+        shutil.copy(filepath, "{}/{}/runscript.py".format(directory, self.genSamples+1))
+
+        # Changing the directory to analysis folder
+        os.chdir("{}/{}".format(directory, self.genSamples+1))
+
+        if self.options["writeAirfoilCoordinates"]:
+            self._writeCoords(coords=points, filename="deformedAirfoil.dat")
+
+        if self.options["plotAirfoil"]:
+            self._plotAirfoil(self.plt, self.coords, points)
+
+        if self.parametrization == "FFD" and self.options["writeDeformedFFD"]:
+            self.DVGeo.writePlot3d("deformedFFD.xyz")
+
+        # Create input file
+        self._creatInputFile(x)
+
+        # Writing the surface mesh
+        self._writeSurfMesh(coords=points, filename="surfMesh.xyz")
+
+        try:
+            # Spawning the runscript on desired number of processors
+            child_comm = MPI.COMM_SELF.Spawn(sys.executable, args=["runscript.py"], maxprocs=self.options["noOfProcessors"])
+
+            # Creating empty process id list
+            pid_list = []
+
+            # Getting each spawned process
+            for processor in range(self.options["noOfProcessors"]):
+                pid = child_comm.recv(source=MPI.ANY_SOURCE, tag=processor)
+                pid_list.append(psutil.Process(pid))
+
+            # Disconnecting from intercommunicator
+            child_comm.Disconnect()
+
+            # Waiting till all the child processors are finished
+            while len(pid_list) != 0:
+                for pid in pid_list:
+                    if not pid.is_running():
+                        pid_list.remove(pid)
+
+            # Reading the output file containing results
+            filehandler = open("output.pickle", 'rb')
+
+        except:
+            raise Exception
+
+        else:
+            # Read the output
+            output = pickle.load(filehandler)
+            filehandler.close()
+
+            # Calculate the area
+            output["area"] = integrate.simpson(points[:,0], points[:,1], even="avg")
+
+            if self.options["getFlowFieldData"]:
+                # Reading the cgns file
+                filename = self.options["aeroProblem"].name + "_surf.cgns"
+                reader = self.pyvista.CGNSReader(filename)
+                reader.load_boundary_patch = False
+
+                # Reading the mesh
+                mesh = reader.read()
+
+                # Setting region for extraction
+                if self.options["region"] == "surface":
+                    mesh = mesh[0][0]
+                else:
+                    mesh = mesh[0][2]
+
+                # Get the values
+                fieldData = {}
+
+                for index, var in enumerate(mesh.array_names):
+                    # Skipping the first entry in the array
+                    if index != 0:
+                        # set_active_scalars returns a tuple, and second
+                        # entry contains the pyvista numpy array.
+                        fieldData[var] = np.asarray(mesh.set_active_scalars(var, "cell")[1])
+
+            else:
+                fieldData = None
+
+            return output, fieldData
+
+        finally:
+            # Cleaning the directory
+            files = ["surfMesh.xyz", "volMesh.cgns", "input.pickle", "runscript.py",
+                    "output.pickle", "fort.6", "opt.hst"]
+            for file in files:
+                if os.path.exists(file):
+                    os.system("rm {}".format(file))
+
+            # Changing the directory back to root
+            os.chdir("../..")
+
+            # Increase the number of generated samples
+            self.genSamples += 1
+
+    def getAirfoil(self, x: np.ndarray) -> np.ndarray:
+        """
+            Method for getting the airfoil for a given design variable
+            using parameterization within in pyGeo.
+
+            Input:
+            x - 1D numpy array (value of dv).
+
+            Output:
+            points - 2D numpy array containing the airfoil coordinates.
+        """
+
+        # Performing checks
+        if len(self.DV) == 0:
+            self._error("Add design variables before running the analysis.")
+
+        if not isinstance(x, np.ndarray):
+            self._error("Input sample is not a numpy array.")
+
+        if x.ndim != 1:
+            self._error("Input sample is a single dimensional array.")
+
+        if len(x) != len(self.lowerBound):
+            self._error("Input sample is not of correct size.")
+            
+        # If no geometric design variable is present, then return the original airfoil
+        if self.DVGeo.getNDV() == 0:
+            return self.coords[:,0:2]
+
+        # Creating dictionary from x
+        newDV = {}
+        for dv in self.DV:
+            loc = self.locator == dv
+            loc = loc.reshape(-1,)
+            newDV[dv] = x[loc]
+
+        if self.parametrization == "FFD" and self.options["fixLETE"]:
+
+            # Adjusting LE FFD points
+            midpoint = newDV["shape"][0]/2
+            newDV["shape"][0] -= midpoint
+            newDV["shape"] = np.append(-midpoint, newDV["shape"])
+
+            # Adjusting TE FFD points
+            midpoint = newDV["shape"][-1]/2
+            newDV["shape"][-1] -= midpoint
+            newDV["shape"] = np.append(newDV["shape"], -midpoint)
+
+        # Updating the airfoil pointset based on new DV
+        self.DVGeo.setDesignVars(newDV)
+
+        # Getting the updated airfoil points
+        points = self.DVGeo.update("airfoil")[:,0:2]
+
+        return points
+
+    def calculateArea(self, x: np.ndarray) -> float:
+        """
+            Note: This function should not be called in the middle of analysis
+            It should ONLY be used from outside. Do not use this method within 
+            getObjectives. That method has its own implementation
+            of area calculation.
+
+            Function to calculate the area of the airfoil
+            based on the value of design variable.
+
+            Input:
+            x - 1D numpy array (value of dv).
+
+            Ouput:
+            area: area of the airfoil.
+
+            Note: To use this method, atleast lower or upper surface CST
+            coefficient should be added as a DV.
+        """
+
+        # Getting the updated airfoil points
+        points = self.getAirfoil(x)
+        x = points[:,0]
+        y = points[:,1]
+
+        # Calculate the area using simpson's rule
+        # Note: x and y are both flipped here
+        area = integrate.simpson(x, y, even='avg')
+
+        return area
+    
+    # ----------------------------------------------------------------------------
+    #                       Methods related to validation
+    # ----------------------------------------------------------------------------
 
     def _checkOptions(self, defaultOptions: list, requiredOptions: list, options: dict) -> None:
         """
@@ -363,6 +653,51 @@ class AirfoilBaseClass():
             if not isinstance(options["writeDeformedFFD"], bool):
                 self._error("\"writeDeformedFFD\" attribute is not a boolean.")
 
+        ############ Validating sampling options
+        if "sampling" in userProvidedOptions:
+            if not isinstance(options["sampling"], str):
+                self._error("\"sampling\" attribute is not a string.")
+
+            if options["sampling"] not in ["internal", "external"]:
+                self._error("\"sampling\" attribute is not recognized. It can be either \"internal\" or \"external\".")
+
+        if "samplingCriterion" in userProvidedOptions:
+            if not isinstance(options["samplingCriterion"], str):
+                self._error("\"samplingCriterion\" attribute is not a string.")
+
+            if options["samplingCriterion"] not in ["c", "m", "cm", "ese"]:
+                self._error("\"samplingCriterion\" attribute is not recognized. It can be \"c\", \"m\", \"cm\", or \"ese\".")
+
+        if "randomState" in userProvidedOptions:
+            if not isinstance(options["randomState"], int):
+                self._error("\"randomState\" attribute is not an integer.")
+
+        ############ Validating LE/TE options
+        if "fixLETE" in userProvidedOptions:
+            if not isinstance(options["fixLETE"], bool):
+                self._error("\"fixLETE\" attribute is not a boolean.")
+
+        ############ Validating smoothing options
+        if "smoothing" in userProvidedOptions:
+            if not isinstance(options["smoothing"], bool):
+                self._error("\"smoothing\" attribute is not a boolean.")
+
+        if "smoothingTheta" in userProvidedOptions:
+            if not isinstance(options["smoothingTheta"], float):
+                self._error("\"smoothingTheta\" attribute is not a float.")
+
+        if "smoothingMaxIterations" in userProvidedOptions:
+            if not isinstance(options["smoothingMaxIterations"], int):
+                self._error("\"smoothingMaxIterations\" attribute is not an integer.")
+
+        if "smoothingTolerance" in userProvidedOptions:
+            if not isinstance(options["smoothingTolerance"], float):
+                self._error("\"smoothingTolerance\" attribute is not a float.")
+
+    # ----------------------------------------------------------------------------
+    #                               Other methods
+    # ----------------------------------------------------------------------------
+
     def _getDefaultOptions(self, defaultOptions) -> None:
         """
             Setting up the initial values of options.
@@ -392,63 +727,6 @@ class AirfoilBaseClass():
                     self.options[key] = options[key]
             else:
                 self.options[key] = options[key]
-
-    def calculateArea(self, x: np.ndarray) -> float:
-        """
-            Note: This function should not be called in the middle of analysis
-            It should ONLY be used from outside. Do not use this method within 
-            getObjectives. That method has its own implementation
-            of area calculation.
-
-            Function to calculate the area of the airfoil
-            based on the value of design variable.
-
-            Input:
-            x - 1D numpy array (value of dv).
-
-            Ouput:
-            area: area of the airfoil.
-
-            Note: To use this method, atleast lower or upper surface CST
-            coefficient should be added as a DV.
-        """
-
-        # Performing checks
-        if len(self.DV) == 0:
-            self._error("Add design variables before running the analysis.")
-
-        if not isinstance(x, np.ndarray):
-            self._error("Input sample is not a numpy array.")
-
-        if x.ndim != 1:
-            self._error("Input sample is a single dimensional array.")
-
-        if len(x) != len(self.lowerBound):
-            self._error("Input sample is not of correct size.")
-
-        if "upper" not in self.DV and "lower" not in self.DV:
-            self._error("\"upper\" or \"lower\" surface is not added as design variable.")
-
-        # Creating dictionary from x
-        newDV = {}
-        for dv in self.DV:
-            loc = self.locator == dv
-            loc = loc.reshape(-1,)
-            newDV[dv] = x[loc]
-
-        # Updating the airfoil pointset based on new DV
-        self.DVGeo.setDesignVars(newDV)
-
-        # Getting the updated airfoil points
-        points = self.DVGeo.update("airfoil")[:,0:2]
-        x = points[:,0]
-        y = points[:,1]
-
-        # Calculate the area using simpson's rule
-        # Note: x and y are both flipped here
-        area = integrate.simpson(x, y, even='avg')
-
-        return area
 
     def _lhs(self, numSamples) -> np.ndarray:
         """
@@ -547,7 +825,7 @@ class AirfoilBaseClass():
 
         f.close()
 
-    def _plotAirfoil(plt, orig_airfoil, def_airfoil) -> None:
+    def _plotAirfoil(self, plt, orig_airfoil, def_airfoil) -> None:
         """
             Method for plotting the base airfoil
             and the deformed airfoil.
@@ -565,7 +843,7 @@ class AirfoilBaseClass():
 
         plt.close()
 
-    def _error(self, message: str, type=1) -> None:
+    def _error(self, message: str, type=0) -> None:
         """
             Method for printing errors in nice manner.
 
@@ -591,4 +869,5 @@ class AirfoilBaseClass():
  
         print(msg, flush=True)
 
-        exit()
+        if type == 0:
+            exit()

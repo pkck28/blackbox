@@ -32,8 +32,7 @@ solverOptions = {
     "NKOuterPreconIts": 3,
     "NKInnerPreconIts": 3,
     # Termination Criteria
-    "L2Convergence": 1e-14,
-    "L2ConvergenceCoarse": 1e-4
+    "L2Convergence": 1e-14
 }
 
 meshingOptions = {
@@ -69,6 +68,8 @@ options = {
     "meshingOptions": meshingOptions,
     "writeAirfoilCoordinates": True,
     "plotAirfoil": True,
+    "sampling": "internal",
+    "samplingCriterion": "ese"
 }
 
 # Example for generating samples
@@ -92,4 +93,4 @@ ub = coeff + np.sign(coeff)*0.3*coeff
 airfoil.addDV("upper", lowerBound=lb, upperBound=ub)
 
 # Generating the samples
-airfoil.generateSamples(5)
+airfoil.generateSamples(numSamples=5)
