@@ -10,16 +10,16 @@ from cgnsutilities.cgnsutilities import readGrid
 comm = MPI.COMM_WORLD
 parent_comm = comm.Get_parent()
 
-# Redirecting the stdout
-if comm.rank == 0:
-    stdout = os.dup(1)
-    log = open("log.txt", "a")
-    os.dup2(log.fileno(), 1)
-
 # Send the processor
 parent_comm.send(os.getpid(), dest=0, tag=comm.rank)
 
 try:
+    # Redirecting the stdout
+    if comm.rank == 0:
+        log = open("log.txt", "a")
+        stdout = os.dup(1)
+        os.dup2(log.fileno(), 1)
+
     ############## Reading input file for the analysis
 
     # Reading input file
@@ -139,19 +139,18 @@ try:
         pickle.dump(output, filehandler)
         filehandler.close()
 
+        # Redirecting to original stdout
+        os.dup2(stdout, 1)
+        os.close(stdout)
+
 except Exception as e:
     if comm.rank == 0:
         print(e)
 
 finally:
-    # Redirecting to original stdout
+    # close the file
     if comm.rank == 0:
-        # Redirecting to original stdout
-        os.dup2(stdout, 1)
-
-        # close the file and stdout
         log.close()
-        os.close(stdout)
 
     # Getting intercomm and disconnecting
     # Otherwise, program will enter deadlock
