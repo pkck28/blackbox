@@ -128,6 +128,10 @@ try:
         for obj in ap.evalFuncs:
             print("{} = ".format(obj), funcs["{}_{}".format(ap.name, obj)])
             output["{}".format(obj)] = funcs["{}_{}".format(ap.name, obj)]
+            if obj == "cl":
+                if abs(output[obj] - CL_target) > tol:
+                    funcs["fail"] = True
+
         output["alpha"] = ap.alpha
 
         # Other mandatory outputs
