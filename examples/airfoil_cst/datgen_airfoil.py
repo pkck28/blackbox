@@ -68,7 +68,6 @@ options = {
     "meshingOptions": meshingOptions,
     "writeAirfoilCoordinates": True,
     "plotAirfoil": True,
-    "sampling": "internal",
     "samplingCriterion": "ese"
 }
 

@@ -337,7 +337,7 @@ class AirfoilCSTMultipoint():
         # Closing the description file
         description.close()
 
-    def getObjectives(self, x: np.ndarray) -> tuple:
+    def getObjectives(self, x: np.ndarray) -> dict:
         """
             Method for running a single analysis.
         """
@@ -366,7 +366,7 @@ class AirfoilCSTMultipoint():
         pkgdir = sys.modules["blackbox"].__path__[0]
 
         # Setting filepath based on the how alpha is treated alpha
-        filepath = os.path.join(pkgdir, "runscripts/runscript_airfoil_cst_mp.py")
+        filepath = os.path.join(pkgdir, "runscripts/airfoil/runscript_airfoil_cst_mp.py")
 
         # Copy the runscript to analysis directory
         shutil.copy(filepath, "{}/{}/runscript.py".format(directory, self.genSamples+1))
