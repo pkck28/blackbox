@@ -75,7 +75,6 @@ options = {
     "ymarginl": 0.015,
     "ymarginu": 0.015,
     # Sampling options
-    "sampling": "internal",
     "samplingCriterion": "ese",
     # Fixing the LE/TE
     "fixLETE": True,

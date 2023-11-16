@@ -49,7 +49,6 @@ class DefaultOptions():
         self.startingAlpha = 2.5
 
         # Sampling options
-        self.sampling = "internal"
         self.samplingCriterion = "cm"
         self.randomState = None
 
@@ -92,41 +91,29 @@ class AirfoilBaseClass():
                             If not provided, then LHS samples are generated.
         """
 
+        # Checking if inputs to the method are correct
+        if numSamples is None and doe is None:
+            self._error("Provide either number of samples (int) or doe (2D numpy array)")
+
+        if numSamples is not None and doe is not None:
+            self._error("Provide either number of samples (int) or doe (2D numpy array)")
+
         # Checking if the appropriate options are set for analysis
         if self.options["solverOptions"] == {} or self.options["meshingOptions"] == {} or self.options["aeroProblem"] == None:
             self._error("You need to set solverOptions, meshingOptions and aeroProblem in the options dictionary for running the analysis.")
 
         # Performing checks
         if len(self.DV) == 0:
-            self._error("Add design variables before running the analysis.")
-
+            self._error("Add design variables before running the analysis")
+        
         # Sampling plan
-        if self.options["sampling"] == "internal":
-
-            # Validation
-            if numSamples is None:
-                self._error("Number of samples is not provided.")
-            if not isinstance(numSamples, int):
-                self._error("Number of samples argument is not an integer.")
-
-            # Generate sampling plan
+        if isinstance(numSamples, int):
             samples = self.sampler(numSamples)
-    
-        elif self.options["sampling"] == "external":
-
-            # Validation
-            if doe is None:
-                self._error("External samples are not provided.")
-            if not isinstance(doe, np.ndarray):
-                self._error("Provided external samples are not a numpy array.")
-            if doe.ndim != 2:
-                self._error("Provided external samples are not a 2D numpy array.")
-            if doe.shape[1] != len(self.DV):
-                self._error("Provided external samples are not of correct size.")
-
-            # Assign user provided samples
+        elif isinstance(doe, np.ndarray):
             samples = doe
             numSamples = samples.shape[0]
+        else:
+            self._error("Data type of numSamples/doe is not correct.")
 
         # Number of analysis passed/failed
         failed = []
