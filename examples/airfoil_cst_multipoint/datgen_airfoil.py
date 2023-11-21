@@ -4,13 +4,13 @@ import numpy as np
 
 solverOptions = {
     # Common Parameters
-    "monitorvariables": ["cl", "cd", "cmz", "yplus"],
+    "monitorvariables": ["cl", "cd", "mach", "yplus"],
     "writeTecplotSurfaceSolution": True,
     "writeSurfaceSolution": False,
     "writeVolumeSolution": False,
     # Physics Parameters
     "nsubiterturb": 10,
-    "nCycles": 7000,
+    "nCycles": 5000,
     # ANK Solver Parameters
     "useANKSolver": True,
     "ANKSubspaceSize": 400,
@@ -75,12 +75,13 @@ options = {
     "solverOptions": solverOptions,
     "noOfProcessors": 8,
     "aeroProblem": aeroProblems,
-    "airfoilFile": "rae2822_L1.dat",
+    "airfoilFile": "rae2822.dat",
     "numCST": [6, 6],
     "meshingOptions": meshingOptions,
     "writeAirfoilCoordinates": True,
     "plotAirfoil": True,
-    "writeSliceFile": True
+    "writeSliceFile": True,
+    "samplingCriterion": "ese"
 }
 
 # Example for generating samples
@@ -101,4 +102,4 @@ ub = coeff + np.sign(coeff)*0.3*coeff
 airfoil.addDV("upper", lowerBound=lb, upperBound=ub)
 
 # Generating the samples
-airfoil.generateSamples(2)
+airfoil.generateSamples(numSamples=5)

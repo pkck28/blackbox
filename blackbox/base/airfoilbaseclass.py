@@ -272,11 +272,14 @@ class AirfoilBaseClass():
         pkgdir = sys.modules["blackbox"].__path__[0]
 
         # Setting filepath based on the how alpha is treated alpha
-        if self.options["alpha"] == "explicit":
-            filepath = os.path.join(pkgdir, "runscripts/airfoil/runscript_airfoil.py")
+        if type(self).__name__ == "AirfoilCSTMultipoint":
+            filepath = os.path.join(pkgdir, "runscripts/airfoil/runscript_airfoil_cst_mp.py")
         else:
-            # filepath = os.path.join(pkgdir, "runscripts/airfoil/runscipt_airfoil_cst_opt.py")
-            filepath = os.path.join(pkgdir, "runscripts/airfoil/runscript_airfoil_rf.py")
+            if self.options["alpha"] == "explicit":
+                filepath = os.path.join(pkgdir, "runscripts/airfoil/runscript_airfoil.py")
+            else:
+                # filepath = os.path.join(pkgdir, "runscripts/airfoil/runscipt_airfoil_cst_opt.py")
+                filepath = os.path.join(pkgdir, "runscripts/airfoil/runscript_airfoil_rf.py")
 
         # Copy the runscript to analysis directory
         shutil.copy(filepath, "{}/{}/runscript.py".format(directory, self.genSamples+1))
@@ -414,6 +417,10 @@ class AirfoilBaseClass():
             loc = loc.reshape(-1,)
             newDV[dv] = x[loc]
 
+        if type(self).__name__ == "AirfoilCSTMultipoint":
+            for ap in self.options["aeroProblem"]:
+                ap.setDesignVars(newDV)
+
         if self.parametrization == "FFD" and self.options["fixLETE"]:
 
             # Adjusting LE FFD points
@@ -523,9 +530,18 @@ class AirfoilBaseClass():
                     self._error("Second entry in \"numCST\" is less than 1.")
 
         ############ Validating aeroProblem
-        if "aeroProblem" in userProvidedOptions:
-            if not isinstance(options["aeroProblem"], AeroProblem):
-                self._error("\"aeroProblem\" attribute is not an aeroproblem.")
+        if type(self).__name__ == "AirfoilCSTMultipoint":
+            if "aeroProblem" in userProvidedOptions:
+                if not isinstance(options["aeroProblem"], list):
+                    self._error("\"aeroProblem\" attribute is not a list.")
+
+                for ap in options["aeroProblem"]:
+                    if not isinstance(ap, AeroProblem):
+                        self._error("\"aeroProblem\" attribute doesn't contain AeroProblem object.")
+        else:
+            if "aeroProblem" in userProvidedOptions:
+                if not isinstance(options["aeroProblem"], AeroProblem):
+                    self._error("\"aeroProblem\" attribute is not an aeroproblem.")
 
         ############ Validating solverOptions
         if "solverOptions" in userProvidedOptions:
