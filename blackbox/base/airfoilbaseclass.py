@@ -291,7 +291,7 @@ class AirfoilBaseClass():
             self._writeCoords(coords=points, filename="deformedAirfoil.dat")
 
         if self.options["plotAirfoil"]:
-            self._plotAirfoil(self.plt, self.coords, points)
+            self._plotAirfoil(self.plt, self.origCoords, points)
 
         if self.parametrization == "FFD" and self.options["writeDeformedFFD"]:
             self.DVGeo.writePlot3d("deformedFFD.xyz")
@@ -335,7 +335,16 @@ class AirfoilBaseClass():
             filehandler.close()
 
             # Calculate the area
-            output["area"] = integrate.simpson(points[:,0], points[:,1], even="avg")
+            x = points[:,0]
+            y = points[:,1]
+
+            area = 0.0
+            N = len(x)
+            j = N - 1
+            for i in range(0,N):
+                area += (x[j] + x[i]) * (y[j] - y[i])
+                j = i
+            output["area"] = abs(area)/2.0
 
             if self.options["getFlowFieldData"]:
                 # Reading the cgns file
@@ -408,7 +417,7 @@ class AirfoilBaseClass():
             
         # If no geometric design variable is present, then return the original airfoil
         if self.DVGeo.getNDV() == 0:
-            return self.coords[:,0:2]
+            return self.origCoords[:,0:2]
 
         # Creating dictionary from x
         newDV = {}
@@ -466,9 +475,13 @@ class AirfoilBaseClass():
         x = points[:,0]
         y = points[:,1]
 
-        # Calculate the area using simpson's rule
-        # Note: x and y are both flipped here
-        area = integrate.simpson(x, y, even='avg')
+        area = 0.0
+        N = len(x)
+        j = N - 1
+        for i in range(0,N):
+            area += (x[j] + x[i]) * (y[j] - y[i])
+            j = i
+        area = abs(area)/2.0
 
         return area
     
