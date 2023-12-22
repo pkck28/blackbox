@@ -24,13 +24,12 @@ contains the airfoil coordinates. There few important points to note regarding .
   `pyGeo <https://github.com/mdolab/pygeo>`_, `baseclasses <https://github.com/mdolab/baseclasses>`_, `cgnsutilities <https://github.com/mdolab/cgnsutilities>`_.
 - **Other packages**: `pyDOE2 <https://github.com/clicumu/pyDOE2>`_, numpy, scipy, `mpi4py <https://github.com/mpi4py/mpi4py>`_.
 
-Each subsection in this page will show how ``AirfoilCST`` module can be used. It is highly recommended to go through options description first
-and then proceed to other sub-sections. The `rae2822.dat` file used in the tutorials can be found in ``examples/airfoil_cst/`` folder in the 
+Each subsection in this page will show how ``AirfoilCST`` module can be used. The files used in the tutorials can be found in ``examples/airfoil_cst/`` folder in the 
 `repository <https://github.com/ComputationalDesignLab/blackbox>`_.
 
 .. toctree::
    :maxdepth: 2
-
-   options_cst
+   
    generating_samples
    generating_field_data
+   options_cst
