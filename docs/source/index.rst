@@ -7,10 +7,16 @@
 Blackbox
 =========================
 
+Blackbox streamlines high-fidelity aerodynamic data generation process to facilitate various 
+surrogate modeling applications, reducing the time and complexity associated with 
+setting up complex analysis chains. Blackbox currently supports airfoil data generation with CST and FFD 
+parameterization, as well as wing data generation with FFD parameterization. Additionally, an aerostructural
+module is in active development. Explore the respective sections for detailed information on airfoil and
+wing data generation. Blackbox can also run on High-Performance Computing resources, refer that section for more details.
+
 .. toctree::
    :maxdepth: 3
+   :caption: Table of Contents
 
-   introduction
    install
-   cst/airfoil_cst
-   ffd/airfoil_ffd
+   airfoil/options

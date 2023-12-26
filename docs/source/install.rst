@@ -1,26 +1,40 @@
 Installation
 ============
 
-Follow the below steps for installation:
+Blackbox uses various packages for sample generation and many of them are only supported on Linux-based systems.
+Due to this dependency, Blackbox is limited to these systems only. The dependencies are divided into two categories:
 
-- You probably have the repository, so can skip this step. If not, then clone the 
-  `repository <https://github.com/ComputationalDesignLab/blackbox>`_.
-- Open the terminal and ``cd`` into the downloaded repository and run::
+- **MACH-Aero packages**: `MACH-Aero <https://mdolab-mach-aero.readthedocs-hosted.com/en/latest/index.html>`_ is a 
+  framework for performing aerodynamic shape optimization. It consists of various packages, some of which are used
+  by Blackbox while generating samples. Below table outlines the requried packages:
 
-    pip install -e .
+  =========================================================== ================
+  Package                                                     Version
+  =========================================================== ================
+  `baseclasses <https://github.com/mdolab/baseclasses>`_      1.7.0 or higher
+  `pyGeo <https://github.com/mdolab/pygeo>`_                  1.12.2 or higher
+  `pyHyp <https://github.com/mdolab/pyhyp>`_                  2.6.0 or higher
+  `cgnsutilities <https://github.com/mdolab/cgnsutilities>`_  
+  `ADflow <https://github.com/mdolab/adflow>`_                2.7.4 or higher
+  =========================================================== ================
 
-  This will install the package in editable mode i.e. if you change anything in the 
-  source code of the package, then you don't need to re-install the package.
+  Please refer MACH-Aero's `installation page <https://mdolab-mach-aero.readthedocs-hosted.com/en/latest/installInstructions/installFromScratch.html>`_ 
+  for more details about installing these packages.
 
-- Since the packge is under constant developement, installing new updates will be very easy.
-  Open the terminal and ``cd`` into the cloned repository and run::
+- **Other packages**: Other than MACH-Aero packages, Blackbox also requries following packages:
 
-    git pull
+  =========================================================== ================
+  Package                                                     Version
+  =========================================================== ================
+  `prefoil <https://github.com/mdolab/prefoil>`_              2.0.0
+  `smt <https://smt.readthedocs.io/en/stable/>`_              2.1.0
+  `psutil <https://psutil.readthedocs.io/en/latest/>`_        5.7.0
+  =========================================================== ================
 
-  It will ask for your github username and password. This will get the latest updates from the  main 
-  `repository <https://github.com/ComputationalDesignLab/blackbox>`_, if there are any. If you get an 
-  error saying that git is not installed, then run this command in terminal::
+It is recommended to create a virtual environment for installing all the above packages. Follow below steps for installing Blackbox:
 
-    sudo apt install git
+- Clone or download the latest tagged release from Blackbox's `github repository <https://github.com/ComputationalDesignLab/blackbox>`_.
+- Open the terminal and ``cd`` into the root of cloned/downloaded repository
+- Activate the virtual environment and run::
 
-  and re-run the ``git pull`` command in the root folder of the cloned repository.
+    pip install .
