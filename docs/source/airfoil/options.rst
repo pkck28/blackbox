@@ -1,16 +1,64 @@
-.. _airfoil_options:
-
 ******************
 Options
 ******************
 
-  ``airfoilFile (str)``
-    name of the .dat file with extension. This is a requried option
+Following is the list of options for ``AirfoilCST`` and ``AirfoilFFD`` modules. Options are divided
+into three categories: CST related options, FFD related options and general options.
+
+CST related options
+--------------------
 
   ``numCST (list)``
     two-item list denoting the number of CST coefficients - first entry is for upper surface 
     and second entry is for lower surface. This is a required option when using CST parametrization
+
+FFD related options
+--------------------
+
+  ``nFFD (int)``
+    total number of FFD control points along the chord. This is a required option when using FFD parametrization
+
+  ``fitted (bool, default=False)``
+    option to decide whether to use a box FFD or a fitted FFD
+
+  ``xmargin (float, default=0.001)``
+    the closest distance of the FFD box to the tip and aft of the airfoil
+
+  ``ymarginu (float, default=0.02)``
+    When a box ffd is generated this specifies the top of the box's y values as the maximum y value in the airfoil 
+    coordinates plus this margin. When a fitted ffd is generated this is the margin between the FFD point at an xslice 
+    location and the upper surface of the airfoil at this location
+
+  ``ymarginl (float, default=0.02)``
+    When a box ffd is generated this specifies the bottom of the box's y values as the minimum y value in the airfoil
+    coordinates minus this margin. When a fitted ffd is generated this is the margin between the FFD point at an xslice
+    location and the lower surface of the airfoil at this location
+
+  ``fixLETE (bool, default=True)``
+    option to specify whether to fix the leading edge and trailing edge of the airfoil. This option is only applicable when 
+    using FFD parametrization
+
+  ``smoothing (bool, default=False)``
+    option to specify whether to use laplacian smoothing or not when generating samples
+
+  ``smoothingTheta (float, default=0.75)``
+    option to control the amount of smoothing in an iteration
+
+  ``smoothingMaxIterations (int, default=100)``
+    maximum number of iterations for smoothing
+
+  ``smoothingTolerance (float, default=5e-4)``
+    stopping criteria for smoothing
+
+  ``writeDeformedFFD (bool, default=False)``
+    option to specify whether to write deformed FFD file or not
     
+General options
+--------------------
+  
+  ``airfoilFile (str)``
+    name of the .dat file with extension. This is a requried option, irrespective of the parametrization
+
   ``solverOptions (dict, default={})``
     options for the flow solver (only adflow for now)
 
@@ -71,3 +119,6 @@ Options
   ``samplingCriterion (str, default="cm")``
     this option decides which method to use to generate Latin Hypercube samples. Only four options are available:
     ``c``, ``m``, ``cm``, ``ese``
+
+  ``randomState (int, default=None)``
+    this option is used to set the random state while generating Latin Hypercube samples

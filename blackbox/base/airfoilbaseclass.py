@@ -6,7 +6,6 @@ import numpy as np
 from pyDOE2 import lhs
 from baseclasses import AeroProblem
 from scipy.io import savemat
-from scipy import integrate
 from mpi4py import MPI
 
 comm = MPI.COMM_WORLD

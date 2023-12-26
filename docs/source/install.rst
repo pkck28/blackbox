@@ -23,13 +23,13 @@ Due to this dependency, Blackbox is limited to these systems only. The dependenc
 
 - **Other packages**: Other than MACH-Aero packages, Blackbox also requries following packages:
 
-  =========================================================== ================
-  Package                                                     Version
-  =========================================================== ================
-  `prefoil <https://github.com/mdolab/prefoil>`_              2.0.0
-  `smt <https://smt.readthedocs.io/en/stable/>`_              2.1.0
-  `psutil <https://psutil.readthedocs.io/en/latest/>`_        5.7.0
-  =========================================================== ================
+  ==================================================== =======
+  Package                                              Version
+  ==================================================== =======
+  `prefoil <https://github.com/mdolab/prefoil>`_       2.0.0
+  `smt <https://smt.readthedocs.io/en/stable/>`_       2.1.0
+  `psutil <https://psutil.readthedocs.io/en/latest/>`_ 5.7.0
+  ==================================================== =======
 
 It is recommended to create a virtual environment for installing all the above packages. Follow below steps for installing Blackbox:
 

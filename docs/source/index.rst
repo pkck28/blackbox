@@ -16,7 +16,6 @@ wing data generation. Blackbox can also run on High-Performance Computing resour
 
 .. toctree::
    :maxdepth: 3
-   :caption: Table of Contents
 
    install
-   airfoil/options
+   airfoil/intro
