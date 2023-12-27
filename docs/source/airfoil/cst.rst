@@ -1,17 +1,22 @@
-******************
-Generating Samples
-******************
+***************************
+Sample generation with CST
+***************************
 
-This tutorial explains how to use ``AirfoilCST`` module for generating samples.
+This section explains how to use ``AirfoilCST`` module for generating samples. There are typically three
+main steps involved in the process: setting up options and initializing the module, adding design variables 
+and generating samples.
 
 Setting up options
 ------------------
 
-First step involves creating options dictionary which is used for initializating the module. There are various 
-options which can be set, please refer to :ref:`options<options>` section for more details. Following snippet 
-of the code shows an example::
+First step involves creating options dictionary which is used for initializating the module. ``airfoilFile``
+and ``numCST`` are the two mandatory options, rest all are optional, please refer to :ref:`options<options>` 
+section for more details. Following snippet of the code shows an example::
 
-    # Flow solver options
+    from blackbox import AirfoilCST
+    from baseclasses import AeroProblem
+    import numpy as np
+    
     solverOptions = {
         # Common Parameters
         "monitorvariables": ["cl", "cd", "cmz", "yplus"],
@@ -23,15 +28,15 @@ of the code shows an example::
         "smoother": "DADI",
         "MGCycle": "sg",
         "nsubiterturb": 10,
-        "nCycles": 10000,
+        "nCycles": 7000,
         # ANK Solver Parameters
         "useANKSolver": True,
+        "ANKSubspaceSize": 400,
+        "ANKASMOverlap": 3,
+        "ANKPCILUFill": 4,
         "ANKJacobianLag": 5,
-        "ANKPhysicalLSTol": 0.25,
-        "ANKOuterPreconIts": 2,
-        "ANKInnerPreconIts": 2,
-        "ANKASMOverlap": 2,
-        "ANKSecondOrdSwitchTol": 1e-3,
+        "ANKOuterPreconIts": 3,
+        "ANKInnerPreconIts": 3,
         # NK Solver Parameters
         "useNKSolver": True,
         "NKSwitchTol": 1e-6,
@@ -42,36 +47,27 @@ of the code shows an example::
         "NKOuterPreconIts": 3,
         "NKInnerPreconIts": 3,
         # Termination Criteria
-        "L2Convergence": 1e-14,
-        "L2ConvergenceCoarse": 1e-4
+        "L2Convergence": 1e-14
     }
 
-    # Volume meshing options
     meshingOptions = {
-        # Input Parameters
+        # ---------------------------
+        #        Input Parameters
+        # ---------------------------
         "unattachedEdgesAreSymmetry": False,
         "outerFaceBC": "farfield",
         "autoConnect": True,
         "BC": {1: {"jLow": "zSymm", "jHigh": "zSymm"}},
         "families": "wall",
-        # Grid Parameters
+        # ---------------------------
+        #        Grid Parameters
+        # ---------------------------
         "N": 129,
         "s0": 1e-6,
         "marchDist": 100.0,
-        # Pseudo Grid Parameters
-        "ps0": -1.0,
-        "pGridRatio": -1.0,
-        "cMax": 3.0,
-        # Smoothing parameters
-        "epsE": 1.0,
-        "epsI": 2.0,
-        "theta": 3.0,
-        "volCoef": 0.25,
-        "volBlend": 0.0001,
-        "volSmoothIter": 100,
     }
 
-    # Creating aero problem
+    # Creating aeroproblem for adflow
     ap = AeroProblem(
         name="ap", alpha=2.0, mach=0.734, reynolds=6.5e6, reynoldsLength=1.0, T=288.15, 
         areaRef=1.0, chordRef=1.0, evalFuncs=["cl", "cd", "cmz"], xRef = 0.25, yRef = 0.0, zRef = 0.0
@@ -80,23 +76,30 @@ of the code shows an example::
     # Options for blackbox
     options = {
         "solverOptions": solverOptions,
-        "directory": "multi",
         "noOfProcessors": 8,
         "aeroProblem": ap,
         "airfoilFile": "rae2822.dat",
         "numCST": [6, 6],
         "meshingOptions": meshingOptions,
+        "writeAirfoilCoordinates": True,
+        "plotAirfoil": True,
+        "writeSliceFile": True,
+        "samplingCriterion": "ese"
     }
 
-Next step is to import the ``AirfoilCST`` module from Blackbox and initialize it using the options dictionary::
-
-    from blackbox import AirfoilCST
     airfoil = AirfoilCST(options=options)
+
+Firstly, required packages and modules are imported. Then, ``solverOptions`` and ``meshingOptions`` are 
+created which determine the solver and meshing settings. Then, ``AeroProblem`` object is created which 
+contains details about the flow conditions and the desired output variables are defined using ``evalFuncs`` 
+argument. Then, ``options`` dictionary is created which is used to initialize the Blackbox object. 
+Refer to :ref:`options<options>` section for more details about the options. Finally, the ``AirfoilCST``
+module is initialized using the options dictionary.
 
 Adding design variables
 -----------------------
 
-The ``addDV`` method is used for adding design variables. This methods needs three arguments:
+Next step is to add design variables based on which samples will be generated. The ``addDV`` methods needs three arguments:
 
 - ``name (str)``: the design variable to add. The available design variables are: 
 
@@ -137,7 +140,7 @@ In this tutorial, ``alpha``, ``upper`` and ``lower`` are added as the bounds::
     airfoil.addDV("lower", lowerBound=lb, upperBound=ub)
 
 Here, the upper and lower bound for ``lower`` and ``upper`` variable are +30% and -30% of the fitted CST coefficients.
-You can also remove a design varialbe using ``removeDV`` method. It takes only one input which is the name of the variable.
+You can also remove a design variable using ``removeDV`` method. It takes only one input which is the name of the variable.
 
 Generating samples and accessing output
 ---------------------------------------
