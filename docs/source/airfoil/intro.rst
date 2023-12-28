@@ -23,7 +23,8 @@ points to note regarding .dat file:
     Whenever the trailing edge is blunt, only two points should be there. More than two points in trailing
     edge will give an error. This requirement is only when using CST parametrization
 
-Explore below sections to know more about how these modules can be used.
+Explore below sections to know more about how these modules can be used. All the files used in following sections
+can be found in ``examples`` directory on github.
 
 .. toctree::
     :maxdepth: 3

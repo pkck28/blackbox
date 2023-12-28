@@ -9,8 +9,8 @@ and generating samples.
 Setting up options
 ------------------
 
-First step involves creating options dictionary which is used for initializating the module. ``airfoilFile``
-and ``numCST`` are the two mandatory options, rest all are optional, please refer to :ref:`options<options>` 
+First step involves creating options dictionary which is used for initializating the module. The ``airfoilFile``
+and ``numCST`` are the two mandatory options, rest all are optional, please refer :ref:`options<options>` 
 section for more details. Following snippet of the code shows an example::
 
     from blackbox import AirfoilCST
@@ -90,18 +90,19 @@ section for more details. Following snippet of the code shows an example::
     airfoil = AirfoilCST(options=options)
 
 Firstly, required packages and modules are imported. Then, ``solverOptions`` and ``meshingOptions`` are 
-created which determine the solver and meshing settings. Then, ``AeroProblem`` object is created which 
-contains details about the flow conditions and the desired output variables are defined using ``evalFuncs`` 
-argument. Then, ``options`` dictionary is created which is used to initialize the Blackbox object. 
-Refer to :ref:`options<options>` section for more details about the options. Finally, the ``AirfoilCST``
-module is initialized using the options dictionary.
+created which determine the solver and meshing settings. Refer `ADflow <https://mdolab-adflow.readthedocs-hosted.com/en/latest/options.html>`_
+and `pyHyp <https://mdolab-pyhyp.readthedocs-hosted.com/en/latest/options.html>`_ options for more details.
+Then, `AeroProblem <https://mdolab-baseclasses.readthedocs-hosted.com/en/latest/pyAero_problem.html>`_
+object is created which contains details about the flow conditions and the desired output variables are 
+defined using ``evalFuncs`` argument. Then, ``options`` dictionary is created, refer :ref:`options<options>` 
+section for more details. Finally, the ``AirfoilCST`` module is initialized using the options dictionary.
 
 Adding design variables
 -----------------------
 
-Next step is to add design variables based on which samples will be generated. The ``addDV`` methods needs three arguments:
+Next step is to add design variables based on which samples will be generated. The ``addDV`` method needs three arguments:
 
-- ``name (str)``: the design variable to add. The available design variables are: 
+- ``name (str)``: name of the design variable to add. The available design variables are: 
 
     - ``upper``: CST coefficients of upper surface. The number of variables will be equal to first entry 
       in ``numCST`` list in options dictionary.
@@ -112,7 +113,6 @@ Next step is to add design variables based on which samples will be generated. T
     - ``alpha``: Angle of attack for the analysis.
     - ``mach``: Mach number for the analysis.
     - ``altitude``: Altitude for the analysis.
-
 - ``lowerBound (numpy array or float)``: lower bound for the variable.
 - ``upperBound (numpy array or float)``: upper bound for the variable.
 
@@ -121,7 +121,7 @@ Next step is to add design variables based on which samples will be generated. T
         as the number of CST coefficients for that particular surface mentioned in the ``options`` dictionary. For other cases, lower
         and upper bound should be float.
 
-In this tutorial, ``alpha``, ``upper`` and ``lower`` are added as the bounds::
+Following code adds ``alpha``, ``upper`` and ``lower`` as design variables::
 
     airfoil.addDV("alpha", 2.0, 3.0)
 
@@ -142,19 +142,29 @@ In this tutorial, ``alpha``, ``upper`` and ``lower`` are added as the bounds::
 Here, the upper and lower bound for ``lower`` and ``upper`` variable are +30% and -30% of the fitted CST coefficients.
 You can also remove a design variable using ``removeDV`` method. It takes only one input which is the name of the variable.
 
-Generating samples and accessing output
+Generating samples and accessing data
 ---------------------------------------
 
 After adding design variables, generating samples is very easy. You just need to use ``generateSamples`` 
-method from the initialized object ``airfoil``. This method takes only one integer input which is the number of samples 
-to be generated. Following snippet of the code will generate 10 samples::
+method from the initialized object. This method has two arguments:
 
-    airfoil.generateSamples(10)
+- ``numSamples (int)``: number of samples to generate
+- ``doe (numpy array)``: 2D numpy array in which each row represents a specific sample
+
+.. note::
+    You can either provide ``numSamples`` or ``doe`` i.e. both them are mutually exclusive.
+    If both are provided, then an error will be raised.
+
+Typically, ``numSamples (int)`` should be used for generating samples. This option will internally generate doe based on the 
+options provided while initializating the module and run the analysis. In some cases, you might want to generate samples based on your own doe. In that
+case, you use ``doe (numpy array)`` argument. Following snippet of the code will generate 10 samples::
+
+    airfoil.generateSamples(numSamples=10)
 
 You can see the following output upon successful completion of sample generation process:
 
 - A folder with the name specificed in the ``directory`` option (or the default name - *output*) is created. This folder contains all the generated
-  output.
+  files/folders.
 
 - Within the main output folder, there will be subfolders equal to the number of samples you requested. Each of the folder corresponds to the specific
   analysis performed. It will contain log.txt which contains the output from mesh generation and solver. There will be other files depending on the 
