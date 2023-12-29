@@ -3,9 +3,9 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-=========================
+=========
 Blackbox
-=========================
+=========
 
 Blackbox streamlines high-fidelity aerodynamic data generation process to facilitate various 
 surrogate modeling applications, reducing the time and complexity associated with 
@@ -19,3 +19,4 @@ wing data generation. Blackbox can also run on High-Performance Computing resour
 
    install
    airfoil/intro
+   hpc

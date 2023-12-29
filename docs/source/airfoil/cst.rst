@@ -90,7 +90,7 @@ section for more details. Following snippet of the code shows an example::
     airfoil = AirfoilCST(options=options)
 
 Firstly, required packages and modules are imported. Then, ``solverOptions`` and ``meshingOptions`` are 
-created which determine the solver and meshing settings. Refer `ADflow <https://mdolab-adflow.readthedocs-hosted.com/en/latest/options.html>`_
+created which determine the solver and meshing settings, refer `ADflow <https://mdolab-adflow.readthedocs-hosted.com/en/latest/options.html>`_
 and `pyHyp <https://mdolab-pyhyp.readthedocs-hosted.com/en/latest/options.html>`_ options for more details.
 Then, `AeroProblem <https://mdolab-baseclasses.readthedocs-hosted.com/en/latest/pyAero_problem.html>`_
 object is created which contains details about the flow conditions and the desired output variables are 
