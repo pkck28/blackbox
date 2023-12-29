@@ -19,7 +19,8 @@
         <script src="_static/sphinx_highlight.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
-    <link rel="search" title="Search" href="search.html" /> 
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Options" href="airfoil/options.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -37,9 +38,10 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <ul>
+              <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="airfoil/intro.html">Airfoil sample generation</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Running on HPC</a></li>
 </ul>
 
         </div>
@@ -68,12 +70,27 @@
              
   <section id="running-on-hpc">
 <h1>Running on HPC<a class="headerlink" href="#running-on-hpc" title="Permalink to this heading">¶</a></h1>
+<p>Blackbox can also run on High Performance Computing (HPC) clusters but you might encounter
+a shared memory error. To avoid this error, it is recommended to use following command to
+launch your python file in slurm job script:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">mpirun</span> <span class="o">-</span><span class="n">n</span> <span class="mi">1</span> <span class="o">--</span><span class="n">mca</span> <span class="n">pml</span> <span class="n">ob1</span> <span class="o">--</span><span class="n">mca</span> <span class="n">btl</span> <span class="bp">self</span><span class="p">,</span><span class="n">tcp</span> <span class="n">python</span> <span class="n">runscript</span><span class="o">.</span><span class="n">py</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Only one processor is used to launch the python file. The number of processors used for
+meshing and flow solver is specified while initializing Blackbox object, refer sample
+generation section for more details.</p>
+</div>
+<p>This command changes the mode of communication between the processors to TCP which will avoid the shared memory error.</p>
 </section>
 
 
            </div>
           </div>
-          <footer>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="airfoil/options.html" class="btn btn-neutral float-left" title="Options" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
 
   <hr/>
 
