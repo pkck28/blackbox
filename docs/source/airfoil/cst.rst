@@ -1,17 +1,22 @@
-******************
-Generating Samples
-******************
+***************************
+Sample generation with CST
+***************************
 
-This tutorial explains how to use ``AirfoilCST`` module for generating samples.
+This section explains how to use ``AirfoilCST`` module for generating samples. There are typically three
+main steps involved in the process: setting up options and initializing the module, adding design variables 
+and generating samples.
 
 Setting up options
 ------------------
 
-First step involves creating options dictionary which is used for initializating the module. There are various 
-options which can be set, please refer to :ref:`options<AirfoilCST Options>` section for more details. Following snippet 
-of the code shows an example::
+First step involves creating options dictionary which is used for initializating the module. The ``airfoilFile``
+and ``numCST`` are the two mandatory options, rest all are optional, please refer :ref:`options<options>` 
+section for more details. Following snippet of the code shows an example::
 
-    # Flow solver options
+    from blackbox import AirfoilCST
+    from baseclasses import AeroProblem
+    import numpy as np
+    
     solverOptions = {
         # Common Parameters
         "monitorvariables": ["cl", "cd", "cmz", "yplus"],
@@ -23,15 +28,15 @@ of the code shows an example::
         "smoother": "DADI",
         "MGCycle": "sg",
         "nsubiterturb": 10,
-        "nCycles": 10000,
+        "nCycles": 7000,
         # ANK Solver Parameters
         "useANKSolver": True,
+        "ANKSubspaceSize": 400,
+        "ANKASMOverlap": 3,
+        "ANKPCILUFill": 4,
         "ANKJacobianLag": 5,
-        "ANKPhysicalLSTol": 0.25,
-        "ANKOuterPreconIts": 2,
-        "ANKInnerPreconIts": 2,
-        "ANKASMOverlap": 2,
-        "ANKSecondOrdSwitchTol": 1e-3,
+        "ANKOuterPreconIts": 3,
+        "ANKInnerPreconIts": 3,
         # NK Solver Parameters
         "useNKSolver": True,
         "NKSwitchTol": 1e-6,
@@ -42,36 +47,27 @@ of the code shows an example::
         "NKOuterPreconIts": 3,
         "NKInnerPreconIts": 3,
         # Termination Criteria
-        "L2Convergence": 1e-14,
-        "L2ConvergenceCoarse": 1e-4
+        "L2Convergence": 1e-14
     }
 
-    # Volume meshing options
     meshingOptions = {
-        # Input Parameters
+        # ---------------------------
+        #        Input Parameters
+        # ---------------------------
         "unattachedEdgesAreSymmetry": False,
         "outerFaceBC": "farfield",
         "autoConnect": True,
         "BC": {1: {"jLow": "zSymm", "jHigh": "zSymm"}},
         "families": "wall",
-        # Grid Parameters
+        # ---------------------------
+        #        Grid Parameters
+        # ---------------------------
         "N": 129,
         "s0": 1e-6,
         "marchDist": 100.0,
-        # Pseudo Grid Parameters
-        "ps0": -1.0,
-        "pGridRatio": -1.0,
-        "cMax": 3.0,
-        # Smoothing parameters
-        "epsE": 1.0,
-        "epsI": 2.0,
-        "theta": 3.0,
-        "volCoef": 0.25,
-        "volBlend": 0.0001,
-        "volSmoothIter": 100,
     }
 
-    # Creating aero problem
+    # Creating aeroproblem for adflow
     ap = AeroProblem(
         name="ap", alpha=2.0, mach=0.734, reynolds=6.5e6, reynoldsLength=1.0, T=288.15, 
         areaRef=1.0, chordRef=1.0, evalFuncs=["cl", "cd", "cmz"], xRef = 0.25, yRef = 0.0, zRef = 0.0
@@ -80,25 +76,33 @@ of the code shows an example::
     # Options for blackbox
     options = {
         "solverOptions": solverOptions,
-        "directory": "multi",
         "noOfProcessors": 8,
         "aeroProblem": ap,
         "airfoilFile": "rae2822.dat",
         "numCST": [6, 6],
         "meshingOptions": meshingOptions,
+        "writeAirfoilCoordinates": True,
+        "plotAirfoil": True,
+        "writeSliceFile": True,
+        "samplingCriterion": "ese"
     }
 
-Next step is to import the ``AirfoilCST`` module from Blackbox and initialize it using the options dictionary::
-
-    from blackbox import AirfoilCST
     airfoil = AirfoilCST(options=options)
+
+Firstly, required packages and modules are imported. Then, ``solverOptions`` and ``meshingOptions`` are 
+created which determine the solver and meshing settings, refer `ADflow <https://mdolab-adflow.readthedocs-hosted.com/en/latest/options.html>`_
+and `pyHyp <https://mdolab-pyhyp.readthedocs-hosted.com/en/latest/options.html>`_ options for more details.
+Then, `AeroProblem <https://mdolab-baseclasses.readthedocs-hosted.com/en/latest/pyAero_problem.html>`_
+object is created which contains details about the flow conditions and the desired output variables are 
+defined using ``evalFuncs`` argument. Then, ``options`` dictionary is created, refer :ref:`options<options>` 
+section for more details. Finally, the ``AirfoilCST`` module is initialized using the options dictionary.
 
 Adding design variables
 -----------------------
 
-The ``addDV`` method is used for adding design variables. This methods needs three arguments:
+Next step is to add design variables based on which samples will be generated. The ``addDV`` method needs three arguments:
 
-- ``name (str)``: the design variable to add. The available design variables are: 
+- ``name (str)``: name of the design variable to add. The available design variables are: 
 
     - ``upper``: CST coefficients of upper surface. The number of variables will be equal to first entry 
       in ``numCST`` list in options dictionary.
@@ -109,7 +113,6 @@ The ``addDV`` method is used for adding design variables. This methods needs thr
     - ``alpha``: Angle of attack for the analysis.
     - ``mach``: Mach number for the analysis.
     - ``altitude``: Altitude for the analysis.
-
 - ``lowerBound (numpy array or float)``: lower bound for the variable.
 - ``upperBound (numpy array or float)``: upper bound for the variable.
 
@@ -118,7 +121,7 @@ The ``addDV`` method is used for adding design variables. This methods needs thr
         as the number of CST coefficients for that particular surface mentioned in the ``options`` dictionary. For other cases, lower
         and upper bound should be float.
 
-In this tutorial, ``alpha``, ``upper`` and ``lower`` are added as the bounds::
+Following code adds ``alpha``, ``upper`` and ``lower`` as design variables::
 
     airfoil.addDV("alpha", 2.0, 3.0)
 
@@ -137,21 +140,31 @@ In this tutorial, ``alpha``, ``upper`` and ``lower`` are added as the bounds::
     airfoil.addDV("lower", lowerBound=lb, upperBound=ub)
 
 Here, the upper and lower bound for ``lower`` and ``upper`` variable are +30% and -30% of the fitted CST coefficients.
-You can also remove a design varialbe using ``removeDV`` method. It takes only one input which is the name of the variable.
+You can also remove a design variable using ``removeDV`` method. It takes only one input which is the name of the variable.
 
-Generating samples and accessing output
+Generating samples and accessing data
 ---------------------------------------
 
 After adding design variables, generating samples is very easy. You just need to use ``generateSamples`` 
-method from the initialized object ``airfoil``. This method takes only one integer input which is the number of samples 
-to be generated. Following snippet of the code will generate 10 samples::
+method from the initialized object. This method has two arguments:
 
-    airfoil.generateSamples(10)
+- ``numSamples (int)``: number of samples to generate
+- ``doe (numpy array)``: 2D numpy array in which each row represents a specific sample
+
+.. note::
+    You can either provide ``numSamples`` or ``doe`` i.e. both them are mutually exclusive.
+    If both are provided, then an error will be raised.
+
+Typically, ``numSamples (int)`` should be used for generating samples. This option will internally generate doe based on the 
+options provided while initializating the module and run the analysis. In some cases, you might want to generate samples based on your own doe. In that
+case, you use ``doe (numpy array)`` argument. Following snippet of the code will generate 10 samples::
+
+    airfoil.generateSamples(numSamples=10)
 
 You can see the following output upon successful completion of sample generation process:
 
 - A folder with the name specificed in the ``directory`` option (or the default name - *output*) is created. This folder contains all the generated
-  output.
+  files/folders.
 
 - Within the main output folder, there will be subfolders equal to the number of samples you requested. Each of the folder corresponds to the specific
   analysis performed. It will contain log.txt which contains the output from mesh generation and solver. There will be other files depending on the 

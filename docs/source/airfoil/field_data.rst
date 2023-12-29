@@ -1,41 +1,26 @@
 ******************
-Getting Field Data
+Getting field data
 ******************
 
-This tutorial is very similar to the :ref:`generating samples tutorial<Generating Samples>`, going through that is highly recommended before
-proceeding ahead. There are couple of options which need to be set so that field data is also obtained.
-Following snippet of the code shows the blackbox options dictionary with those two options::
+It is highly recommended to go through sample generation process with CST or FFD before proceeding ahead.
+The process to generate field data along with scalar output is independent of parametrization method.
+You need to set two options in blackbox options dictionary: ``getFlowFieldData`` and ``region``. The 
+``getFlowFieldData`` option is a boolean which enables field data extraction while ``region`` option defines
+region of extraction which can be either ``field`` or ``surface``. The ``field`` option extracts 
+data from the entire field while ``surface`` option extracts data from the surface of airfoil only.
+The ``surfaceVariables`` option in solver option dictionary controls which variables to extract. Please 
+refer `adflow options <https://mdolab-adflow.readthedocs-hosted.com/en/latest/options.html#surfaceVariables>`_
+for more details. Rest all process is same as described in sample generation tutorial.
 
-    # Options for blackbox
-    options = {
-        "solverOptions": solverOptions,
-        "directory": "multi",
-        "noOfProcessors": 8,
-        "aeroProblem": ap,
-        "airfoilFile": "rae2822.dat",
-        "numCST": [6, 6],
-        "meshingOptions": meshingOptions,
-        "getFlowFieldData": True, # Option which enables field data extraction
-        "region": "field" # defines the region of extraction
-    }
-
-The ``surfaceVariables`` option in solver option dictionary controls which variables to extract. Please refer `adflow options <https://mdolab-adflow.readthedocs-hosted.com/en/latest/options.html#surfaceVariables>`_
-for more details. Initializing the ``AirfoilCST`` class and adding design variables is similar to what is described in generating samples tutorial.
-
-Accessing field output
-----------------------
-
-Generating the samples and reading all the output data is exactly same as described in generating samples tutorial. There is only one additional file:
-``fieldData.mat``. It contains following quatities:
+Reading the output data is exactly same as described in sample generation sections. There is only one additional file:
+``fieldData.mat`` which contains following quatities:
 
 - **Input variable**: a 2D numpy array ``x`` in which each row represents a specific sample based on which analysis is performed. The number
   of rows will be usually equal to the number of samples argument in the ``generateSamples`` method. But, many times few of the analysis
   fail. It depends a lot on the solver and meshing options, so set those options after some tuning.
 
   .. note::
-    The order of values in each row is based on how you add design variables. In this tutorial, first ``alpha`` is added as
-    design variable. Then, lower and upper surface CST coefficients are added. Thus, first value in each row will be alpha, next 6
-    values will be upper surface CST coefficients and last 6 will be lower surface CST coefficients.
+    The order of values in each row is based on how you add design variables.
 
 - **Output variables**: it contains all the variables mention in the ``surfaceVariables`` option for solver. When the file is loaded, you will get a dictionary.
   The keys in the dictionary will depend on the entries in the ``surfaceVariables`` option. Value for each key is a numpy array. Refer below table for more

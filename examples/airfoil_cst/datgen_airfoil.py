@@ -68,6 +68,7 @@ options = {
     "meshingOptions": meshingOptions,
     "writeAirfoilCoordinates": True,
     "plotAirfoil": True,
+    "writeSliceFile": True,
     "samplingCriterion": "ese"
 }
 

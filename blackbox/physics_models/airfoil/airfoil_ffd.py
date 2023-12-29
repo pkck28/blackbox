@@ -56,6 +56,12 @@ class AirfoilFFD(AirfoilBaseClass):
         # Updating/Appending the default option list with user provided options
         self._setOptions(options)
 
+        # Overiding/set some solver options
+        self.options["solverOptions"]["printAllOptions"] = False
+        self.options["solverOptions"]["printIntro"] = False
+        self.options["solverOptions"]["outputDirectory"] = "."
+        self.options["solverOptions"]["numberSolutions"] = False
+
         # Raise an error if pyvista is not installed
         if self.options["getFlowFieldData"]:
             if msg_pyvista != None:
@@ -84,30 +90,30 @@ class AirfoilFFD(AirfoilBaseClass):
             os.system("mkdir {}".format(directory))
 
         # Read the coordinate file
-        self.coords = readCoordFile(self.options["airfoilFile"])
+        self.origCoords = readCoordFile(self.options["airfoilFile"])
 
         # Some validation for coordinate file
-        if self.coords[0,0] != self.coords[-1,0]:
+        if self.origCoords[0,0] != self.origCoords[-1,0]:
             self._error("The X coordinate of airfoil doesn't start and end at same point.")
-        elif self.coords[0,1] != self.coords[-1,1]:
+        elif self.origCoords[0,1] != self.origCoords[-1,1]:
             self._error("The Y coordinate of airfoil doesn't start and end at same point.")
 
         # Read the coordinate file
-        self.coords = readCoordFile(self.options["airfoilFile"])
-        airfoil = Airfoil(self.coords)
+        self.origCoords = readCoordFile(self.options["airfoilFile"])
+        airfoil = Airfoil(self.origCoords)
 
         # Creating FFD box
         airfoil.generateFFD(nffd=int(self.options["nffd"]/2), filename=directory + "/ffd", fitted=self.options["fitted"], 
                             xmargin=self.options["xmargin"], ymarginu=self.options["ymarginu"], 
-                            ymarginl=self.options["ymarginl"], coords=self.coords)
+                            ymarginl=self.options["ymarginl"], coords=self.origCoords)
 
         # Creating DVGeometry object
         self.DVGeo = DVGeometry(directory + "/ffd.xyz")
         self.parametrization = "FFD"
 
         # Adding pointset to the parametrization
-        self.coords = np.hstack(( self.coords, np.zeros((self.coords.shape[0], 1)) ))
-        self.DVGeo.addPointSet(self.coords, "airfoil")
+        self.origCoords = np.hstack(( self.origCoords, np.zeros((self.origCoords.shape[0], 1)) ))
+        self.DVGeo.addPointSet(self.origCoords, "airfoil")
 
         # Some initializations which will be used later
         self.DV = []

@@ -6,7 +6,6 @@ import numpy as np
 from pyDOE2 import lhs
 from baseclasses import AeroProblem
 from scipy.io import savemat
-from scipy import integrate
 from mpi4py import MPI
 
 comm = MPI.COMM_WORLD
@@ -272,11 +271,14 @@ class AirfoilBaseClass():
         pkgdir = sys.modules["blackbox"].__path__[0]
 
         # Setting filepath based on the how alpha is treated alpha
-        if self.options["alpha"] == "explicit":
-            filepath = os.path.join(pkgdir, "runscripts/airfoil/runscript_airfoil.py")
+        if type(self).__name__ == "AirfoilCSTMultipoint":
+            filepath = os.path.join(pkgdir, "runscripts/airfoil/runscript_airfoil_cst_mp.py")
         else:
-            # filepath = os.path.join(pkgdir, "runscripts/airfoil/runscipt_airfoil_cst_opt.py")
-            filepath = os.path.join(pkgdir, "runscripts/airfoil/runscript_airfoil_rf.py")
+            if self.options["alpha"] == "explicit":
+                filepath = os.path.join(pkgdir, "runscripts/airfoil/runscript_airfoil.py")
+            else:
+                # filepath = os.path.join(pkgdir, "runscripts/airfoil/runscipt_airfoil_cst_opt.py")
+                filepath = os.path.join(pkgdir, "runscripts/airfoil/runscript_airfoil_rf.py")
 
         # Copy the runscript to analysis directory
         shutil.copy(filepath, "{}/{}/runscript.py".format(directory, self.genSamples+1))
@@ -288,7 +290,7 @@ class AirfoilBaseClass():
             self._writeCoords(coords=points, filename="deformedAirfoil.dat")
 
         if self.options["plotAirfoil"]:
-            self._plotAirfoil(self.plt, self.coords, points)
+            self._plotAirfoil(self.plt, self.origCoords, points)
 
         if self.parametrization == "FFD" and self.options["writeDeformedFFD"]:
             self.DVGeo.writePlot3d("deformedFFD.xyz")
@@ -332,7 +334,16 @@ class AirfoilBaseClass():
             filehandler.close()
 
             # Calculate the area
-            output["area"] = integrate.simpson(points[:,0], points[:,1], even="avg")
+            x = points[:,0]
+            y = points[:,1]
+
+            area = 0.0
+            N = len(x)
+            j = N - 1
+            for i in range(0,N):
+                area += (x[j] + x[i]) * (y[j] - y[i])
+                j = i
+            output["area"] = abs(area)/2.0
 
             if self.options["getFlowFieldData"]:
                 # Reading the cgns file
@@ -405,7 +416,7 @@ class AirfoilBaseClass():
             
         # If no geometric design variable is present, then return the original airfoil
         if self.DVGeo.getNDV() == 0:
-            return self.coords[:,0:2]
+            return self.origCoords[:,0:2]
 
         # Creating dictionary from x
         newDV = {}
@@ -413,6 +424,10 @@ class AirfoilBaseClass():
             loc = self.locator == dv
             loc = loc.reshape(-1,)
             newDV[dv] = x[loc]
+
+        if type(self).__name__ == "AirfoilCSTMultipoint":
+            for ap in self.options["aeroProblem"]:
+                ap.setDesignVars(newDV)
 
         if self.parametrization == "FFD" and self.options["fixLETE"]:
 
@@ -459,9 +474,13 @@ class AirfoilBaseClass():
         x = points[:,0]
         y = points[:,1]
 
-        # Calculate the area using simpson's rule
-        # Note: x and y are both flipped here
-        area = integrate.simpson(x, y, even='avg')
+        area = 0.0
+        N = len(x)
+        j = N - 1
+        for i in range(0,N):
+            area += (x[j] + x[i]) * (y[j] - y[i])
+            j = i
+        area = abs(area)/2.0
 
         return area
     
@@ -523,9 +542,18 @@ class AirfoilBaseClass():
                     self._error("Second entry in \"numCST\" is less than 1.")
 
         ############ Validating aeroProblem
-        if "aeroProblem" in userProvidedOptions:
-            if not isinstance(options["aeroProblem"], AeroProblem):
-                self._error("\"aeroProblem\" attribute is not an aeroproblem.")
+        if type(self).__name__ == "AirfoilCSTMultipoint":
+            if "aeroProblem" in userProvidedOptions:
+                if not isinstance(options["aeroProblem"], list):
+                    self._error("\"aeroProblem\" attribute is not a list.")
+
+                for ap in options["aeroProblem"]:
+                    if not isinstance(ap, AeroProblem):
+                        self._error("\"aeroProblem\" attribute doesn't contain AeroProblem object.")
+        else:
+            if "aeroProblem" in userProvidedOptions:
+                if not isinstance(options["aeroProblem"], AeroProblem):
+                    self._error("\"aeroProblem\" attribute is not an aeroproblem.")
 
         ############ Validating solverOptions
         if "solverOptions" in userProvidedOptions:

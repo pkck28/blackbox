@@ -55,6 +55,12 @@ class AirfoilCST(AirfoilBaseClass):
         # Updating/Appending the default option list with user provided options
         self._setOptions(options)
 
+        # Overiding/set some solver options
+        self.options["solverOptions"]["printAllOptions"] = False
+        self.options["solverOptions"]["printIntro"] = False
+        self.options["solverOptions"]["outputDirectory"] = "."
+        self.options["solverOptions"]["numberSolutions"] = False
+
         # Raise an error if pyvista is not installed
         if self.options["getFlowFieldData"]:
             if msg_pyvista != None:
@@ -83,12 +89,12 @@ class AirfoilCST(AirfoilBaseClass):
             os.system("mkdir {}".format(directory))
 
         # Read the coordinate file
-        self.coords = readCoordFile(self.options["airfoilFile"])
+        self.origCoords = readCoordFile(self.options["airfoilFile"])
 
         # Some validation for coordinate file
-        if self.coords[0,0] != self.coords[-1,0]:
+        if self.origCoords[0,0] != self.origCoords[-1,0]:
             self._error("The X coordinate of airfoil doesn't start and end at same point.")
-        elif self.coords[0,1] != self.coords[-1,1]:
+        elif self.origCoords[0,1] != self.origCoords[-1,1]:
             self._error("The Y coordinate of airfoil doesn't start and end at same point.")
 
         # Initializing the parametrization object
@@ -96,13 +102,13 @@ class AirfoilCST(AirfoilBaseClass):
         self.parametrization = "CST"
 
         # Adding pointset to the parametrization
-        self.coords = np.hstack(( self.coords, np.zeros((self.coords.shape[0], 1)) ))
-        self.DVGeo.addPointSet(self.coords, "airfoil")
+        self.origCoords = np.hstack(( self.origCoords, np.zeros((self.origCoords.shape[0], 1)) ))
+        self.DVGeo.addPointSet(self.origCoords, "airfoil")
 
         # Checking the number of points at trailing edge for blunt TE
         # Only two are allowed for CST. Otherwise, meshing will have problem.
         if not self.DVGeo.sharp:
-            if len(np.where(self.coords[1:-1,0] == self.coords[0,0])[0]) > 1:
+            if len(np.where(self.origCoords[1:-1,0] == self.origCoords[0,0])[0]) > 1:
                 self._error("There are more than two points in the trailing edge.")
 
         # Some initializations which will be used later
