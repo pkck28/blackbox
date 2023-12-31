@@ -20,8 +20,8 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Options" href="options.html" />
-    <link rel="prev" title="Sample generation with FFD" href="ffd.html" /> 
+    <link rel="next" title="Implicit alpha" href="imp_alpha.html" />
+    <link rel="prev" title="Running single analysis" href="single.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -44,7 +44,9 @@
 <li class="toctree-l1 current"><a class="reference internal" href="intro.html">Airfoil sample generation</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="cst.html">Sample generation with CST</a></li>
 <li class="toctree-l2"><a class="reference internal" href="ffd.html">Sample generation with FFD</a></li>
+<li class="toctree-l2"><a class="reference internal" href="single.html">Running single analysis</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Getting field data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="imp_alpha.html">Implicit alpha</a></li>
 <li class="toctree-l2"><a class="reference internal" href="options.html">Options</a></li>
 </ul>
 </li>
@@ -85,7 +87,7 @@ You need to set two options in blackbox options dictionary: <code class="docutil
 region of extraction which can be either <code class="docutils literal notranslate"><span class="pre">field</span></code> or <code class="docutils literal notranslate"><span class="pre">surface</span></code>. The <code class="docutils literal notranslate"><span class="pre">field</span></code> option extracts
 data from the entire field while <code class="docutils literal notranslate"><span class="pre">surface</span></code> option extracts data from the surface of airfoil only.
 The <code class="docutils literal notranslate"><span class="pre">surfaceVariables</span></code> option in solver option dictionary controls which variables to extract. Please
-refer <a class="reference external" href="https://mdolab-adflow.readthedocs-hosted.com/en/latest/options.html#surfaceVariables">adflow options</a>
+refer <a class="reference external" href="https://mdolab-adflow.readthedocs-hosted.com/en/latest/options.html#surfaceVariables">ADflow options</a>
 for more details. Rest all process is same as described in sample generation tutorial.</p>
 <p>Reading the output data is exactly same as described in sample generation sections. There is only one additional file:
 <code class="docutils literal notranslate"><span class="pre">fieldData.mat</span></code> which contains following quatities:</p>
@@ -182,8 +184,8 @@ information. <em>n</em> is the number of samples and <em>k</em> is the number of
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="ffd.html" class="btn btn-neutral float-left" title="Sample generation with FFD" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="options.html" class="btn btn-neutral float-right" title="Options" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="single.html" class="btn btn-neutral float-left" title="Running single analysis" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="imp_alpha.html" class="btn btn-neutral float-right" title="Implicit alpha" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

@@ -31,6 +31,7 @@ can be found in ``examples`` directory on github.
     
     cst
     ffd
+    single
     field_data
+    imp_alpha
     options
-    .. imp_alpha

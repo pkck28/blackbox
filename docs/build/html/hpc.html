@@ -70,9 +70,9 @@
              
   <section id="running-on-hpc">
 <h1>Running on HPC<a class="headerlink" href="#running-on-hpc" title="Permalink to this heading">¶</a></h1>
-<p>Blackbox can also run on High Performance Computing (HPC) clusters but you might encounter
-a shared memory error. To avoid this error, it is recommended to use following command to
-launch your python file in slurm job script:</p>
+<p>Blackbox can also run on High Performance Computing (HPC) clusters and process to generate
+samples is same as running on local machine. If you encouter a shared memory error while running
+on HPC, it is recommended to use following command to launch your python file in slurm job script:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">mpirun</span> <span class="o">-</span><span class="n">n</span> <span class="mi">1</span> <span class="o">--</span><span class="n">mca</span> <span class="n">pml</span> <span class="n">ob1</span> <span class="o">--</span><span class="n">mca</span> <span class="n">btl</span> <span class="bp">self</span><span class="p">,</span><span class="n">tcp</span> <span class="n">python</span> <span class="n">runscript</span><span class="o">.</span><span class="n">py</span>
 </pre></div>
 </div>

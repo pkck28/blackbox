@@ -21,7 +21,7 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Getting field data" href="field_data.html" />
+    <link rel="next" title="Running single analysis" href="single.html" />
     <link rel="prev" title="Sample generation with CST" href="cst.html" /> 
 </head>
 
@@ -50,7 +50,9 @@
 <li class="toctree-l3"><a class="reference internal" href="#generating-samples-and-accessing-data">Generating samples and accessing data</a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="single.html">Running single analysis</a></li>
 <li class="toctree-l2"><a class="reference internal" href="field_data.html">Getting field data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="imp_alpha.html">Implicit alpha</a></li>
 <li class="toctree-l2"><a class="reference internal" href="options.html">Options</a></li>
 </ul>
 </li>
@@ -228,8 +230,8 @@ is the number of neighbours. For airfoil, <span class="math notranslate nohighli
 <p class="admonition-title">Note</p>
 <p>When <code class="docutils literal notranslate"><span class="pre">shape</span></code> variable is to be added, the lower and upper bound should be a 1D numpy array of the same size
 as the number of FFD points mentioned in the <code class="docutils literal notranslate"><span class="pre">options</span></code> dictionary. For other cases, lower and upper bound
-should be float. Also, the size of the lower and upper bound for <code class="docutils literal notranslate"><span class="pre">shape</span></code> variable should be equal to number
-of FFD points minus 2 when <code class="docutils literal notranslate"><span class="pre">fixLETE</span></code> is set to <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p>
+should be float. When <code class="docutils literal notranslate"><span class="pre">fixLETE</span></code> is set to <code class="docutils literal notranslate"><span class="pre">True</span></code>, the size of the lower and upper bound for <code class="docutils literal notranslate"><span class="pre">shape</span></code>
+variable should be nffd -2.</p>
 </div>
 </div></blockquote>
 </li>
@@ -312,7 +314,7 @@ decides the user desired variables. Along with these variables, <cite>area</cite
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="cst.html" class="btn btn-neutral float-left" title="Sample generation with CST" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="field_data.html" class="btn btn-neutral float-right" title="Getting field data" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="single.html" class="btn btn-neutral float-right" title="Running single analysis" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

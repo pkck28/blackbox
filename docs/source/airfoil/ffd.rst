@@ -146,8 +146,8 @@ Next step is to add design variables based on which samples will be generated. T
     .. note::
         When ``shape`` variable is to be added, the lower and upper bound should be a 1D numpy array of the same size 
         as the number of FFD points mentioned in the ``options`` dictionary. For other cases, lower and upper bound
-        should be float. Also, the size of the lower and upper bound for ``shape`` variable should be equal to number 
-        of FFD points minus 2 when ``fixLETE`` is set to ``True``.
+        should be float. When ``fixLETE`` is set to ``True``, the size of the lower and upper bound for ``shape`` 
+        variable should be nffd -2.
 
 Following code adds ``alpha`` and ``shape`` as design variables::
 
