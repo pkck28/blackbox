@@ -9,7 +9,7 @@ You need to set two options in blackbox options dictionary: ``getFlowFieldData``
 region of extraction which can be either ``field`` or ``surface``. The ``field`` option extracts 
 data from the entire field while ``surface`` option extracts data from the surface of airfoil only.
 The ``surfaceVariables`` option in solver option dictionary controls which variables to extract. Please 
-refer `adflow options <https://mdolab-adflow.readthedocs-hosted.com/en/latest/options.html#surfaceVariables>`_
+refer `ADflow options <https://mdolab-adflow.readthedocs-hosted.com/en/latest/options.html#surfaceVariables>`_
 for more details. Rest all process is same as described in sample generation tutorial.
 
 Reading the output data is exactly same as described in sample generation sections. There is only one additional file:
