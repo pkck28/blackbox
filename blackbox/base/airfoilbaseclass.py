@@ -363,9 +363,9 @@ class AirfoilBaseClass():
                 # Get the values
                 fieldData = {}
 
-                for index, var in enumerate(mesh.array_names):
+                for var in mesh.array_names:
                     # Skipping the first entry in the array
-                    if index != 0:
+                    if var != "Base/Zone":
                         # set_active_scalars returns a tuple, and second
                         # entry contains the pyvista numpy array.
                         fieldData[var] = np.asarray(mesh.set_active_scalars(var, "cell")[1])
